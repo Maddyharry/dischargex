@@ -1,0 +1,278 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id               String    @id @default(cuid())
+  name             String?
+  email            String?   @unique
+  emailVerified    DateTime?
+  image            String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  // Billing / trial info
+  totalGenerations      Int       @default(0)
+  plan                  String    @default("trial") // trial | basic_monthly | basic_yearly | standard_monthly | standard_yearly | pro_monthly | pro_yearly
+  role                  String    @default("user")  // user | admin
+  extraCredits          Int       @default(0)       // เครดิต add-on ที่ยังใช้ได้ใน subscription ปัจจุบัน
+  periodStartedAt       DateTime? // จุดเริ่มนับอายุ subscription รอบปัจจุบัน
+  subscriptionStatus    String    @default("trial") // trial | active | expired | pending_change | cancelled
+  subscriptionExpiresAt DateTime? // วันหมดอายุ subscription รอบปัจจุบัน
+  currentCreditCycleStart DateTime? // จุดเริ่มรอบเครดิตย่อย (30 วัน)
+  currentCreditCycleEnd   DateTime? // จุดสิ้นสุดรอบเครดิตย่อย (30 วัน)
+  nextCreditRefreshAt     DateTime? // เวลาที่จะ refresh เครดิต base รอบถัดไป
+  nextPlanId              String?   // แผนที่จะเปลี่ยนในรอบถัดไป (downgrade)
+  nextPlanEffectiveDate   DateTime? // เวลาเปลี่ยนแผนถัดไป
+  referralCode            String?   @unique
+
+  // ข้อมูลจากฟอร์มเปิดแพ็กเกจ (ใช้เติมฟอร์มเมื่อ user เก่ามาซื้ออีก)
+  birthDate     String?
+  phone         String?
+  hospitalName String?
+  province      String?
+
+  accounts         Account[]
+  sessions         Session[]
+  usages           Usage[]
+  usageLogs        UsageLog[]
+  paymentRequests  PaymentRequest[]
+  deviceSessions   DeviceSession[]
+  feedbacks        Feedback[]
+  entitlementLogs  EntitlementLog[]
+  sentReferrals    Referral[] @relation("Referrer")
+  receivedReferral Referral[] @relation("Referred")
+  creditLedgers    CreditLedger[]
+  notifications    Notification[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Usage {
+  id        String   @id @default(cuid())
+  userId    String
+  count     Int      @default(0)
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId])
+}
+
+model UsageLog {
+  id               String    @id @default(cuid())
+  userId           String
+  createdAt        DateTime  @default(now())
+  summarySnapshot  String?   // เก็บข้อความสรุปสำหรับ Pro (ดูย้อนหลัง / export)
+  caseId           String?
+  creditsUsed      Int       @default(1)
+  baseCreditsUsed  Int       @default(1)
+  addonCreditsUsed Int       @default(0)
+  reason           String    @default("generate")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, createdAt])
+}
+
+model PaymentRequest {
+  id            String   @id @default(cuid())
+  userId        String?
+  fullName      String
+  birthDate     String
+  hospitalName  String
+  province      String
+  phone         String
+  contactEmail  String
+  planRequested String   // แผนที่ขอ หรือ "add_credits" เมื่อเป็นซื้อเครดิตเพิ่ม
+  type          String   @default("new") // new | renewal | upgrade | downgrade | addon
+  fromPlanId    String?
+  toPlanId      String?
+  quotedAmount  Int?
+  finalAmount   Int?
+  slipFileName  String
+  status        String   @default("awaiting_review") // pending | awaiting_slip | awaiting_review | approved | rejected | expired | cancelled
+  addCredits    Int?     // ถ้าไม่ null = ขอซื้อเครดิตเพิ่มจำนวนนี้
+  rejectionReason String?
+  adminNote       String?
+  reviewedBy      String?
+  reviewedAt      DateTime?
+  entitlementAppliedAt DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([contactEmail])
+}
+
+model EntitlementLog {
+  id               String   @id @default(cuid())
+  userId           String
+  action           String   // trial_started | plan_purchase | renewal | upgrade | downgrade_scheduled | addon | credit_refresh | manual_adjust
+  creditsDelta     Int      @default(0)
+  expiryDeltaDays  Int      @default(0)
+  note             String?
+  relatedPaymentId String?
+  createdAt        DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([relatedPaymentId])
+}
+
+model DeviceSession {
+  id        String   @id @default(cuid())
+  userId    String
+  deviceId  String
+  userAgent String?
+  ip        String?
+  lastSeen  DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, deviceId])
+}
+
+// แจ้งข้อผิดพลาด / คำถามลูกค้า และแชทบอท
+model Feedback {
+  id        String   @id @default(cuid())
+  userId    String?  // ไม่บังคับ ถ้าไม่ได้ล็อกอิน
+  type      String   // "chat" | "error_report"
+  message   String   // ข้อความหรือคำอธิบาย
+  payload   String?  // JSON: screenshot base64, orderSheet, meta, preprocess, blocks
+  category            String?   // bug | suggestion | usability | uiux | billing | other
+  shortSummary        String?
+  pageOrFeature       String?
+  reproducibleSteps   String?
+  impactLevel         String?
+  aiScore             Int?      // 0-10
+  aiSuggestedCredit   Int?      // 0/2/5/10
+  adminFinalCredit    Int?      // เครดิตจริงที่แอดมินอนุมัติ
+  status              String    @default("pending") // pending | approved | rejected | duplicate | implemented | revoked
+  fingerprint         String?   // ใช้ช่วยตรวจ duplicate แบบเร็ว
+  duplicateOfId       String?   // feedback id ที่ถูกจับว่าเหมือนกัน
+  duplicateScore      Float?    // คะแนนความเหมือน (0-1)
+  clientIp            String?
+  clientUserAgent     String?
+  adminNote           String?
+  reviewedAt          DateTime?
+  implementedAt       DateTime?
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([type])
+  @@index([createdAt])
+  @@index([fingerprint])
+  @@index([duplicateOfId])
+}
+
+model Referral {
+  id        String   @id @default(cuid())
+  referrerUserId String
+  referredUserId String @unique
+  referralCode   String
+  signupAt       DateTime @default(now())
+  firstUsageAt   DateTime?
+  firstPurchaseAt DateTime?
+  signupCreditGranted   Int @default(0)
+  usageCreditGranted    Int @default(0)
+  purchaseCreditGranted Int @default(0)
+  status     String   @default("active") // active | blocked | suspicious
+  suspiciousFlag Boolean @default(false)
+  claimedIp String?
+  claimedUserAgent String?
+  suspiciousReason String?
+  adminNote  String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  referrer User @relation("Referrer", fields: [referrerUserId], references: [id], onDelete: Cascade)
+  referred User @relation("Referred", fields: [referredUserId], references: [id], onDelete: Cascade)
+
+  @@index([referrerUserId, createdAt])
+  @@index([referralCode])
+  @@index([claimedIp])
+}
+
+model CreditLedger {
+  id        String   @id @default(cuid())
+  userId    String
+  sourceType String  // feedback | referral | manual | adjustment | revoke
+  sourceId  String?
+  amount    Int
+  direction String   // plus | minus
+  note      String?
+  createdBy String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([sourceType, sourceId])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String   // bonus | feedback | billing | system
+  title     String
+  message   String
+  meta      String?
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([userId, readAt])
+}
+
