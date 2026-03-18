@@ -11,9 +11,10 @@ export async function GET() {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
   const requests = await listPaymentsByEmail(session.user.email);
+  type Req = (typeof requests)[number];
   return NextResponse.json({
     ok: true,
-    requests: requests.map((r) => ({
+    requests: requests.map((r: Req) => ({
       id: r.id,
       type: r.type,
       planRequested: r.planRequested,

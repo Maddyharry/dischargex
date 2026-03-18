@@ -10,6 +10,11 @@ const globalForPrisma = globalThis as unknown as {
 function createPrismaClient() {
   const url = process.env.DATABASE_URL || "file:./prisma/dev.db";
   const isSqlite = url.startsWith("file:");
+  if (typeof process.env.VERCEL !== "undefined" && isSqlite) {
+    throw new Error(
+      "On Vercel, DATABASE_URL must be a PostgreSQL connection string (e.g. from Neon). Add it in Vercel → Project → Settings → Environment Variables."
+    );
+  }
   const log: ("error" | "warn")[] = process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"];
   if (isSqlite) {
     const dbPath = path.resolve(process.cwd(), url.replace(/^file:/, "").trim());
