@@ -6,6 +6,7 @@ import {
   updatePaymentStatus,
   PaymentStatus,
 } from "@/lib/payments-store";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
   calculateUpgradeFinalAmount,
@@ -114,7 +115,7 @@ export async function POST(req: Request) {
     let scheduledEffectiveAt: Date | null = null;
     let idempotent = false;
 
-    await prisma.$transaction(async (transaction) => {
+    await prisma.$transaction(async (transaction: Prisma.TransactionClient) => {
       // lock-claim: only first approver can apply entitlement
       const claimed = await transaction.paymentRequest.updateMany({
         where: { id, entitlementAppliedAt: null },
