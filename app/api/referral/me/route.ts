@@ -36,10 +36,11 @@ export async function GET() {
     },
   });
 
+  type LedgerRow = (typeof ledgers)[number];
   return NextResponse.json({
     ok: true,
     referral,
-    ledger: ledgers.map((l) => ({
+    ledger: ledgers.map((l: LedgerRow) => ({
       ...l,
       createdAt: l.createdAt.toISOString(),
     })),

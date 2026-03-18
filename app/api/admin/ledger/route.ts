@@ -42,9 +42,10 @@ export async function GET(req: NextRequest) {
       include: { user: { select: { email: true, name: true } } },
     });
 
+    type Row = (typeof rows)[number];
     return NextResponse.json({
       ok: true,
-      ledger: rows.map((r) => ({
+      ledger: rows.map((r: Row) => ({
         id: r.id,
         userId: r.userId,
         userEmail: r.user?.email ?? null,

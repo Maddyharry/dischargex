@@ -35,9 +35,10 @@ export async function GET(req: NextRequest) {
     },
   });
 
+  type Row = (typeof rows)[number];
   return NextResponse.json({
     ok: true,
-    notifications: rows.map((n) => ({
+    notifications: rows.map((n: Row) => ({
       ...n,
       readAt: n.readAt?.toISOString() ?? null,
       createdAt: n.createdAt.toISOString(),
