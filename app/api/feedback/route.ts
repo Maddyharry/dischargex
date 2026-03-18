@@ -76,7 +76,8 @@ export async function POST(req: NextRequest) {
         select: { id: true, message: true, fingerprint: true },
       });
 
-      const direct = candidates.find((c) => c.fingerprint && c.fingerprint === fingerprint);
+      type Candidate = (typeof candidates)[number];
+      const direct = candidates.find((c: Candidate) => c.fingerprint && c.fingerprint === fingerprint);
       if (direct) {
         status = "duplicate";
         duplicateOfId = direct.id;
