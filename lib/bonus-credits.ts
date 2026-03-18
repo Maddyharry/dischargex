@@ -1,6 +1,8 @@
 import { prisma } from "./prisma";
 import crypto from "crypto";
 
+type PrismaTx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
+
 export async function grantBonusCredits(params: {
   userId: string;
   amount: number;
@@ -10,7 +12,7 @@ export async function grantBonusCredits(params: {
   createdBy?: string | null;
 }) {
   if (!params.userId || params.amount <= 0) return;
-  await prisma.$transaction(async (tx) => {
+  await prisma.$transaction(async (tx: PrismaTx) => {
     await tx.user.update({
       where: { id: params.userId },
       data: { extraCredits: { increment: params.amount } },
@@ -38,7 +40,7 @@ export async function revokeBonusCredits(params: {
   createdBy?: string | null;
 }) {
   if (!params.userId || params.amount <= 0) return;
-  await prisma.$transaction(async (tx) => {
+  await prisma.$transaction(async (tx: PrismaTx) => {
     const updated = await tx.user.updateMany({
       where: { id: params.userId, extraCredits: { gte: params.amount } },
       data: { extraCredits: { decrement: params.amount } },

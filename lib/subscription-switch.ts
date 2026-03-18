@@ -2,6 +2,8 @@ import { prisma } from "./prisma";
 import { getCreditCycleBounds, getPeriodBounds, getPlanDefinition, normalizePlanId } from "./billing-rules";
 import { notifyUser } from "./notifications";
 
+type PrismaTx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
+
 export async function applyScheduledPlanChangeIfDue(userId: string, now: Date) {
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -31,7 +33,7 @@ export async function applyScheduledPlanChangeIfDue(userId: string, now: Date) {
   );
   const cycleEndLimited = newCycleEnd.getTime() > newExpiryDate.getTime() ? newExpiryDate : newCycleEnd;
 
-  await prisma.$transaction(async (tx) => {
+  await prisma.$transaction(async (tx: PrismaTx) => {
     // apply once
     const updated = await tx.user.updateMany({
       where: {

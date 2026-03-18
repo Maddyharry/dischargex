@@ -15,6 +15,8 @@ import { markReferralFirstUsage } from "@/lib/referral";
 
 export const runtime = "nodejs";
 
+type PrismaTx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
+
 const BASIC_PLAN_ONLY_KEYS = new Set([
   "principal_dx",
   "comorbidity",
@@ -1473,7 +1475,7 @@ export async function POST(req: Request) {
               .map((b) => `${b.title}: ${b.content}`)
               .join("\n")
           : null;
-      await prisma.$transaction(async (tx) => {
+      await prisma.$transaction(async (tx: PrismaTx) => {
         await tx.usage.upsert({
           where: { userId },
           create: { userId, count: 1 },

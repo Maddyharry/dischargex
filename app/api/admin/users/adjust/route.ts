@@ -3,6 +3,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
+type PrismaTx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
+
 export const runtime = "nodejs";
 
 function isAdmin(session: unknown) {
@@ -41,7 +43,7 @@ export async function POST(req: Request) {
     const reviewerEmail = (session?.user as { email?: string } | undefined)?.email ?? "admin";
     const now = new Date();
 
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: PrismaTx) => {
       const user = await tx.user.findUnique({
         where: { id: userId },
         select: {
