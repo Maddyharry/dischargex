@@ -33,9 +33,10 @@ export async function GET(req: NextRequest) {
       },
     });
 
+    type Item = (typeof list)[number];
     return NextResponse.json({
       ok: true,
-      feedback: list.map((f) => ({
+      feedback: list.map((f: Item) => ({
         id: f.id,
         type: f.type,
         message: f.message,
