@@ -41,8 +41,9 @@ export async function GET() {
       },
     });
 
+    type UserRow = (typeof users)[number];
     const list = await Promise.all(
-      users.map(async (u) => {
+      users.map(async (u: UserRow) => {
         const normalizedPlanId = normalizePlanId(u.plan);
         const planTotal = getPlanDefinition(normalizedPlanId).creditsPerCycle;
         const periodStartDate = u.periodStartedAt ?? u.createdAt;
