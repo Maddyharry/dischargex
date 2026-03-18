@@ -8,10 +8,16 @@ const globalForPrisma = globalThis as unknown as {
 
 function createPrismaClient() {
   const url = process.env.DATABASE_URL || "file:./prisma/dev.db";
-  const dbPath = path.resolve(process.cwd(), url.replace(/^file:/, "").trim());
-  const adapter = new PrismaBetterSqlite3({ url: dbPath });
+  const isSqlite = url.startsWith("file:");
+  if (isSqlite) {
+    const dbPath = path.resolve(process.cwd(), url.replace(/^file:/, "").trim());
+    const adapter = new PrismaBetterSqlite3({ url: dbPath });
+    return new PrismaClient({
+      adapter,
+      log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
+    });
+  }
   return new PrismaClient({
-    adapter,
     log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
   });
 }
