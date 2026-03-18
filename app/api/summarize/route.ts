@@ -1058,7 +1058,8 @@ export async function POST(req: Request) {
           select: { deviceId: true },
         });
 
-        const hasThisDevice = existingDevices.some((d) => d.deviceId === deviceId);
+        type DeviceRow = (typeof existingDevices)[number];
+        const hasThisDevice = existingDevices.some((d: DeviceRow) => d.deviceId === deviceId);
 
         if (!hasThisDevice && existingDevices.length >= maxDevices) {
           return json(
