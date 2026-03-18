@@ -33,6 +33,13 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
+# local sqlite (use postgres in production)
+*.db
+dev.db
+
+# temp / generated / large files
+/tmp
+
 # env files (can opt-in for committing if needed)
 .env*
 
