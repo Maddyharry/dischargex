@@ -19,6 +19,7 @@ export default function SignupPage() {
   const [name, setName] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [verifyUrl, setVerifyUrl] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -46,9 +47,13 @@ export default function SignupPage() {
           name: name.trim() || undefined,
         }),
       });
-      const data = (await res.json()) as { ok?: boolean; error?: string; message?: string };
+      const data = (await res.json()) as { ok?: boolean; error?: string; message?: string; verifyUrl?: string; needVerify?: boolean };
       if (!res.ok || !data.ok) {
         setError(data.error || "สมัครไม่สำเร็จ");
+        return;
+      }
+      if (data.verifyUrl) {
+        setVerifyUrl(data.verifyUrl);
         return;
       }
       router.push("/login?registered=1");
@@ -73,7 +78,26 @@ export default function SignupPage() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="mt-6 space-y-3">
+        {verifyUrl ? (
+          <div className="mt-6 space-y-3">
+            <div className="rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-4 py-3 text-sm text-cyan-200">
+              สมัครสำเร็จ! กรุณายืนยันอีเมลก่อนเข้าสู่ระบบ
+            </div>
+            <p className="text-xs text-slate-400">
+              ลิงก์สำหรับยืนยัน (dev mode):{" "}
+              <a href={verifyUrl} className="text-cyan-400 underline break-all">
+                คลิกที่นี่
+              </a>
+            </p>
+            <p className="text-center text-sm text-slate-500">
+              <Link href="/login" className="text-cyan-400 hover:underline">
+                กลับไปเข้าสู่ระบบ
+              </Link>
+            </p>
+          </div>
+        ) : null}
+
+        <form onSubmit={handleSubmit} className={`mt-6 space-y-3 ${verifyUrl ? "hidden" : ""}`}>
           <input
             type="email"
             placeholder="อีเมล *"

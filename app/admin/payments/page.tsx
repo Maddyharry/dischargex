@@ -58,12 +58,12 @@ type ApiListResponse = {
   error?: string;
 };
 
-function SlipCell({ slipFileName }: { slipFileName: string }) {
+function SlipCell({ paymentId }: { paymentId: string }) {
   const [imgError, setImgError] = useState(false);
   const [open, setOpen] = useState(false);
   useEscapeKey(() => setOpen(false), open);
-  if (!slipFileName) return <span>-</span>;
-  const src = `/uploads/slips/${slipFileName}`;
+  if (!paymentId) return <span>-</span>;
+  const src = `/api/admin/slip?id=${encodeURIComponent(paymentId)}`;
   return (
     <div className="flex flex-col items-start gap-1">
       {!imgError ? (
@@ -266,7 +266,7 @@ export default function AdminPaymentsPage() {
                       ) : null}
                     </td>
                     <td className="px-4 py-3 align-top text-xs text-slate-300">
-                      <SlipCell slipFileName={p.slipFileName} />
+                      <SlipCell paymentId={p.id} />
                     </td>
                     <td className="px-4 py-3 align-top text-xs">
                       <span

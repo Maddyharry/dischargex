@@ -50,6 +50,12 @@ type ApiResponse = {
   };
 };
 
+type ToastNotification = {
+  id: string;
+  title: string;
+  message: string;
+};
+
 type DiagnosisBucket = "principal" | "comorbidity" | "complication" | "other";
 
 type DiagnosisItem = {
@@ -163,6 +169,7 @@ function PageContent() {
     daysLeftInMonth?: number;
   } | null>(null);
   const [deviceId, setDeviceId] = useState<string | null>(null);
+  const [toasts, setToasts] = useState<ToastNotification[]>([]);
 
   const recalcTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -213,6 +220,44 @@ function PageContent() {
       void loadUsage();
     }
   }, [session?.user?.email]);
+
+  useEffect(() => {
+    async function loadUnreadNotifications() {
+      try {
+        const res = await fetch("/api/notifications?limit=8");
+        if (!res.ok) return;
+        const data = (await res.json()) as {
+          ok?: boolean;
+          notifications?: Array<{ id: string; title: string; message: string; readAt: string | null }>;
+        };
+        if (!data.ok || !Array.isArray(data.notifications)) return;
+        const unread = data.notifications
+          .filter((n) => !n.readAt)
+          .slice(0, 3)
+          .map((n) => ({ id: n.id, title: n.title, message: n.message }));
+        setToasts(unread);
+      } catch {
+        // เงียบไว้ ถ้าโหลด noti ไม่ได้
+      }
+    }
+
+    if (session?.user?.email) {
+      void loadUnreadNotifications();
+    }
+  }, [session?.user?.email]);
+
+  async function dismissToast(id: string) {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+    try {
+      await fetch("/api/notifications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: [id] }),
+      });
+    } catch {
+      // dismiss ในหน้าได้ แม้ mark read ไม่สำเร็จ
+    }
+  }
 
   useEffect(() => {
     const t = searchParams.get("feedback");
@@ -764,6 +809,29 @@ function PageContent() {
 
   return (
     <main className="min-h-screen bg-[#081120] text-slate-100">
+      <div className="fixed right-4 top-4 z-50 space-y-2">
+        {toasts.map((toast) => (
+          <div
+            key={toast.id}
+            className="w-[320px] rounded-2xl border border-cyan-500/30 bg-slate-950/95 p-3 shadow-2xl shadow-black/40 backdrop-blur"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-sm font-semibold text-cyan-300">{toast.title}</div>
+                <div className="mt-1 text-xs leading-5 text-slate-200 whitespace-pre-wrap">{toast.message}</div>
+              </div>
+              <button
+                type="button"
+                onClick={() => void dismissToast(toast.id)}
+                className="rounded-md border border-slate-700 px-2 py-1 text-[11px] text-slate-300 hover:bg-slate-800"
+              >
+                ปิด
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute left-[-120px] top-[-120px] h-80 w-80 rounded-full bg-cyan-500/10 blur-3xl" />
         <div className="absolute right-[-80px] top-[40px] h-72 w-72 rounded-full bg-indigo-500/10 blur-3xl" />

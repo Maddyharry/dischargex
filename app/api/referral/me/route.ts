@@ -21,6 +21,12 @@ export async function GET() {
   }
 
   const referral = await getReferralDashboard(user.id);
+
+  const alreadyClaimed = await prisma.referral.findUnique({
+    where: { referredUserId: user.id },
+    select: { id: true, referralCode: true },
+  });
+
   const ledgers = await prisma.creditLedger.findMany({
     where: { userId: user.id },
     orderBy: { createdAt: "desc" },
@@ -40,6 +46,9 @@ export async function GET() {
   return NextResponse.json({
     ok: true,
     referral,
+    alreadyClaimed: alreadyClaimed
+      ? { referralCode: alreadyClaimed.referralCode }
+      : null,
     ledger: ledgers.map((l: LedgerRow) => ({
       ...l,
       createdAt: l.createdAt.toISOString(),

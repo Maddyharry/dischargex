@@ -37,9 +37,10 @@ model User {
   referralCode            String?   @unique
 
   // ล็อกอินด้วยอีเมล/รหัสผ่าน
-  passwordHash         String?   // bcrypt hash (เฉพาะผู้สมัครด้วยอีเมล/รหัสผ่าน)
+  passwordHash         String?
   passwordResetToken   String?
   passwordResetExpires DateTime?
+  emailVerifyToken     String?
 
   // ข้อมูลจากฟอร์มเปิดแพ็กเกจ (ใช้เติมฟอร์มเมื่อ user เก่ามาซื้ออีก)
   birthDate     String?
@@ -141,6 +142,7 @@ model PaymentRequest {
   quotedAmount  Int?
   finalAmount   Int?
   slipFileName  String
+  slipData      String?
   status        String   @default("awaiting_review") // pending | awaiting_slip | awaiting_review | approved | rejected | expired | cancelled
   addCredits    Int?     // ถ้าไม่ null = ขอซื้อเครดิตเพิ่มจำนวนนี้
   rejectionReason String?

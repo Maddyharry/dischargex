@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
 
 const ERROR_MESSAGES: Record<string, string> = {
   OAuthAccountNotLinked:
@@ -11,20 +12,34 @@ const ERROR_MESSAGES: Record<string, string> = {
   OAuthSignin: "เกิดข้อผิดพลาดในการเชื่อมต่อ OAuth",
   OAuthCallback: "เกิดข้อผิดพลาดในการรับข้อมูลจาก Google",
   OAuthCreateAccount: "ไม่สามารถสร้างบัญชีได้",
-  CredentialsSignin: "อีเมลหรือรหัสผ่านไม่ถูกต้อง",
+  CredentialsSignin: "อีเมลหรือรหัสผ่านไม่ถูกต้อง หรืออีเมลยังไม่ได้ยืนยัน",
+  InvalidToken: "ลิงก์ยืนยันอีเมลไม่ถูกต้องหรือหมดอายุ",
   Callback: "เกิดข้อผิดพลาดในการเข้าสู่ระบบ",
   Default: "เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง",
 };
 
 function LoginForm() {
+  const router = useRouter();
+  const { status } = useSession();
   const searchParams = useSearchParams();
   const error = searchParams.get("error") || "";
   const errorMsg = ERROR_MESSAGES[error] || (error ? ERROR_MESSAGES.Default : null);
   const registered = searchParams.get("registered") === "1";
   const reset = searchParams.get("reset") === "1";
+  const verified = searchParams.get("verified") === "1";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (status === "authenticated") {
+      router.replace("/app");
+    }
+  }, [router, status]);
+
+  if (status === "authenticated") {
+    return null;
+  }
 
   async function handleEmailSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -54,7 +69,12 @@ function LoginForm() {
 
         {registered && (
           <div className="mt-4 rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-4 py-3 text-sm text-cyan-200">
-            สมัครสมาชิกสำเร็จ กรุณาเข้าสู่ระบบ
+            สมัครสมาชิกสำเร็จ กรุณาตรวจสอบอีเมลเพื่อยืนยันก่อนเข้าสู่ระบบ
+          </div>
+        )}
+        {verified && (
+          <div className="mt-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
+            ยืนยันอีเมลสำเร็จ! กรุณาเข้าสู่ระบบ
           </div>
         )}
         {reset && (

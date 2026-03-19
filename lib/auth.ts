@@ -29,11 +29,14 @@ export const authOptions: NextAuthOptions = {
         if (!email || !password) return null;
         const user = await prisma.user.findUnique({
           where: { email },
-          select: { id: true, name: true, email: true, passwordHash: true },
+          select: { id: true, name: true, email: true, passwordHash: true, emailVerified: true },
         });
         if (!user?.passwordHash) return null;
         const ok = await compare(password, user.passwordHash);
         if (!ok) return null;
+        if (!user.emailVerified) {
+          throw new Error("EmailNotVerified");
+        }
         return { id: user.id, name: user.name, email: user.email! };
       },
     }),

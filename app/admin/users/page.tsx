@@ -256,9 +256,6 @@ export default function AdminUsersPage() {
                           className="rounded-xl border border-slate-700 bg-slate-950 px-2 py-1.5 text-slate-100 focus:border-cyan-500 focus:outline-none"
                         >
                           <option value="trial">trial</option>
-                          <option value="basic">basic (legacy)</option>
-                          <option value="standard">standard (legacy)</option>
-                          <option value="pro">pro (legacy)</option>
                           <option value="basic_monthly">basic_monthly</option>
                           <option value="basic_yearly">basic_yearly</option>
                           <option value="standard_monthly">standard_monthly</option>

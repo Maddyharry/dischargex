@@ -30,14 +30,15 @@ export default function AdminFeedbackPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [refundingUserId, setRefundingUserId] = useState<string | null>(null);
   const [reviewingId, setReviewingId] = useState<string | null>(null);
+  const [onlySuggested, setOnlySuggested] = useState(false);
   const [knowledge, setKnowledge] = useState("");
   const [savingKnowledge, setSavingKnowledge] = useState(false);
   const [insights, setInsights] = useState<null | {
     total: number;
     chats: number;
     errors: number;
-    topChatKeywords: Array<{ key: string; count: number }>;
-    topErrorKeywords: Array<{ key: string; count: number }>;
+    topChatTopics: Array<{ text: string; count: number }>;
+    topErrorTopics: Array<{ text: string; count: number }>;
     aiSummary: string | null;
   }>(null);
   const [insightsLoading, setInsightsLoading] = useState(false);
@@ -203,6 +204,11 @@ export default function AdminFeedbackPage() {
     }
   }
 
+  const visibleFeedback = onlySuggested
+    ? feedback.filter((f) => f.type === "error_report" && (f.aiSuggestedCredit ?? 0) > 0)
+    : feedback;
+  const suggestedCount = feedback.filter((f) => f.type === "error_report" && (f.aiSuggestedCredit ?? 0) > 0).length;
+
   return (
     <main className="min-h-screen bg-[#081120] text-slate-100">
       <div className="mx-auto max-w-5xl px-4 py-8 space-y-6">
@@ -246,6 +252,17 @@ export default function AdminFeedbackPage() {
           >
             แจ้งข้อผิดพลาด
           </button>
+          <button
+            type="button"
+            onClick={() => setOnlySuggested((prev) => !prev)}
+            className={`rounded-xl px-4 py-2 text-sm font-medium transition ${
+              onlySuggested
+                ? "bg-emerald-600/80 text-white"
+                : "border border-emerald-700 bg-slate-900/80 text-emerald-300 hover:bg-slate-800"
+            }`}
+          >
+            {onlySuggested ? "แสดงทั้งหมด" : `เฉพาะที่ AI แนะนำเครดิต (${suggestedCount})`}
+          </button>
         </div>
 
         <section className="rounded-2xl border border-slate-700 bg-slate-950/60 p-4 space-y-3">
@@ -277,8 +294,34 @@ export default function AdminFeedbackPage() {
           {insights ? (
             <div className="rounded-xl border border-slate-700 bg-slate-900/70 p-3 text-xs text-slate-200 space-y-2">
               <div>30 วันล่าสุด: ทั้งหมด {insights.total} รายการ · แชท {insights.chats} · error {insights.errors}</div>
-              <div>Top คำถาม: {insights.topChatKeywords.map((k) => `${k.key}(${k.count})`).join(", ") || "-"}</div>
-              <div>Top error: {insights.topErrorKeywords.map((k) => `${k.key}(${k.count})`).join(", ") || "-"}</div>
+              <div>
+                <div className="font-medium text-slate-100">คำถามที่พบบ่อย</div>
+                {insights.topChatTopics.length > 0 ? (
+                  <ul className="mt-1 list-disc space-y-1 pl-5">
+                    {insights.topChatTopics.map((t, idx) => (
+                      <li key={`${t.text}-${idx}`}>
+                        {t.text} <span className="text-slate-400">({t.count} ครั้ง)</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div className="text-slate-400">-</div>
+                )}
+              </div>
+              <div>
+                <div className="font-medium text-slate-100">ข้อผิดพลาดที่พบบ่อย</div>
+                {insights.topErrorTopics.length > 0 ? (
+                  <ul className="mt-1 list-disc space-y-1 pl-5">
+                    {insights.topErrorTopics.map((t, idx) => (
+                      <li key={`${t.text}-${idx}`}>
+                        {t.text} <span className="text-slate-400">({t.count} ครั้ง)</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div className="text-slate-400">-</div>
+                )}
+              </div>
               {insights.aiSummary ? <pre className="whitespace-pre-wrap text-xs text-slate-300">{insights.aiSummary}</pre> : null}
             </div>
           ) : null}
@@ -292,13 +335,13 @@ export default function AdminFeedbackPage() {
 
         {loading ? (
           <div className="text-sm text-slate-300">กำลังโหลด...</div>
-        ) : feedback.length === 0 ? (
+        ) : visibleFeedback.length === 0 ? (
           <div className="rounded-2xl border border-slate-700 bg-slate-950/60 px-4 py-6 text-sm text-slate-300">
             ยังไม่มีรายการ
           </div>
         ) : (
           <div className="space-y-3">
-            {feedback.map((f) => {
+            {visibleFeedback.map((f) => {
               const payloadObj = parsePayload(f.payload);
               const hasPayload = payloadObj && (payloadObj.workspace || payloadObj.screenshot);
               const isExpanded = expandedId === f.id;
@@ -325,6 +368,11 @@ export default function AdminFeedbackPage() {
                       {f.status ? (
                         <span className="rounded px-2 py-0.5 text-[11px] border border-slate-600 text-slate-300">
                           {f.status}
+                        </span>
+                      ) : null}
+                      {f.type === "error_report" && (f.aiSuggestedCredit ?? 0) > 0 ? (
+                        <span className="rounded px-2 py-0.5 text-[11px] border border-emerald-700 text-emerald-300">
+                          AI แนะนำ {f.aiSuggestedCredit} เครดิต
                         </span>
                       ) : null}
                       <span className="text-xs text-slate-500">

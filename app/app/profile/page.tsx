@@ -131,6 +131,9 @@ export default function ProfilePage() {
   const [ledger, setLedger] = useState<CreditLedgerItem[]>([]);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [refCodeInput, setRefCodeInput] = useState("");
+  const [refClaimed, setRefClaimed] = useState<{ referralCode: string } | null>(null);
+  const [refClaimMsg, setRefClaimMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [refClaimLoading, setRefClaimLoading] = useState(false);
   const [editName, setEditName] = useState("");
   const [editBirthDate, setEditBirthDate] = useState("");
   const [editPhone, setEditPhone] = useState("");
@@ -194,6 +197,7 @@ export default function ProfilePage() {
         if (refData.ok) {
           setReferral(refData.referral ?? null);
           setLedger(Array.isArray(refData.ledger) ? refData.ledger : []);
+          if (refData.alreadyClaimed) setRefClaimed(refData.alreadyClaimed);
         }
         if (notiData.ok && Array.isArray(notiData.notifications)) {
           setNotifications(notiData.notifications);
@@ -272,19 +276,27 @@ export default function ProfilePage() {
   }
 
   async function claimReferral() {
-    if (!refCodeInput.trim()) return;
+    const code = refCodeInput.trim();
+    if (!code) {
+      setRefClaimMsg({ ok: false, text: "กรุณากรอกรหัสแนะนำเพื่อน" });
+      return;
+    }
+    setRefClaimLoading(true);
+    setRefClaimMsg(null);
     try {
       const res = await fetch("/api/referral/claim", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ referralCode: refCodeInput.trim() }),
+        body: JSON.stringify({ referralCode: code }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.ok) throw new Error(data.error || "บันทึกรหัสแนะนำเพื่อนไม่สำเร็จ");
-      alert("ผูกรหัสแนะนำเพื่อนสำเร็จ");
-      window.location.reload();
+      setRefClaimed({ referralCode: code.toUpperCase() });
+      setRefClaimMsg({ ok: true, text: "ผูกรหัสแนะนำเพื่อนสำเร็จ!" });
     } catch (err) {
-      alert(err instanceof Error ? err.message : "บันทึกรหัสไม่สำเร็จ");
+      setRefClaimMsg({ ok: false, text: err instanceof Error ? err.message : "บันทึกรหัสไม่สำเร็จ" });
+    } finally {
+      setRefClaimLoading(false);
     }
   }
 
@@ -469,7 +481,7 @@ export default function ProfilePage() {
             <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
               <h2 className="text-lg font-semibold text-white">เครดิตโบนัสของฉัน</h2>
               <div className="mt-2 rounded-2xl border border-cyan-500/25 bg-cyan-950/20 px-4 py-3 text-xs text-cyan-100">
-                กติกาแนะนำเพื่อน (ชัดเจน):
+                กติกาแนะนำเพื่อน:
                 <span className="block mt-1">- เพื่อนสมัคร/ผูกรหัสแนะนำ: ยังไม่เพิ่มเครดิตทันที</span>
                 <span className="block">- เพื่อนเริ่มใช้งานครั้งแรก (เริ่มทดลองใช้ฟรี): โบนัส +5 เครดิต</span>
                 <span className="block">- เพื่อนซื้อแพ็กเกจครั้งแรก: โบนัส +10 เครดิต</span>
@@ -518,21 +530,36 @@ export default function ProfilePage() {
 
                 <div className="rounded-xl border border-slate-700 bg-slate-950/50 p-3">
                   <label className="text-xs text-slate-400">มีรหัสเพื่อน? ผูกที่นี่</label>
-                  <div className="mt-2 flex gap-2">
-                    <input
-                      value={refCodeInput}
-                      onChange={(e) => setRefCodeInput(e.target.value)}
-                      className="flex-1 rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-cyan-500"
-                      placeholder="ใส่ referral code"
-                    />
-                    <button
-                      type="button"
-                      onClick={claimReferral}
-                      className="rounded-xl bg-cyan-600 px-3 py-2 text-xs font-medium text-white hover:bg-cyan-500"
-                    >
-                      บันทึก
-                    </button>
-                  </div>
+                  {refClaimed ? (
+                    <div className="mt-2 rounded-xl border border-emerald-700/50 bg-emerald-950/30 px-3 py-2 text-sm text-emerald-200">
+                      ผูกรหัสแล้ว: <span className="font-semibold">{refClaimed.referralCode}</span>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="mt-2 flex gap-2">
+                        <input
+                          value={refCodeInput}
+                          onChange={(e) => setRefCodeInput(e.target.value.toUpperCase())}
+                          className="flex-1 rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-cyan-500"
+                          placeholder="ใส่ referral code"
+                          disabled={refClaimLoading}
+                        />
+                        <button
+                          type="button"
+                          onClick={claimReferral}
+                          disabled={refClaimLoading || !refCodeInput.trim()}
+                          className="rounded-xl bg-cyan-600 px-3 py-2 text-xs font-medium text-white hover:bg-cyan-500 disabled:opacity-50"
+                        >
+                          {refClaimLoading ? "กำลังตรวจ..." : "บันทึก"}
+                        </button>
+                      </div>
+                      {refClaimMsg ? (
+                        <div className={`mt-2 rounded-lg px-3 py-1.5 text-xs ${refClaimMsg.ok ? "border border-emerald-700/50 bg-emerald-950/30 text-emerald-200" : "border border-red-800/50 bg-red-950/30 text-red-200"}`}>
+                          {refClaimMsg.text}
+                        </div>
+                      ) : null}
+                    </>
+                  )}
                 </div>
               </div>
 

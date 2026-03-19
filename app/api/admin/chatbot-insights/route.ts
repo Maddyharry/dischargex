@@ -8,21 +8,33 @@ function isAdmin(session: unknown) {
   return (session as { user?: { role?: string } } | null)?.user?.role === "admin";
 }
 
-function topKeywords(messages: string[], topN = 12): Array<{ key: string; count: number }> {
-  const stop = new Set(["ครับ", "ค่ะ", "และ", "หรือ", "ที่", "ได้", "ให้", "กับ", "ของ", "ใน", "เป็น", "ไม่", "มี", "แล้ว"]);
-  const counts = new Map<string, number>();
-  for (const msg of messages) {
-    const words = msg
-      .toLowerCase()
-      .replace(/[^\p{L}\p{N}\s]/gu, " ")
-      .split(/\s+/)
-      .filter((w) => w.length >= 3 && !stop.has(w));
-    for (const w of words) counts.set(w, (counts.get(w) || 0) + 1);
+function normalizeForGrouping(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function topReadableTopics(messages: string[], topN = 6): Array<{ text: string; count: number }> {
+  const groups = new Map<string, { count: number; sample: string }>();
+  for (const raw of messages) {
+    const text = raw.trim();
+    if (!text) continue;
+    const key = normalizeForGrouping(text);
+    if (!key) continue;
+    const existing = groups.get(key);
+    if (!existing) {
+      groups.set(key, { count: 1, sample: text });
+    } else {
+      const betterSample = text.length < existing.sample.length ? text : existing.sample;
+      groups.set(key, { count: existing.count + 1, sample: betterSample });
+    }
   }
-  return [...counts.entries()]
-    .sort((a, b) => b[1] - a[1])
+  return [...groups.values()]
+    .sort((a, b) => b.count - a.count)
     .slice(0, topN)
-    .map(([key, count]) => ({ key, count }));
+    .map((v) => ({ text: v.sample.slice(0, 180), count: v.count }));
 }
 
 export async function GET() {
@@ -39,8 +51,8 @@ export async function GET() {
 
   const chatMessages = rows.filter((r) => r.type === "chat").map((r) => r.message);
   const errorMessages = rows.filter((r) => r.type === "error_report").map((r) => r.message);
-  const chatKeywords = topKeywords(chatMessages);
-  const errorKeywords = topKeywords(errorMessages);
+  const chatTopics = topReadableTopics(chatMessages);
+  const errorTopics = topReadableTopics(errorMessages);
 
   let aiSummary: string | null = null;
   if (process.env.OPENAI_API_KEY && rows.length > 0) {
@@ -52,7 +64,7 @@ export async function GET() {
       const resp = await openai.responses.create({
         model: process.env.OPENAI_CHAT_MODEL || "gpt-5-mini",
         input:
-          "สรุป 5 ประเด็นที่ผู้ใช้ถามบ่อยและ 5 ปัญหาที่เจอบ่อย จากข้อความต่อไปนี้ ตอบไทย กระชับ มีหัวข้อและ bullet:\n\n" +
+          "สรุปจากข้อมูลต่อไปนี้เป็นภาษาไทยอ่านง่าย โดยให้มี 2 หัวข้อ: (1) คำถามที่ผู้ใช้ถามบ่อย (2) ข้อผิดพลาดที่เจอบ่อย พร้อมข้อเสนอแนะปรับปรุง chatbot แบบสั้นๆ 3 ข้อ จัดรูปแบบเป็น bullet:\n\n" +
           sample,
         max_output_tokens: 600,
       });
@@ -68,8 +80,8 @@ export async function GET() {
     total: rows.length,
     chats: chatMessages.length,
     errors: errorMessages.length,
-    topChatKeywords: chatKeywords,
-    topErrorKeywords: errorKeywords,
+    topChatTopics: chatTopics,
+    topErrorTopics: errorTopics,
     aiSummary,
   });
 }

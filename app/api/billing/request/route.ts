@@ -15,8 +15,6 @@ import {
 } from "@/lib/billing-rules";
 import { THAI_PROVINCES, validateBirthDateBE, validateThaiPhone } from "@/lib/thai-input";
 import { notifyUser } from "@/lib/notifications";
-import { writeFile, mkdir } from "fs/promises";
-import path from "path";
 
 export const runtime = "nodejs";
 
@@ -160,10 +158,9 @@ export async function POST(req: Request) {
     const safeName = sanitizeSlipFileName(slipFileName);
     const savedFileName = `${id}_${safeName}`;
 
-    const dir = path.join(process.cwd(), "public", "uploads", "slips");
-    await mkdir(dir, { recursive: true });
     const buf = Buffer.from(await slip.arrayBuffer());
-    await writeFile(path.join(dir, savedFileName), buf);
+    const base64 = buf.toString("base64");
+    const slipData = `data:${slip.type};base64,${base64}`;
 
     await addPayment({
       id,
@@ -175,6 +172,7 @@ export async function POST(req: Request) {
       contactEmail,
       planRequested: planRequestedRaw,
       slipFileName: savedFileName,
+      slipData,
       addCredits: isAddCredits ? addCredits! : null,
       paymentType,
       fromPlanId,

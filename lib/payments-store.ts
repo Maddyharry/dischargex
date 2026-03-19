@@ -20,6 +20,7 @@ export async function addPayment(params: {
   contactEmail: string;
   planRequested: string;
   slipFileName: string;
+  slipData?: string | null;
   addCredits?: number | null;
   paymentType?: PaymentType;
   fromPlanId?: string | null;
@@ -50,6 +51,7 @@ export async function addPayment(params: {
       quotedAmount: params.quotedAmount ?? null,
       finalAmount: params.finalAmount ?? null,
       slipFileName: params.slipFileName,
+      slipData: params.slipData ?? null,
       addCredits: params.addCredits ?? null,
       status: "awaiting_review",
     },

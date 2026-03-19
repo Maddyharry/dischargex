@@ -1,10 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import { openai } from "@/lib/openai";
 import { getChatbotKnowledge } from "@/lib/chatbot-settings";
+import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
 
 type HistoryItem = { role: "user" | "assistant"; content: string };
+
+const ADMIN_ACTIVE_WINDOW_MS = 30 * 60 * 1000; // 30 minutes
+
+async function adminRecentlyReplied(userId: string): Promise<boolean> {
+  const since = new Date(Date.now() - ADMIN_ACTIVE_WINDOW_MS);
+  const row = await prisma.feedback.findFirst({
+    where: {
+      userId,
+      type: "chat",
+      createdAt: { gte: since },
+      payload: { contains: '"source":"admin"' },
+    },
+    select: { id: true },
+  });
+  return row !== null;
+}
 
 function normalizeReply(text: string): string {
   let out = text.trim();
@@ -30,6 +49,19 @@ export async function POST(req: NextRequest) {
 
     if (!message || typeof message !== "string" || message.trim().length === 0) {
       return NextResponse.json({ ok: false, error: "ไม่มีข้อความ" }, { status: 400 });
+    }
+
+    const session = await getServerSession(authOptions);
+    const userId = session?.user?.email
+      ? (await prisma.user.findUnique({ where: { email: session.user.email! }, select: { id: true } }))?.id ?? null
+      : null;
+
+    if (userId && (await adminRecentlyReplied(userId))) {
+      return NextResponse.json({
+        ok: true,
+        reply: "ขณะนี้แอดมินกำลังดูแลคุณอยู่ครับ หากมีคำถามเพิ่มเติม สามารถพิมพ์ได้เลย แอดมินจะตอบกลับโดยเร็ว",
+        suppressed: true,
+      });
     }
 
     const trimmedMessage = message.trim();
