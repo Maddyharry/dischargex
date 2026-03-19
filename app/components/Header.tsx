@@ -34,6 +34,7 @@ export function Header() {
   const { data: session, status } = useSession();
   const [usage, setUsage] = useState<UsageInfo>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [logoutAllLoading, setLogoutAllLoading] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   function refreshUsage() {
@@ -93,6 +94,22 @@ export function Header() {
     } catch {
       // ignore cleanup error; still continue sign out
     } finally {
+      setMenuOpen(false);
+      void signOut({ callbackUrl: "/" });
+    }
+  }
+
+  async function handleSignOutAllDevices() {
+    if (logoutAllLoading) return;
+    setLogoutAllLoading(true);
+    try {
+      await fetch("/api/auth/logout-all-devices", {
+        method: "POST",
+      });
+    } catch {
+      // ignore cleanup error; still continue sign out
+    } finally {
+      setLogoutAllLoading(false);
       setMenuOpen(false);
       void signOut({ callbackUrl: "/" });
     }
@@ -204,6 +221,14 @@ export function Header() {
                     )}
                   </div>
                   <div className="border-t border-slate-700/80 py-1">
+                    <button
+                      type="button"
+                      onClick={handleSignOutAllDevices}
+                      disabled={logoutAllLoading}
+                      className="block w-full px-4 py-2.5 text-left text-sm text-slate-400 hover:bg-slate-800 hover:text-amber-200 disabled:opacity-50"
+                    >
+                      {logoutAllLoading ? "กำลังออกจากทุกอุปกรณ์..." : "ออกจากทุกอุปกรณ์"}
+                    </button>
                     <button
                       type="button"
                       onClick={handleSignOut}

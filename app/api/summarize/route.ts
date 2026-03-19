@@ -37,6 +37,8 @@ const BASIC_PLAN_LOCKED_KEYS = new Set([
   "home_med",
 ]);
 
+const DEVICE_SESSION_TTL_MS = 24 * 60 * 60 * 1000;
+
 type Block = {
   key: string;
   title: string;
@@ -1051,10 +1053,22 @@ export async function POST(req: Request) {
     // ตรวจ device limit
     if (userId) {
       const deviceId = req.headers.get("x-dischargex-device-id") || null;
+      const activeSince = new Date(Date.now() - DEVICE_SESSION_TTL_MS);
+
+      // เคลียร์อุปกรณ์ที่ไม่ได้ใช้งานเกิน TTL เพื่อคืน slot อัตโนมัติ
+      await prisma.deviceSession.deleteMany({
+        where: {
+          userId,
+          lastSeen: { lt: activeSince },
+        },
+      });
 
       if (deviceId) {
         const existingDevices = await prisma.deviceSession.findMany({
-          where: { userId },
+          where: {
+            userId,
+            lastSeen: { gte: activeSince },
+          },
           select: { deviceId: true },
         });
 
