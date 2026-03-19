@@ -79,6 +79,25 @@ export function Header() {
   const displayName = session?.user?.name || session?.user?.email || "บัญชี";
   const isAdmin = (session?.user as { role?: string })?.role === "admin";
 
+  async function handleSignOut() {
+    try {
+      const key = "dischargex_device_id";
+      const deviceId = typeof window !== "undefined" ? window.localStorage.getItem(key) : null;
+      if (deviceId) {
+        await fetch("/api/auth/logout-device", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ deviceId }),
+        });
+      }
+    } catch {
+      // ignore cleanup error; still continue sign out
+    } finally {
+      setMenuOpen(false);
+      void signOut({ callbackUrl: "/" });
+    }
+  }
+
   return (
     <header className="sticky top-0 z-50 border-b border-slate-800 bg-[#081120]/95 backdrop-blur">
       <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-4 px-4">
@@ -187,10 +206,7 @@ export function Header() {
                   <div className="border-t border-slate-700/80 py-1">
                     <button
                       type="button"
-                      onClick={() => {
-                        setMenuOpen(false);
-                        signOut();
-                      }}
+                      onClick={handleSignOut}
                       className="block w-full px-4 py-2.5 text-left text-sm text-slate-400 hover:bg-slate-800 hover:text-red-300"
                     >
                       ออกจากระบบ

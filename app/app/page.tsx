@@ -1365,11 +1365,11 @@ function Stat({
 
 function Tooltip({ text }: { text: string }) {
   return (
-    <div className="group relative inline-flex">
+    <div className="group relative z-50 inline-flex">
       <div className="flex h-5 w-5 cursor-help items-center justify-center rounded-full border border-cyan-500/40 bg-cyan-500/10 text-[11px] font-bold text-cyan-300">
         ?
       </div>
-      <div className="pointer-events-none absolute left-1/2 top-full z-20 mt-2 hidden w-72 -translate-x-1/2 rounded-2xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs leading-5 text-slate-200 shadow-2xl shadow-black/40 group-hover:block">
+      <div className="pointer-events-none absolute bottom-full left-1/2 z-[100] mb-2 hidden w-72 -translate-x-1/2 rounded-2xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs leading-5 text-slate-200 shadow-2xl shadow-black/40 group-hover:block">
         {text}
       </div>
     </div>
