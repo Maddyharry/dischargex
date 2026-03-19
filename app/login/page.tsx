@@ -27,15 +27,25 @@ function LoginForm() {
   const registered = searchParams.get("registered") === "1";
   const reset = searchParams.get("reset") === "1";
   const verified = searchParams.get("verified") === "1";
+  const emailFromQuery = (searchParams.get("email") || "").trim();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendMessage, setResendMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const [devVerifyUrl, setDevVerifyUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (status === "authenticated") {
       router.replace("/app");
     }
   }, [router, status]);
+
+  useEffect(() => {
+    if (emailFromQuery && !email.trim()) {
+      setEmail(emailFromQuery);
+    }
+  }, [emailFromQuery]);
 
   if (status === "authenticated") {
     return null;
@@ -59,6 +69,46 @@ function LoginForm() {
     }
   }
 
+  async function handleResendVerification() {
+    const targetEmail = (email.trim() || emailFromQuery).toLowerCase();
+    if (!targetEmail) {
+      setResendMessage({ ok: false, text: "กรุณากรอกอีเมลก่อนส่งอีเมลยืนยันอีกครั้ง" });
+      return;
+    }
+
+    setResendLoading(true);
+    setResendMessage(null);
+    setDevVerifyUrl(null);
+    try {
+      const res = await fetch("/api/auth/resend-verification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: targetEmail }),
+      });
+      const data = (await res.json()) as {
+        ok?: boolean;
+        error?: string;
+        message?: string;
+        verifyUrl?: string;
+      };
+      if (!res.ok || !data.ok) {
+        setResendMessage({ ok: false, text: data.error || "ส่งอีเมลยืนยันไม่สำเร็จ" });
+        return;
+      }
+      setResendMessage({
+        ok: true,
+        text:
+          data.message ||
+          "ส่งอีเมลยืนยันอีกครั้งแล้ว กรุณาตรวจสอบกล่องจดหมายและโฟลเดอร์ Spam/Junk/Promotions",
+      });
+      if (data.verifyUrl) setDevVerifyUrl(data.verifyUrl);
+    } catch {
+      setResendMessage({ ok: false, text: "เกิดข้อผิดพลาด กรุณาลองใหม่" });
+    } finally {
+      setResendLoading(false);
+    }
+  }
+
   return (
     <main className="flex min-h-screen items-center justify-center bg-slate-950 text-slate-50">
       <div className="w-full max-w-md rounded-3xl border border-white/10 bg-slate-900/80 p-6 shadow-2xl">
@@ -68,8 +118,20 @@ function LoginForm() {
         </p>
 
         {registered && (
-          <div className="mt-4 rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-4 py-3 text-sm text-cyan-200">
-            สมัครสมาชิกสำเร็จ กรุณาตรวจสอบอีเมลเพื่อยืนยันก่อนเข้าสู่ระบบ
+          <div className="mt-4 space-y-3 rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-4 py-3 text-sm text-cyan-200">
+            <p>สมัครสมาชิกสำเร็จ กรุณาตรวจสอบอีเมลเพื่อยืนยันก่อนเข้าสู่ระบบ</p>
+            <div className="rounded-lg border border-slate-700/80 bg-slate-900/80 px-3 py-2 text-xs text-slate-300">
+              <p>หากไม่พบอีเมล กรุณาตรวจสอบโฟลเดอร์ Spam/Junk/Promotions</p>
+              <p className="mt-1">ค้นหาผู้ส่ง: noreply@dischargex.net</p>
+            </div>
+            <button
+              type="button"
+              onClick={handleResendVerification}
+              disabled={resendLoading}
+              className="rounded-lg border border-cyan-400/40 bg-cyan-500/10 px-3 py-2 text-xs font-medium text-cyan-100 hover:bg-cyan-500/20 disabled:opacity-50"
+            >
+              {resendLoading ? "กำลังส่ง..." : "ส่งอีเมลยืนยันอีกครั้ง"}
+            </button>
           </div>
         )}
         {verified && (
@@ -86,6 +148,25 @@ function LoginForm() {
           <div className="mt-4 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
             {errorMsg}
           </div>
+        )}
+        {resendMessage && (
+          <div
+            className={`mt-4 rounded-xl border px-4 py-3 text-sm ${
+              resendMessage.ok
+                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
+                : "border-amber-500/30 bg-amber-500/10 text-amber-200"
+            }`}
+          >
+            {resendMessage.text}
+          </div>
+        )}
+        {devVerifyUrl && (
+          <p className="mt-3 text-xs text-slate-400">
+            ลิงก์สำหรับยืนยัน (dev mode):{" "}
+            <a href={devVerifyUrl} className="break-all text-cyan-400 underline">
+              คลิกที่นี่
+            </a>
+          </p>
         )}
 
         <form onSubmit={handleEmailSubmit} className="mt-6 space-y-3">

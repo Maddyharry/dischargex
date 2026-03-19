@@ -56,7 +56,7 @@ export default function SignupPage() {
         setVerifyUrl(data.verifyUrl);
         return;
       }
-      router.push("/login?registered=1");
+      router.push(`/login?registered=1&email=${encodeURIComponent(email.trim())}`);
     } catch {
       setError("เกิดข้อผิดพลาด กรุณาลองใหม่");
     } finally {
@@ -82,6 +82,10 @@ export default function SignupPage() {
           <div className="mt-6 space-y-3">
             <div className="rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-4 py-3 text-sm text-cyan-200">
               สมัครสำเร็จ! กรุณายืนยันอีเมลก่อนเข้าสู่ระบบ
+            </div>
+            <div className="rounded-xl border border-slate-700 bg-slate-900/70 px-4 py-3 text-xs text-slate-300">
+              <p>หากไม่พบอีเมลในกล่องจดหมาย กรุณาตรวจสอบโฟลเดอร์ Spam/Junk/Promotions</p>
+              <p className="mt-1">ค้นหาผู้ส่ง: noreply@dischargex.net</p>
             </div>
             <p className="text-xs text-slate-400">
               ลิงก์สำหรับยืนยัน (dev mode):{" "}
