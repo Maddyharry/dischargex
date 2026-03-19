@@ -65,11 +65,11 @@ export function FeedbackWidget() {
         setLoadError(data.error || "โหลดประวัติไม่สำเร็จ");
         return;
       }
-      const list: ChatMessage[] = (data.messages || []).map((m: { id: string; message: string; createdAt: string }) => ({
+      const list: ChatMessage[] = (data.messages || []).map((m: { id: string; message: string; createdAt: string; isBot?: boolean }) => ({
         id: m.id,
         message: m.message,
         createdAt: m.createdAt,
-        isBot: false,
+        isBot: m.isBot === true,
       }));
       setChatMessages(list);
     } catch {
@@ -169,8 +169,7 @@ export function FeedbackWidget() {
         }).catch(() => {});
       }
 
-      const history = chatMessages
-        .filter((m) => m.id !== userMsgId)
+      const history = [...chatMessages, { id: userMsgId, message: text, createdAt: new Date().toISOString(), isBot: false }]
         .slice(-20)
         .map((m) => ({ role: m.isBot ? ("assistant" as const) : ("user" as const), content: m.message }));
 
@@ -186,6 +185,17 @@ export function FeedbackWidget() {
           : typeof replyData.error === "string"
             ? `${FALLBACK_REPLY} (${replyData.error})`
             : FALLBACK_REPLY;
+
+      // Persist bot reply so history remains after reload.
+      fetch("/api/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "chat",
+          message: replyText,
+          payload: JSON.stringify({ isBot: true, source: "ai" }),
+        }),
+      }).catch(() => {});
 
       setChatMessages((prev) => [
         ...prev,
@@ -252,7 +262,7 @@ export function FeedbackWidget() {
                       <div
                         className={`rounded-2xl px-4 py-2 text-sm ${m.isBot ? "ml-4 mr-8 bg-slate-700/80 text-slate-200" : "ml-8 mr-4 bg-cyan-600/80 text-white"}`}
                       >
-                        {m.message}
+                        <div className="whitespace-pre-wrap leading-relaxed">{m.message}</div>
                       </div>
                       {m.isBot && botReplyAsksForAttachment(m.message) ? (
                         <div className="ml-4 mr-8 flex flex-wrap gap-2 pl-1">

@@ -468,20 +468,23 @@ export default function ProfilePage() {
 
             <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
               <h2 className="text-lg font-semibold text-white">เครดิตโบนัสของฉัน</h2>
-              <p className="mt-1 text-xs text-slate-400">
-                โบนัสจากการร่วมพัฒนาและแนะนำเพื่อน จะพิจารณาตามกติกาของระบบ
-              </p>
+              <div className="mt-2 rounded-2xl border border-cyan-500/25 bg-cyan-950/20 px-4 py-3 text-xs text-cyan-100">
+                กติกาแนะนำเพื่อน (ชัดเจน):
+                <span className="block mt-1">- เพื่อนสมัคร/ผูกรหัสแนะนำ: ยังไม่เพิ่มเครดิตทันที</span>
+                <span className="block">- เพื่อนเริ่มใช้งานครั้งแรก (เริ่มทดลองใช้ฟรี): โบนัส +5 เครดิต</span>
+                <span className="block">- เพื่อนซื้อแพ็กเกจครั้งแรก: โบนัส +10 เครดิต</span>
+              </div>
               <div className="mt-4 grid gap-3 sm:grid-cols-4">
                 <div className="rounded-xl border border-slate-700 bg-slate-950/50 p-3">
-                  <div className="text-xs text-slate-500">สมัครผ่านลิงก์</div>
+                  <div className="text-xs text-slate-500">สมัคร/ผูกรหัสแล้ว (ยังไม่รับเครดิตทันที)</div>
                   <div className="mt-1 text-sm font-semibold text-slate-100">{referral?.stats.signups ?? 0}</div>
                 </div>
                 <div className="rounded-xl border border-slate-700 bg-slate-950/50 p-3">
-                  <div className="text-xs text-slate-500">เริ่มใช้งานจริง</div>
+                  <div className="text-xs text-slate-500">เริ่มทดลองใช้ฟรีครั้งแรก (+5 เครดิต/คน)</div>
                   <div className="mt-1 text-sm font-semibold text-slate-100">{referral?.stats.firstUsages ?? 0}</div>
                 </div>
                 <div className="rounded-xl border border-slate-700 bg-slate-950/50 p-3">
-                  <div className="text-xs text-slate-500">ซื้อแพ็กเกจครั้งแรก</div>
+                  <div className="text-xs text-slate-500">ซื้อแพ็กเกจครั้งแรก (+10 เครดิต/คน)</div>
                   <div className="mt-1 text-sm font-semibold text-slate-100">{referral?.stats.firstPurchases ?? 0}</div>
                 </div>
                 <div className="rounded-xl border border-slate-700 bg-slate-950/50 p-3">

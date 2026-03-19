@@ -26,7 +26,7 @@ export default function Home() {
           </Link>
         </div>
         <p className="mt-6 text-sm text-slate-500">
-          ทดลองใช้ฟรี 5 เคส · หลังล็อกอินเข้าไปที่ Workspace เพื่อเริ่มใช้งาน
+          ทดลองใช้ฟรี 10 เครดิต (7 วัน) · หลังล็อกอินเข้าไปที่ Workspace เพื่อเริ่มใช้งาน
         </p>
         <p className="mt-2 text-sm text-slate-500">
           <Link href="/guidelines" className="text-cyan-400 hover:underline">

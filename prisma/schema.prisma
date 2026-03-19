@@ -36,6 +36,11 @@ model User {
   nextPlanEffectiveDate   DateTime? // เวลาเปลี่ยนแผนถัดไป
   referralCode            String?   @unique
 
+  // ล็อกอินด้วยอีเมล/รหัสผ่าน
+  passwordHash         String?   // bcrypt hash (เฉพาะผู้สมัครด้วยอีเมล/รหัสผ่าน)
+  passwordResetToken   String?
+  passwordResetExpires DateTime?
+
   // ข้อมูลจากฟอร์มเปิดแพ็กเกจ (ใช้เติมฟอร์มเมื่อ user เก่ามาซื้ออีก)
   birthDate     String?
   phone         String?
@@ -274,5 +279,11 @@ model Notification {
 
   @@index([userId, createdAt])
   @@index([userId, readAt])
+}
+
+model AppSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
 }
 

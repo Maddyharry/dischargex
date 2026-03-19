@@ -2,9 +2,9 @@ import type { NextAuthOptions } from "next-auth";
 import type { Adapter } from "next-auth/adapters";
 import type { JWT } from "next-auth/jwt";
 import GoogleProvider from "next-auth/providers/google";
-import FacebookProvider from "next-auth/providers/facebook";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
+import { compare } from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 
 type AppJWT = JWT & {
@@ -16,6 +16,27 @@ type AppJWT = JWT & {
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma) as unknown as Adapter,
   providers: [
+    CredentialsProvider({
+      id: "credentials",
+      name: "อีเมลและรหัสผ่าน",
+      credentials: {
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" },
+      },
+      async authorize(credentials) {
+        const email = credentials?.email?.trim();
+        const password = credentials?.password;
+        if (!email || !password) return null;
+        const user = await prisma.user.findUnique({
+          where: { email },
+          select: { id: true, name: true, email: true, passwordHash: true },
+        });
+        if (!user?.passwordHash) return null;
+        const ok = await compare(password, user.passwordHash);
+        if (!ok) return null;
+        return { id: user.id, name: user.name, email: user.email! };
+      },
+    }),
     CredentialsProvider({
       id: "admin",
       name: "Admin",
@@ -62,15 +83,6 @@ export const authOptions: NextAuthOptions = {
           GoogleProvider({
             clientId: process.env.GOOGLE_CLIENT_ID,
             clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-            allowDangerousEmailAccountLinking: true,
-          }),
-        ]
-      : []),
-    ...(process.env.FACEBOOK_CLIENT_ID && process.env.FACEBOOK_CLIENT_SECRET
-      ? [
-          FacebookProvider({
-            clientId: process.env.FACEBOOK_CLIENT_ID,
-            clientSecret: process.env.FACEBOOK_CLIENT_SECRET,
             allowDangerousEmailAccountLinking: true,
           }),
         ]

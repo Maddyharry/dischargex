@@ -18,6 +18,7 @@ type FeedbackItem = {
   adminFinalCredit?: number | null;
   status?: string | null;
   adminNote?: string | null;
+  isBot?: boolean;
   createdAt: string;
 };
 
@@ -29,6 +30,18 @@ export default function AdminFeedbackPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [refundingUserId, setRefundingUserId] = useState<string | null>(null);
   const [reviewingId, setReviewingId] = useState<string | null>(null);
+  const [knowledge, setKnowledge] = useState("");
+  const [savingKnowledge, setSavingKnowledge] = useState(false);
+  const [insights, setInsights] = useState<null | {
+    total: number;
+    chats: number;
+    errors: number;
+    topChatKeywords: Array<{ key: string; count: number }>;
+    topErrorKeywords: Array<{ key: string; count: number }>;
+    aiSummary: string | null;
+  }>(null);
+  const [insightsLoading, setInsightsLoading] = useState(false);
+  const [replyDraft, setReplyDraft] = useState<Record<string, string>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -40,7 +53,17 @@ export default function AdminFeedbackPage() {
       if (!res.ok || !data.ok) {
         throw new Error(data.error || "โหลดรายการไม่สำเร็จ");
       }
-      setFeedback(data.feedback || []);
+      const mapped: FeedbackItem[] = (data.feedback || []).map((f: FeedbackItem & { payload?: string | null }) => {
+        let isBot = false;
+        try {
+          const p = f.payload ? (JSON.parse(f.payload) as { isBot?: boolean }) : null;
+          isBot = p?.isBot === true;
+        } catch {
+          isBot = false;
+        }
+        return { ...f, isBot };
+      });
+      setFeedback(mapped);
     } catch (err) {
       setError(err instanceof Error ? err.message : "โหลดข้อมูลล้มเหลว");
     } finally {
@@ -51,6 +74,19 @@ export default function AdminFeedbackPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    async function loadKnowledge() {
+      try {
+        const res = await fetch("/api/admin/chatbot-settings");
+        const data = await res.json();
+        if (res.ok && data.ok) setKnowledge(data.knowledge || "");
+      } catch {
+        // ignore
+      }
+    }
+    void loadKnowledge();
+  }, []);
 
   function parsePayload(payload: string | null): { workspace?: unknown; screenshot?: string } | null {
     if (!payload) return null;
@@ -116,6 +152,57 @@ export default function AdminFeedbackPage() {
     }
   }
 
+  async function handleSaveKnowledge() {
+    if (!knowledge.trim()) return;
+    setSavingKnowledge(true);
+    try {
+      const res = await fetch("/api/admin/chatbot-settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ knowledge }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) throw new Error(data.error || "บันทึกไม่สำเร็จ");
+      alert("บันทึกข้อมูลความรู้ของ chatbot แล้ว");
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "บันทึกไม่สำเร็จ");
+    } finally {
+      setSavingKnowledge(false);
+    }
+  }
+
+  async function handleGenerateInsights() {
+    setInsightsLoading(true);
+    try {
+      const res = await fetch("/api/admin/chatbot-insights");
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) throw new Error(data.error || "สร้างสรุปไม่สำเร็จ");
+      setInsights(data);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "สร้างสรุปไม่สำเร็จ");
+    } finally {
+      setInsightsLoading(false);
+    }
+  }
+
+  async function handleReplyToChat(feedbackId: string) {
+    const reply = (replyDraft[feedbackId] || "").trim();
+    if (!reply) return;
+    try {
+      const res = await fetch("/api/admin/chatbot-reply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ feedbackId, reply }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) throw new Error(data.error || "ส่งคำตอบไม่สำเร็จ");
+      setReplyDraft((prev) => ({ ...prev, [feedbackId]: "" }));
+      alert("ส่งคำตอบจากแอดมินแล้ว");
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "ส่งคำตอบไม่สำเร็จ");
+    }
+  }
+
   return (
     <main className="min-h-screen bg-[#081120] text-slate-100">
       <div className="mx-auto max-w-5xl px-4 py-8 space-y-6">
@@ -160,6 +247,42 @@ export default function AdminFeedbackPage() {
             แจ้งข้อผิดพลาด
           </button>
         </div>
+
+        <section className="rounded-2xl border border-slate-700 bg-slate-950/60 p-4 space-y-3">
+          <h2 className="text-sm font-semibold text-white">ความรู้ที่ chatbot ควรรู้ (แก้ไขได้)</h2>
+          <textarea
+            value={knowledge}
+            onChange={(e) => setKnowledge(e.target.value)}
+            rows={10}
+            className="w-full rounded-xl border border-slate-700 bg-slate-900/70 px-3 py-2 text-xs text-slate-100 outline-none focus:border-cyan-500"
+          />
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={handleSaveKnowledge}
+              disabled={savingKnowledge}
+              className="rounded-xl bg-cyan-600 px-3 py-2 text-xs font-medium text-white hover:bg-cyan-500 disabled:opacity-50"
+            >
+              {savingKnowledge ? "กำลังบันทึก..." : "บันทึกความรู้ chatbot"}
+            </button>
+            <button
+              type="button"
+              onClick={handleGenerateInsights}
+              disabled={insightsLoading}
+              className="rounded-xl bg-emerald-700 px-3 py-2 text-xs font-medium text-white hover:bg-emerald-600 disabled:opacity-50"
+            >
+              {insightsLoading ? "กำลังสร้าง..." : "Generate สรุปคำถาม/ข้อผิดพลาดยอดฮิต"}
+            </button>
+          </div>
+          {insights ? (
+            <div className="rounded-xl border border-slate-700 bg-slate-900/70 p-3 text-xs text-slate-200 space-y-2">
+              <div>30 วันล่าสุด: ทั้งหมด {insights.total} รายการ · แชท {insights.chats} · error {insights.errors}</div>
+              <div>Top คำถาม: {insights.topChatKeywords.map((k) => `${k.key}(${k.count})`).join(", ") || "-"}</div>
+              <div>Top error: {insights.topErrorKeywords.map((k) => `${k.key}(${k.count})`).join(", ") || "-"}</div>
+              {insights.aiSummary ? <pre className="whitespace-pre-wrap text-xs text-slate-300">{insights.aiSummary}</pre> : null}
+            </div>
+          ) : null}
+        </section>
 
         {error ? (
           <div className="rounded-2xl border border-red-900/60 bg-red-950/40 px-4 py-3 text-sm text-red-200">
@@ -220,6 +343,31 @@ export default function AdminFeedbackPage() {
                         <pre className="whitespace-pre-wrap text-sm text-slate-200 rounded-xl bg-slate-950/80 p-3 max-h-48 overflow-y-auto">
                           {f.message}
                         </pre>
+                        {f.type === "chat" ? (
+                          <div className="mt-3 rounded-xl border border-slate-700 bg-slate-950/70 p-3 space-y-2">
+                            <div className="text-xs text-slate-400">
+                              ประเภทข้อความ: {f.isBot ? "ข้อความจากบอท/แอดมิน" : "ข้อความจากผู้ใช้"}
+                            </div>
+                            {!f.isBot ? (
+                              <>
+                                <textarea
+                                  value={replyDraft[f.id] || ""}
+                                  onChange={(e) => setReplyDraft((prev) => ({ ...prev, [f.id]: e.target.value }))}
+                                  rows={3}
+                                  placeholder="พิมพ์คำตอบจากแอดมินเพื่อส่งผ่าน chatbot..."
+                                  className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-cyan-500"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => handleReplyToChat(f.id)}
+                                  className="rounded-lg bg-cyan-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-cyan-600"
+                                >
+                                  ส่งคำตอบแอดมินผ่าน chatbot
+                                </button>
+                              </>
+                            ) : null}
+                          </div>
+                        ) : null}
                       </div>
 
                       <div className="grid gap-2 sm:grid-cols-4 text-xs">

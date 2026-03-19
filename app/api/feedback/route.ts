@@ -143,11 +143,24 @@ export async function GET(req: NextRequest) {
           where: { userId, type: "chat" },
           orderBy: { createdAt: "desc" },
           take: 50,
-          select: { id: true, message: true, createdAt: true },
+          select: { id: true, message: true, createdAt: true, payload: true },
         })
       : [];
 
-    return NextResponse.json({ ok: true, messages: list.reverse() });
+    const messages = list
+      .reverse()
+      .map((m) => {
+        let isBot = false;
+        try {
+          const payload = m.payload ? (JSON.parse(m.payload) as { isBot?: boolean }) : null;
+          isBot = payload?.isBot === true;
+        } catch {
+          isBot = false;
+        }
+        return { id: m.id, message: m.message, createdAt: m.createdAt, isBot };
+      });
+
+    return NextResponse.json({ ok: true, messages });
   } catch (e) {
     console.error("Feedback GET error:", e);
     return NextResponse.json({ ok: false, error: "โหลดประวัติไม่สำเร็จ" }, { status: 500 });

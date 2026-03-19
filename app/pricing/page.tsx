@@ -10,6 +10,19 @@ const ADD_CREDIT_OPTIONS = [
   { credits: 100, price: 350, label: "100 เครดิต (350฿)" },
 ] as const;
 
+const PLAN_SELECT_OPTIONS = {
+  monthly: [
+    { value: "basic_monthly", label: "Basic Monthly (299฿ / 50 เครดิต / 30 วัน)" },
+    { value: "standard_monthly", label: "Standard Monthly (699฿ / 120 เครดิต / 30 วัน) — แนะนำ" },
+    { value: "pro_monthly", label: "Pro Monthly (1,490฿ / 250 เครดิต / 30 วัน)" },
+  ],
+  yearly: [
+    { value: "basic_yearly", label: "Basic Yearly (2,990฿ / 50 เครดิต ต่อรอบ 30 วัน)" },
+    { value: "standard_yearly", label: "Standard Yearly (6,990฿ / 120 เครดิต ต่อรอบ 30 วัน) — แนะนำ" },
+    { value: "pro_yearly", label: "Pro Yearly (14,900฿ / 250 เครดิต ต่อรอบ 30 วัน)" },
+  ],
+} as const;
+
 function validateBirthDateBE(value: string): string | null {
   const s = (value || "").trim();
   if (!s) return "กรุณากรอกวันเกิด";
@@ -223,7 +236,7 @@ function PricingPageContent() {
               <h2 className="text-lg font-semibold text-white">Trial</h2>
               <p className="mt-1 text-sm text-slate-400">ลองก่อน ตัดสินใจทีหลัง</p>
               <p className="mt-4 text-3xl font-bold text-white">0฿</p>
-              <p className="text-xs text-slate-400">5 เคส / บัญชี</p>
+              <p className="text-xs text-slate-400">10 เครดิต / 7 วัน</p>
               <ul className="mt-4 space-y-2 text-sm text-slate-200">
                 <li>- ไม่มีผูกมัด</li>
                 <li>- ใช้ได้ 1 ครั้งต่อบัญชี</li>
@@ -289,6 +302,60 @@ function PricingPageContent() {
               </ul>
             </div>
           </div>
+
+          <div className="mt-6 overflow-x-auto rounded-2xl border border-white/10 bg-slate-950/40">
+            <table className="min-w-full text-sm">
+              <thead className="bg-white/[0.04]">
+                <tr className="text-left text-slate-200">
+                  <th className="px-4 py-3 font-semibold">ความสามารถ</th>
+                  <th className="px-4 py-3 font-semibold">Basic</th>
+                  <th className="px-4 py-3 font-semibold text-cyan-200">Standard (แนะนำ)</th>
+                  <th className="px-4 py-3 font-semibold text-amber-200">Pro</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/10 text-slate-300">
+                <tr>
+                  <td className="px-4 py-3">เครดิตต่อรอบ</td>
+                  <td className="px-4 py-3">50</td>
+                  <td className="px-4 py-3">120</td>
+                  <td className="px-4 py-3">250</td>
+                </tr>
+                <tr>
+                  <td className="px-4 py-3">ช่วยคิด Principal / Comorbidity / Complication</td>
+                  <td className="px-4 py-3">✓</td>
+                  <td className="px-4 py-3">✓</td>
+                  <td className="px-4 py-3">✓</td>
+                </tr>
+                <tr>
+                  <td className="px-4 py-3">สรุป Discharge Summary ครบส่วนหลัก</td>
+                  <td className="px-4 py-3">-</td>
+                  <td className="px-4 py-3">✓</td>
+                  <td className="px-4 py-3">✓</td>
+                </tr>
+                <tr>
+                  <td className="px-4 py-3">AI ช่วยประเมินความครบของข้อมูล</td>
+                  <td className="px-4 py-3">-</td>
+                  <td className="px-4 py-3">-</td>
+                  <td className="px-4 py-3">✓</td>
+                </tr>
+                <tr>
+                  <td className="px-4 py-3">คำแนะนำเพิ่มโอกาส Adj RW / Coding</td>
+                  <td className="px-4 py-3">-</td>
+                  <td className="px-4 py-3">-</td>
+                  <td className="px-4 py-3">✓</td>
+                </tr>
+                <tr>
+                  <td className="px-4 py-3">Case history / Export text</td>
+                  <td className="px-4 py-3">-</td>
+                  <td className="px-4 py-3">-</td>
+                  <td className="px-4 py-3">✓</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p className="mt-2 text-xs text-slate-500">
+            เครดิตฐานรีเฟรชเป็นรอบ 30 วัน และโบนัสเครดิตอยู่ในกลุ่มเครดิตเสริมตามเงื่อนไขระบบ
+          </p>
         </section>
 
         <section className="rounded-3xl border border-cyan-500/20 bg-cyan-950/10 p-6">
@@ -369,7 +436,7 @@ function PricingPageContent() {
           {!isLoggedIn ? (
             <div className="mt-6 rounded-2xl border border-amber-500/40 bg-amber-950/20 p-6 text-center">
               <p className="text-amber-200 font-medium">กรุณาเข้าสู่ระบบก่อนจึงจะส่งคำขอเปิดแพ็กเกจได้</p>
-              <p className="mt-2 text-sm text-slate-400">ใช้อีเมลจาก Google หรือ Facebook เพื่อยืนยันตัวตน</p>
+              <p className="mt-2 text-sm text-slate-400">ใช้อีเมลที่สมัครไว้เพื่อยืนยันตัวตน</p>
               <Link
                 href="/login"
                 className="mt-4 inline-block rounded-2xl bg-cyan-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-cyan-600"
@@ -640,19 +707,11 @@ function PricingPageContent() {
                     onChange={(e) => setSelectedPlanRequested(e.target.value)}
                     className="w-full rounded-2xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-cyan-500"
                   >
-                    {billingView === "yearly" ? (
-                      <>
-                        <option value="standard_yearly">Standard Yearly (6,990฿ / 120 เครดิต ต่อรอบ 30 วัน) — แนะนำ</option>
-                        <option value="basic_yearly">Basic Yearly (2,990฿ / 50 เครดิต ต่อรอบ 30 วัน)</option>
-                        <option value="pro_yearly">Pro Yearly (14,900฿ / 250 เครดิต ต่อรอบ 30 วัน)</option>
-                      </>
-                    ) : (
-                      <>
-                        <option value="standard_monthly">Standard Monthly (699฿ / 120 เครดิต / 30 วัน) — แนะนำ</option>
-                        <option value="basic_monthly">Basic Monthly (299฿ / 50 เครดิต / 30 วัน)</option>
-                        <option value="pro_monthly">Pro Monthly (1,490฿ / 250 เครดิต / 30 วัน)</option>
-                      </>
-                    )}
+                    {PLAN_SELECT_OPTIONS[billingView].map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
                   </select>
                 </div>
               ) : (

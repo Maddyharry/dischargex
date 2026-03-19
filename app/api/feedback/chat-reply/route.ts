@@ -1,10 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { openai } from "@/lib/openai";
-import { FEEDBACK_AI_KNOWLEDGE } from "@/lib/feedback-knowledge";
+import { getChatbotKnowledge } from "@/lib/chatbot-settings";
 
 export const runtime = "nodejs";
 
 type HistoryItem = { role: "user" | "assistant"; content: string };
+
+function normalizeReply(text: string): string {
+  let out = text.trim();
+  out = out.replace(/^สั้นๆนะ[\s:,-]*/i, "");
+  if (!out.includes("\n")) {
+    const lines = out
+      .split(/(?<=[.!?])\s+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (lines.length > 1) out = lines.join("\n\n");
+  }
+  return out;
+}
 
 export async function POST(req: NextRequest) {
   if (!process.env.OPENAI_API_KEY) {
@@ -28,8 +41,9 @@ export async function POST(req: NextRequest) {
       : [];
 
     const model = process.env.OPENAI_CHAT_MODEL || "gpt-5-mini";
+    const knowledge = await getChatbotKnowledge();
 
-    let prompt = `[คำสั่งสำหรับบอท]\n${FEEDBACK_AI_KNOWLEDGE}\n\n`;
+    let prompt = `[คำสั่งสำหรับบอท]\n${knowledge}\n\n`;
     if (validHistory.length > 0) {
       prompt += "[บทสนทนาก่อนหน้า]\n";
       for (const h of validHistory) {
@@ -37,7 +51,10 @@ export async function POST(req: NextRequest) {
       }
       prompt += "\n";
     }
-    prompt += "[ข้อความล่าสุดจากลูกค้า]\nลูกค้า: " + trimmedMessage + "\n\nบอทตอบ (ภาษาไทย สุภาพ สั้น อ่านง่าย ตัดคำที่ไม่จำเป็น; ถ้าไม่เกี่ยวกับการใช้งาน/แพ็กเกจ/แจ้งข้อผิดพลาด ให้ปฏิเสธแบบสุภาพแล้วชวนกลับมาหัวข้อที่รับเท่านั้น):";
+    prompt +=
+      "[ข้อความล่าสุดจากลูกค้า]\nลูกค้า: " +
+      trimmedMessage +
+      "\n\nบอทตอบ (ภาษาไทย สุภาพ อ่านง่าย มีเว้นบรรทัดระหว่างประเด็นสำคัญ 1 บรรทัด; ไม่ต้องขึ้นต้นด้วยคำว่า 'สั้นๆนะ'; ถ้าไม่เกี่ยวกับการใช้งาน/แพ็กเกจ/แจ้งข้อผิดพลาด ให้ปฏิเสธแบบสุภาพแล้วชวนกลับมาหัวข้อที่รับเท่านั้น):";
 
     const resp = await openai.responses.create({
       model,
@@ -45,9 +62,10 @@ export async function POST(req: NextRequest) {
       max_output_tokens: 800,
     });
 
-    const reply =
+    const replyRaw =
       (resp as { output_text?: string }).output_text?.trim() ||
       "ขออภัย ตอนนี้ตอบไม่ได้ กรุณาลองใหม่หรือแจ้งทีมงานครับ";
+    const reply = normalizeReply(replyRaw);
 
     return NextResponse.json({ ok: true, reply });
   } catch (e) {
