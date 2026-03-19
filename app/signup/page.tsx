@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
+import { useEffect } from "react";
 
 function isValidEmail(value: string): boolean {
   const email = value.trim().toLowerCase();
@@ -13,6 +15,7 @@ function isValidEmail(value: string): boolean {
 
 export default function SignupPage() {
   const router = useRouter();
+  const { status } = useSession();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -20,6 +23,16 @@ export default function SignupPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [verifyUrl, setVerifyUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (status === "authenticated") {
+      router.replace("/app");
+    }
+  }, [router, status]);
+
+  if (status === "authenticated") {
+    return null;
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
