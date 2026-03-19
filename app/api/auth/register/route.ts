@@ -6,6 +6,32 @@ import crypto from "crypto";
 
 const emailSchema = z.string().trim().toLowerCase().email();
 
+function resolveAppOrigin(req: Request): string {
+  const forwardedProto = req.headers.get("x-forwarded-proto")?.trim();
+  const forwardedHost = req.headers.get("x-forwarded-host")?.trim();
+  if (forwardedProto && forwardedHost) {
+    return `${forwardedProto}://${forwardedHost}`;
+  }
+
+  const host = req.headers.get("host")?.trim();
+  if (host) {
+    const proto = host.includes("localhost") ? "http" : "https";
+    return `${proto}://${host}`;
+  }
+
+  const origin = req.headers.get("origin")?.trim();
+  if (origin) return origin;
+
+  const referer = req.headers.get("referer")?.trim();
+  if (referer) {
+    try {
+      return new URL(referer).origin;
+    } catch {}
+  }
+
+  return process.env.NEXTAUTH_URL?.trim() || "";
+}
+
 export async function POST(req: Request) {
   try {
     const body = (await req.json()) as {
@@ -60,9 +86,7 @@ export async function POST(req: Request) {
       },
     });
 
-    const originFromRequest =
-      req.headers.get("origin") || req.headers.get("referer")?.replace(/\/[^/]*$/, "") || "";
-    const appOrigin = process.env.NEXTAUTH_URL?.trim() || originFromRequest;
+    const appOrigin = resolveAppOrigin(req);
     const verifyUrl = `${appOrigin}/api/auth/verify-email?token=${verifyToken}`;
 
     const emailFrom = process.env.EMAIL_FROM?.trim();

@@ -4,6 +4,32 @@ import { prisma } from "@/lib/prisma";
 
 const RESET_EXPIRY_HOURS = 1;
 
+function resolveAppOrigin(req: Request): string {
+  const forwardedProto = req.headers.get("x-forwarded-proto")?.trim();
+  const forwardedHost = req.headers.get("x-forwarded-host")?.trim();
+  if (forwardedProto && forwardedHost) {
+    return `${forwardedProto}://${forwardedHost}`;
+  }
+
+  const host = req.headers.get("host")?.trim();
+  if (host) {
+    const proto = host.includes("localhost") ? "http" : "https";
+    return `${proto}://${host}`;
+  }
+
+  const origin = req.headers.get("origin")?.trim();
+  if (origin) return origin;
+
+  const referer = req.headers.get("referer")?.trim();
+  if (referer) {
+    try {
+      return new URL(referer).origin;
+    } catch {}
+  }
+
+  return process.env.NEXTAUTH_URL?.trim() || "https://dischargex-beta.vercel.app";
+}
+
 export async function POST(req: Request) {
   try {
     const body = (await req.json()) as { email?: string };
@@ -33,7 +59,7 @@ export async function POST(req: Request) {
         passwordResetExpires: expires,
       },
     });
-    const baseUrl = process.env.NEXTAUTH_URL || "https://dischargex-beta.vercel.app";
+    const baseUrl = resolveAppOrigin(req);
     const resetLink = `${baseUrl}/reset-password?token=${token}`;
 
     if (process.env.RESEND_API_KEY) {
