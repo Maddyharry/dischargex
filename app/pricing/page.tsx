@@ -117,6 +117,11 @@ function PricingPageContent() {
   const hasPlan = (session?.user as { plan?: string } | undefined)?.plan;
   const isExistingPlan = hasPlan && hasPlan !== "trial";
   const defaultPlanRequested = billingView === "yearly" ? "standard_yearly" : "standard_monthly";
+  const selectedPlanTier = selectedPlanRequested.startsWith("basic")
+    ? "basic"
+    : selectedPlanRequested.startsWith("pro")
+    ? "pro"
+    : "standard";
 
   React.useEffect(() => {
     setSelectedPlanRequested(defaultPlanRequested);
@@ -196,17 +201,17 @@ function PricingPageContent() {
           </div>
         )}
 
-        <section>
+        <section className="rounded-2xl border border-white/5 bg-white/[0.02] p-6 md:p-8">
           <h1 className="text-3xl font-semibold tracking-tight text-white md:text-4xl">
             ลดเวลาการสรุปชาร์จของแพทย์ — ครบถ้วน ใช้ได้จริง
           </h1>
-          <p className="mt-3 max-w-2xl text-sm text-slate-300 md:text-base">
+          <p className="mt-3 max-w-2xl text-sm text-slate-400 md:text-base">
             1 เครดิต = 1 เคส (รองรับเคสทั่วไป) · เคสยาวมากอาจใช้มากกว่า 1 เครดิต
           </p>
 
-          <div className="mt-6 flex flex-wrap items-center gap-2">
-            <span className="text-xs text-slate-400">มุมมองราคา</span>
-            <div className="inline-flex rounded-full border border-slate-700 bg-slate-950/60 p-1">
+          <div className="mt-6 flex flex-wrap items-center gap-3">
+            <span className="text-xs font-medium text-slate-400">มุมมองราคา</span>
+            <div className="inline-flex rounded-full border border-slate-600 bg-slate-900/60 p-1">
               <button
                 type="button"
                 onClick={() => setBillingView("monthly")}
@@ -231,8 +236,8 @@ function PricingPageContent() {
             </span>
           </div>
 
-          <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
+          <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5 shadow-sm transition hover:border-white/15">
               <h2 className="text-lg font-semibold text-white">Trial</h2>
               <p className="mt-1 text-sm text-slate-400">ลองก่อน ตัดสินใจทีหลัง</p>
               <p className="mt-4 text-3xl font-bold text-white">0฿</p>
@@ -243,7 +248,13 @@ function PricingPageContent() {
               </ul>
             </div>
 
-            <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
+            <div
+              className={`rounded-2xl p-5 shadow-sm transition ${
+                selectedPlanTier === "basic"
+                  ? "border-2 border-cyan-400/70 bg-cyan-500/15 ring-2 ring-cyan-400/20"
+                  : "border border-white/10 bg-white/[0.04] hover:border-white/15"
+              }`}
+            >
               <h2 className="text-lg font-semibold text-white">Basic</h2>
               <p className="mt-1 text-sm text-slate-400">ช่วยคิด diagnosis</p>
               <p className="mt-4 text-3xl font-bold text-white">
@@ -261,7 +272,13 @@ function PricingPageContent() {
               </ul>
             </div>
 
-            <div className="relative rounded-3xl border-2 border-cyan-400/70 bg-cyan-500/15 p-5 shadow-xl shadow-cyan-900/40 ring-2 ring-cyan-400/20">
+            <div
+              className={`relative rounded-2xl p-5 shadow-sm transition ${
+                selectedPlanTier === "standard"
+                  ? "border-2 border-cyan-400/70 bg-cyan-500/15 shadow-lg shadow-cyan-900/30 ring-2 ring-cyan-400/20"
+                  : "border border-white/10 bg-white/[0.04] hover:border-white/15"
+              }`}
+            >
               <span className="absolute -top-2.5 right-4 rounded-full bg-cyan-500 px-3 py-0.5 text-xs font-semibold text-white shadow">
                 แนะนำ
               </span>
@@ -282,7 +299,13 @@ function PricingPageContent() {
               </ul>
             </div>
 
-            <div className="rounded-3xl border border-amber-400/40 bg-amber-500/10 p-5">
+            <div
+              className={`rounded-2xl p-5 shadow-sm transition ${
+                selectedPlanTier === "pro"
+                  ? "border-2 border-cyan-400/70 bg-cyan-500/15 ring-2 ring-cyan-400/20"
+                  : "border border-amber-400/40 bg-amber-500/10 hover:border-amber-400/50"
+              }`}
+            >
               <h2 className="text-lg font-semibold text-white">Pro</h2>
               <p className="mt-1 text-sm text-slate-200">สำหรับ optimize งานและ coding</p>
               <p className="mt-4 text-3xl font-bold text-white">
@@ -303,52 +326,70 @@ function PricingPageContent() {
             </div>
           </div>
 
-          <div className="mt-6 overflow-x-auto rounded-2xl border border-white/10 bg-slate-950/40">
+          <div className="mt-8 overflow-x-auto rounded-2xl border border-white/10 bg-slate-950/50 shadow-inner">
             <table className="min-w-full text-sm">
-              <thead className="bg-white/[0.04]">
+              <thead className="bg-white/[0.06]">
                 <tr className="text-left text-slate-200">
                   <th className="px-4 py-3 font-semibold">ความสามารถ</th>
-                  <th className="px-4 py-3 font-semibold">Basic</th>
-                  <th className="px-4 py-3 font-semibold text-cyan-200">Standard (แนะนำ)</th>
-                  <th className="px-4 py-3 font-semibold text-amber-200">Pro</th>
+                  <th
+                    className={`px-4 py-3 font-semibold ${
+                      selectedPlanTier === "basic" ? "bg-cyan-500/10 text-cyan-200" : ""
+                    }`}
+                  >
+                    Basic
+                  </th>
+                  <th
+                    className={`px-4 py-3 font-semibold ${
+                      selectedPlanTier === "standard" ? "bg-cyan-500/10 text-cyan-200" : "text-cyan-200"
+                    }`}
+                  >
+                    Standard (แนะนำ)
+                  </th>
+                  <th
+                    className={`px-4 py-3 font-semibold ${
+                      selectedPlanTier === "pro" ? "bg-cyan-500/10 text-cyan-200" : "text-amber-200"
+                    }`}
+                  >
+                    Pro
+                  </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/10 text-slate-300">
+              <tbody className="divide-y divide-white/10 text-slate-300 [&>tr]:transition [&>tr:hover]:bg-white/[0.03]">
                 <tr>
                   <td className="px-4 py-3">เครดิตต่อรอบ</td>
-                  <td className="px-4 py-3">50</td>
-                  <td className="px-4 py-3">120</td>
-                  <td className="px-4 py-3">250</td>
+                  <td className={`px-4 py-3 ${selectedPlanTier === "basic" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>50</td>
+                  <td className={`px-4 py-3 ${selectedPlanTier === "standard" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>120</td>
+                  <td className={`px-4 py-3 ${selectedPlanTier === "pro" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>250</td>
                 </tr>
                 <tr>
                   <td className="px-4 py-3">ช่วยคิด Principal / Comorbidity / Complication</td>
-                  <td className="px-4 py-3">✓</td>
-                  <td className="px-4 py-3">✓</td>
-                  <td className="px-4 py-3">✓</td>
+                  <td className={`px-4 py-3 ${selectedPlanTier === "basic" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>✓</td>
+                  <td className={`px-4 py-3 ${selectedPlanTier === "standard" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>✓</td>
+                  <td className={`px-4 py-3 ${selectedPlanTier === "pro" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>✓</td>
                 </tr>
                 <tr>
                   <td className="px-4 py-3">สรุป Discharge Summary ครบส่วนหลัก</td>
-                  <td className="px-4 py-3">-</td>
-                  <td className="px-4 py-3">✓</td>
-                  <td className="px-4 py-3">✓</td>
+                  <td className={`px-4 py-3 ${selectedPlanTier === "basic" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>-</td>
+                  <td className={`px-4 py-3 ${selectedPlanTier === "standard" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>✓</td>
+                  <td className={`px-4 py-3 ${selectedPlanTier === "pro" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>✓</td>
                 </tr>
                 <tr>
                   <td className="px-4 py-3">AI ช่วยประเมินความครบของข้อมูล</td>
-                  <td className="px-4 py-3">-</td>
-                  <td className="px-4 py-3">-</td>
-                  <td className="px-4 py-3">✓</td>
+                  <td className={`px-4 py-3 ${selectedPlanTier === "basic" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>-</td>
+                  <td className={`px-4 py-3 ${selectedPlanTier === "standard" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>-</td>
+                  <td className={`px-4 py-3 ${selectedPlanTier === "pro" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>✓</td>
                 </tr>
                 <tr>
                   <td className="px-4 py-3">คำแนะนำเพิ่มโอกาส Adj RW / Coding</td>
-                  <td className="px-4 py-3">-</td>
-                  <td className="px-4 py-3">-</td>
-                  <td className="px-4 py-3">✓</td>
+                  <td className={`px-4 py-3 ${selectedPlanTier === "basic" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>-</td>
+                  <td className={`px-4 py-3 ${selectedPlanTier === "standard" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>-</td>
+                  <td className={`px-4 py-3 ${selectedPlanTier === "pro" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>✓</td>
                 </tr>
                 <tr>
                   <td className="px-4 py-3">Case history / Export text</td>
-                  <td className="px-4 py-3">-</td>
-                  <td className="px-4 py-3">-</td>
-                  <td className="px-4 py-3">✓</td>
+                  <td className={`px-4 py-3 ${selectedPlanTier === "basic" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>-</td>
+                  <td className={`px-4 py-3 ${selectedPlanTier === "standard" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>-</td>
+                  <td className={`px-4 py-3 ${selectedPlanTier === "pro" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>✓</td>
                 </tr>
               </tbody>
             </table>
@@ -358,8 +399,8 @@ function PricingPageContent() {
           </p>
         </section>
 
-        <section className="rounded-3xl border border-cyan-500/20 bg-cyan-950/10 p-6">
-          <h2 className="text-lg font-semibold text-white">รับเครดิตโบนัสเพิ่มเติม</h2>
+        <section className="rounded-2xl border border-cyan-500/15 bg-gradient-to-br from-cyan-950/20 to-transparent p-6">
+          <h2 className="text-lg font-semibold text-white tracking-tight">รับเครดิตโบนัสเพิ่มเติม</h2>
           <p className="mt-2 text-sm text-slate-300">
             ส่ง feedback ที่มีประโยชน์ต่อการพัฒนาระบบ หรือแนะนำเพื่อนมาใช้งานจริง
             เพื่อรับเครดิตโบนัสตามเงื่อนไข
@@ -379,67 +420,45 @@ function PricingPageContent() {
           </div>
         </section>
 
-        <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-6 backdrop-blur">
-          <h2 className="text-lg font-semibold text-white">ชำระเงินผ่าน PromptPay</h2>
-          <p className="mt-2 text-sm text-slate-300">
-            เลือกแพ็กเกจที่ต้องการ สแกน QR ด้านล่างเพื่อโอนเงิน จากนั้นกรอกข้อมูลและแนบสลิปด้านล่าง
+        <section className="rounded-3xl border border-white/10 bg-gradient-to-b from-white/[0.04] to-transparent p-6 md:p-8 backdrop-blur">
+          <h2 className="text-xl font-semibold text-white tracking-tight">ชำระเงินผ่าน PromptPay</h2>
+          <p className="mt-2 text-sm text-slate-400">
+            เลือกแพ็กเกจหรือเครดิตเพิ่ม แล้วโอนตามยอดที่แสดง จากนั้นกรอกข้อมูลและแนบสลิปด้านล่าง
           </p>
-
-          {process.env.NEXT_PUBLIC_PROMPTPAY_QR_URL ? (
-            <div className="mt-4 flex flex-col items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950/60 p-6">
-              <p className="text-sm font-medium text-slate-200">สแกน QR เพื่อชำระเงิน</p>
-              <img
-                src={process.env.NEXT_PUBLIC_PROMPTPAY_QR_URL}
-                alt="PromptPay QR"
-                onClick={() => setQrOpen(true)}
-                className="h-48 w-48 cursor-pointer rounded-xl border border-slate-700 bg-white object-contain p-2 hover:brightness-105"
-              />
-              <p className="text-[11px] text-slate-500">คลิกรูปเพื่อขยาย</p>
-              <p className="text-xs text-slate-400">โอนตามจำนวนแพ็กเกจที่เลือก แล้วแนบสลิปในฟอร์มด้านล่าง</p>
-            </div>
-          ) : (
-            <div className="mt-4 rounded-2xl border border-dashed border-slate-700 bg-slate-950/40 p-4 text-sm text-slate-400">
-              <p className="font-semibold text-slate-300">PromptPay QR</p>
-              <p className="mt-1 text-xs">
-                ใส่รูป QR ในโฟลเดอร์ <code className="rounded bg-slate-800 px-1">public</code> (ชื่อเช่น promptpay-qr.png)
-                แล้วตั้ง <code className="rounded bg-slate-800 px-1">NEXT_PUBLIC_PROMPTPAY_QR_URL=/promptpay-qr.png</code> ใน .env
-              </p>
-            </div>
-          )}
 
           {qrOpen && process.env.NEXT_PUBLIC_PROMPTPAY_QR_URL ? (
             <div
-              className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 p-4"
+              className="fixed inset-0 z-[200] flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm"
               onMouseDown={(e) => {
                 if (e.target === e.currentTarget) setQrOpen(false);
               }}
               role="dialog"
               aria-modal="true"
             >
-              <div className="relative w-full max-w-xl">
+              <div className="relative w-full max-w-sm">
                 <button
                   type="button"
                   onClick={() => setQrOpen(false)}
-                  className="absolute -top-12 right-0 rounded-xl border border-slate-600 bg-slate-900/80 px-3 py-2 text-xs font-medium text-slate-200 hover:bg-slate-800"
+                  className="absolute -top-11 right-0 rounded-xl border border-slate-600 bg-slate-800/90 px-4 py-2 text-sm font-medium text-slate-200 hover:bg-slate-700 transition"
                 >
                   ปิด (ESC)
                 </button>
                 <img
                   src={process.env.NEXT_PUBLIC_PROMPTPAY_QR_URL}
-                  alt="PromptPay QR (expanded)"
-                  className="mx-auto max-h-[80vh] w-auto rounded-2xl border border-slate-700 bg-white object-contain p-3"
+                  alt="PromptPay QR (ขยาย)"
+                  className="mx-auto w-full max-w-xs rounded-2xl border border-slate-600 bg-white object-contain p-4 shadow-2xl"
                 />
               </div>
             </div>
           ) : null}
 
           {!isLoggedIn ? (
-            <div className="mt-6 rounded-2xl border border-amber-500/40 bg-amber-950/20 p-6 text-center">
+            <div className="mt-6 rounded-2xl border border-amber-500/40 bg-amber-950/20 p-8 text-center">
               <p className="text-amber-200 font-medium">กรุณาเข้าสู่ระบบก่อนจึงจะส่งคำขอเปิดแพ็กเกจได้</p>
               <p className="mt-2 text-sm text-slate-400">ใช้อีเมลที่สมัครไว้เพื่อยืนยันตัวตน</p>
               <Link
                 href="/login"
-                className="mt-4 inline-block rounded-2xl bg-cyan-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-cyan-600"
+                className="mt-4 inline-block rounded-2xl bg-cyan-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-cyan-600 transition hover:brightness-110"
               >
                 เข้าสู่ระบบ
               </Link>
@@ -738,6 +757,50 @@ function PricingPageContent() {
               )}
             </div>
 
+            {isLoggedIn && (
+              <>
+                <div className="md:col-span-2 rounded-2xl border border-emerald-500/25 bg-emerald-950/10 p-4 text-sm text-emerald-100">
+                  <div className="text-xs font-medium uppercase tracking-wide text-emerald-300/90">ยอดที่ต้องโอน</div>
+                  <div className="mt-1 text-2xl font-bold text-emerald-300">
+                    {quote?.finalAmount != null ? `${quote.finalAmount.toLocaleString("th-TH")} บาท` : "—"}
+                  </div>
+                  {quoteError ? <div className="mt-1 text-xs text-amber-300">{quoteError}</div> : null}
+                  {quote?.paymentType === "upgrade" && quote.remainingValue != null && quote.remainingDays != null ? (
+                    <div className="mt-1 text-xs text-slate-300">
+                      อัปเกรดจะหัก มูลค่าที่เหลือ ตามจำนวนวันที่เหลือ {quote.remainingDays} วัน (ประมาณ {quote.remainingValue.toLocaleString("th-TH")} บาท)
+                    </div>
+                  ) : quote?.paymentType === "downgrade" ? (
+                    <div className="mt-1 text-xs text-slate-300">
+                      ดาวน์เกรดจะมีผลรอบถัดไป (ไม่ต้องโอน ยอด = 0)
+                    </div>
+                  ) : null}
+                </div>
+                <div className="md:col-span-2">
+                  {process.env.NEXT_PUBLIC_PROMPTPAY_QR_URL ? (
+                    <div className="rounded-2xl border border-slate-600/80 bg-slate-950/60 p-4">
+                      <p className="text-xs font-medium text-slate-400 mb-2">QR โอนเงิน</p>
+                      <button
+                        type="button"
+                        onClick={() => setQrOpen(true)}
+                        className="flex items-center justify-center rounded-xl border border-slate-600 bg-white p-3 transition hover:border-cyan-500/50 hover:shadow-md"
+                        title="คลิกเพื่อขยาย"
+                      >
+                        <img
+                          src={process.env.NEXT_PUBLIC_PROMPTPAY_QR_URL}
+                          alt="PromptPay QR"
+                          className="h-28 w-28 object-contain"
+                        />
+                      </button>
+                      <p className="mt-2 text-[11px] text-slate-500">คลิกเพื่อขยาย</p>
+                    </div>
+                  ) : (
+                    <div className="rounded-2xl border border-dashed border-slate-600 bg-slate-950/30 px-4 py-3 text-xs text-slate-400">
+                      ไม่พบ PromptPay QR
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
             <div className="space-y-1 md:col-span-2">
               <label className="text-xs text-slate-300">แนบสลิปการโอน (ภาพ)</label>
               <input
@@ -750,26 +813,6 @@ function PricingPageContent() {
             </div>
 
             <div className="md:col-span-2">
-              {isLoggedIn ? (
-                <div className="mb-3 rounded-2xl border border-emerald-500/20 bg-emerald-950/10 px-4 py-3 text-sm text-emerald-100">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="font-medium">ยอดที่ต้องโอน</div>
-                    <div className="text-base font-semibold text-emerald-300">
-                      {quote?.finalAmount != null ? `${quote.finalAmount.toLocaleString("th-TH")} บาท` : "-"}
-                    </div>
-                  </div>
-                  {quoteError ? <div className="mt-1 text-xs text-amber-300">{quoteError}</div> : null}
-                  {quote?.paymentType === "upgrade" && quote.remainingValue != null && quote.remainingDays != null ? (
-                    <div className="mt-1 text-xs text-slate-300">
-                      อัปเกรดจะหัก “มูลค่าที่เหลือ” ตามจำนวนวันที่เหลือ {quote.remainingDays} วัน (ประมาณ {quote.remainingValue.toLocaleString("th-TH")} บาท)
-                    </div>
-                  ) : quote?.paymentType === "downgrade" ? (
-                    <div className="mt-1 text-xs text-slate-300">
-                      ดาวน์เกรดจะมีผลรอบถัดไป (ไม่ต้องโอน ยอด = 0)
-                    </div>
-                  ) : null}
-                </div>
-              ) : null}
               <button
                 type="submit"
                 disabled={submitting}

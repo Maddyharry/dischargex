@@ -4,6 +4,13 @@ import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+function isValidEmail(value: string): boolean {
+  const email = value.trim().toLowerCase();
+  if (!email) return false;
+  if (email.includes("..")) return false;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email);
+}
+
 export default function SignupPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -16,6 +23,10 @@ export default function SignupPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+    if (!isValidEmail(email)) {
+      setError("รูปแบบอีเมลไม่ถูกต้อง กรุณาใช้อีเมลจริง");
+      return;
+    }
     if (password !== confirmPassword) {
       setError("รหัสผ่านกับยืนยันรหัสผ่านไม่ตรงกัน");
       return;
@@ -68,6 +79,13 @@ export default function SignupPage() {
             placeholder="อีเมล *"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            onBlur={(e) => {
+              if (e.target.value.trim() && !isValidEmail(e.target.value)) {
+                setError("รูปแบบอีเมลไม่ถูกต้อง กรุณาใช้อีเมลจริง");
+              } else {
+                setError((prev) => (prev.includes("อีเมล") ? "" : prev));
+              }
+            }}
             className="w-full rounded-xl border border-white/10 bg-slate-800/80 px-4 py-3 text-slate-100 placeholder-slate-500 focus:border-cyan-500 focus:outline-none"
             required
           />

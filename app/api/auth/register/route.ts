@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { hash } from "bcryptjs";
+import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+
+const emailSchema = z.string().trim().toLowerCase().email();
 
 export async function POST(req: Request) {
   try {
@@ -9,15 +12,23 @@ export async function POST(req: Request) {
       password?: string;
       name?: string;
     };
-    const email = body.email?.trim();
+    const emailInput = body.email?.trim();
     const password = body.password;
     const name = body.name?.trim() || null;
-    if (!email || !password) {
+    if (!emailInput || !password) {
       return NextResponse.json(
         { ok: false, error: "กรุณาระบุอีเมลและรหัสผ่าน" },
         { status: 400 }
       );
     }
+    const parsed = emailSchema.safeParse(emailInput);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { ok: false, error: "รูปแบบอีเมลไม่ถูกต้อง กรุณาใช้อีเมลจริง" },
+        { status: 400 }
+      );
+    }
+    const email = parsed.data;
     if (password.length < 6) {
       return NextResponse.json(
         { ok: false, error: "รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร" },
