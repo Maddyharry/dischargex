@@ -60,12 +60,14 @@ export async function POST(req: Request) {
       },
     });
 
-    const origin = req.headers.get("origin") || req.headers.get("referer")?.replace(/\/[^/]*$/, "") || "";
-    const verifyUrl = `${origin}/api/auth/verify-email?token=${verifyToken}`;
+    const originFromRequest =
+      req.headers.get("origin") || req.headers.get("referer")?.replace(/\/[^/]*$/, "") || "";
+    const appOrigin = process.env.NEXTAUTH_URL?.trim() || originFromRequest;
+    const verifyUrl = `${appOrigin}/api/auth/verify-email?token=${verifyToken}`;
 
     if (process.env.RESEND_API_KEY) {
       try {
-        await fetch("https://api.resend.com/emails", {
+        const resendRes = await fetch("https://api.resend.com/emails", {
           method: "POST",
           headers: {
             Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
@@ -78,8 +80,21 @@ export async function POST(req: Request) {
             html: `<p>สวัสดีครับ</p><p>กรุณาคลิกลิงก์ด้านล่างเพื่อยืนยันอีเมลของคุณ:</p><p><a href="${verifyUrl}">${verifyUrl}</a></p><p>ลิงก์นี้ใช้ได้ครั้งเดียว</p>`,
           }),
         });
+        if (!resendRes.ok) {
+          const resendErr = await resendRes.text();
+          throw new Error(`Resend API failed (${resendRes.status}): ${resendErr}`);
+        }
       } catch (emailErr) {
         console.error("Send verify email error:", emailErr);
+        try {
+          await prisma.user.delete({ where: { id: user.id } });
+        } catch (cleanupErr) {
+          console.error("Cleanup user after email failure error:", cleanupErr);
+        }
+        return NextResponse.json(
+          { ok: false, error: "ส่งอีเมลยืนยันไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" },
+          { status: 502 }
+        );
       }
     }
 
