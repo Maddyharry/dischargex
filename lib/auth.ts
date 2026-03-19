@@ -81,6 +81,7 @@ export const authOptions: NextAuthOptions = {
   pages: {
     signIn: "/login",
   },
+  allowDangerousEmailAccountLinking: true,
   callbacks: {
     async signIn({ user }) {
       const adminEmail = process.env.ADMIN_EMAIL;

@@ -1,9 +1,24 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
 
+const ERROR_MESSAGES: Record<string, string> = {
+  OAuthAccountNotLinked:
+    "อีเมลนี้มีในระบบแล้วแต่ยังไม่ได้ผูกกับ Google กรุณาลองกดเข้าสู่ด้วย Google อีกครั้ง (ระบบจะผูกบัญชีให้อัตโนมัติ)",
+  OAuthSignin: "เกิดข้อผิดพลาดในการเชื่อมต่อ OAuth",
+  OAuthCallback: "เกิดข้อผิดพลาดในการรับข้อมูลจาก Google",
+  OAuthCreateAccount: "ไม่สามารถสร้างบัญชีได้",
+  Callback: "เกิดข้อผิดพลาดในการเข้าสู่ระบบ",
+  Default: "เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง",
+};
+
 export default function LoginPage() {
+  const searchParams = useSearchParams();
+  const error = searchParams.get("error") || "";
+  const errorMsg = ERROR_MESSAGES[error] || (error ? ERROR_MESSAGES.Default : null);
+
   return (
     <main className="flex min-h-screen items-center justify-center bg-slate-950 text-slate-50">
       <div className="w-full max-w-md rounded-3xl border border-white/10 bg-slate-900/80 p-6 shadow-2xl">
@@ -11,6 +26,12 @@ export default function LoginPage() {
         <p className="mt-2 text-sm text-slate-400">
           ทดลองใช้งานฟรี 5 เคสแรก หลังจากนั้นสามารถอัปเกรดแพ็กเกจได้ตลอดเวลา
         </p>
+
+        {errorMsg && (
+          <div className="mt-4 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+            {errorMsg}
+          </div>
+        )}
 
         <div className="mt-6 space-y-3">
           <button
