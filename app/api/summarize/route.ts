@@ -1026,7 +1026,7 @@ export async function POST(req: Request) {
     const planDefinition = getPlanDefinition(plan);
     const isBasicPlan = planDefinition.tier === "basic";
     const isProPlan = planDefinition.tier === "pro";
-    const includeAdjrwMeta = !isBasicPlan;
+    const includeAdjrwMeta = plan === "trial" || isProPlan;
     const maxDevices = getMaxDevices(plan);
     const extraCredits = dbUser?.extraCredits ?? 0;
 

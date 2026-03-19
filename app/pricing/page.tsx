@@ -295,8 +295,6 @@ function PricingPageContent() {
               <ul className="mt-4 space-y-2 text-sm text-slate-100">
                 <li>- Diagnosis ครบ + Admit / Discharge</li>
                 <li>- Investigations, Treatment, Outcome, Home medication</li>
-                <li>- AI ช่วยประเมินความครบของข้อมูล + confidence</li>
-                <li>- คำแนะนำเพิ่มโอกาส Adj RW / Coding (เบื้องต้น)</li>
                 <li>- เหมาะสำหรับทำ discharge summary จริง</li>
               </ul>
             </div>
@@ -378,13 +376,13 @@ function PricingPageContent() {
                 <tr>
                   <td className="px-4 py-3">AI ช่วยประเมินความครบของข้อมูล</td>
                   <td className={`px-4 py-3 ${selectedPlanTier === "basic" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>-</td>
-                  <td className={`px-4 py-3 ${selectedPlanTier === "standard" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>✓</td>
+                  <td className={`px-4 py-3 ${selectedPlanTier === "standard" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>-</td>
                   <td className={`px-4 py-3 ${selectedPlanTier === "pro" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>✓</td>
                 </tr>
                 <tr>
                   <td className="px-4 py-3">คำแนะนำเพิ่มโอกาส Adj RW / Coding</td>
                   <td className={`px-4 py-3 ${selectedPlanTier === "basic" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>-</td>
-                  <td className={`px-4 py-3 ${selectedPlanTier === "standard" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>✓</td>
+                  <td className={`px-4 py-3 ${selectedPlanTier === "standard" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>-</td>
                   <td className={`px-4 py-3 ${selectedPlanTier === "pro" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>✓</td>
                 </tr>
                 <tr>
