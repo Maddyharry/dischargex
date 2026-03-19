@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
+import { Suspense } from "react";
 
 const ERROR_MESSAGES: Record<string, string> = {
   OAuthAccountNotLinked:
@@ -14,7 +15,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   Default: "เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง",
 };
 
-export default function LoginPage() {
+function LoginForm() {
   const searchParams = useSearchParams();
   const error = searchParams.get("error") || "";
   const errorMsg = ERROR_MESSAGES[error] || (error ? ERROR_MESSAGES.Default : null);
@@ -69,5 +70,20 @@ export default function LoginPage() {
         </p>
       </div>
     </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <main className="flex min-h-screen items-center justify-center bg-slate-950 text-slate-50">
+        <div className="w-full max-w-md rounded-3xl border border-white/10 bg-slate-900/80 p-6">
+          <div className="h-8 w-3/4 animate-pulse rounded bg-slate-700" />
+          <div className="mt-4 h-4 w-full animate-pulse rounded bg-slate-700" />
+        </div>
+      </main>
+    }>
+      <LoginForm />
+    </Suspense>
   );
 }
