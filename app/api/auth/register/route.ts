@@ -65,7 +65,14 @@ export async function POST(req: Request) {
     const appOrigin = process.env.NEXTAUTH_URL?.trim() || originFromRequest;
     const verifyUrl = `${appOrigin}/api/auth/verify-email?token=${verifyToken}`;
 
+    const emailFrom = process.env.EMAIL_FROM?.trim();
     if (process.env.RESEND_API_KEY) {
+      if (!emailFrom) {
+        return NextResponse.json(
+          { ok: false, error: "ตั้งค่า EMAIL_FROM ไม่ครบในระบบ" },
+          { status: 500 }
+        );
+      }
       try {
         const resendRes = await fetch("https://api.resend.com/emails", {
           method: "POST",
@@ -74,25 +81,35 @@ export async function POST(req: Request) {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            from: process.env.EMAIL_FROM || "DischargeX <noreply@dischargex.com>",
+            from: emailFrom,
             to: [email],
             subject: "ยืนยันอีเมล DischargeX",
             html: `<p>สวัสดีครับ</p><p>กรุณาคลิกลิงก์ด้านล่างเพื่อยืนยันอีเมลของคุณ:</p><p><a href="${verifyUrl}">${verifyUrl}</a></p><p>ลิงก์นี้ใช้ได้ครั้งเดียว</p>`,
           }),
         });
         if (!resendRes.ok) {
-          const resendErr = await resendRes.text();
-          throw new Error(`Resend API failed (${resendRes.status}): ${resendErr}`);
+          const resendErrText = await resendRes.text();
+          let resendDetail = resendErrText;
+          try {
+            const parsed = JSON.parse(resendErrText) as {
+              message?: string;
+              error?: string;
+              name?: string;
+            };
+            resendDetail = parsed.message || parsed.error || parsed.name || resendErrText;
+          } catch {}
+          throw new Error(`Resend API failed (${resendRes.status}): ${resendDetail}`);
         }
       } catch (emailErr) {
         console.error("Send verify email error:", emailErr);
+        const emailErrMsg = emailErr instanceof Error ? emailErr.message : String(emailErr);
         try {
           await prisma.user.delete({ where: { id: user.id } });
         } catch (cleanupErr) {
           console.error("Cleanup user after email failure error:", cleanupErr);
         }
         return NextResponse.json(
-          { ok: false, error: "ส่งอีเมลยืนยันไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" },
+          { ok: false, error: `ส่งอีเมลยืนยันไม่สำเร็จ: ${emailErrMsg}` },
           { status: 502 }
         );
       }
