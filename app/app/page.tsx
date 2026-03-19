@@ -1051,17 +1051,23 @@ function PageContent() {
                 </div>
               ) : null}
 
-              {meta.upgrade ? (
+              {meta.adjrw !== null ? (
                 <div className="mt-4 rounded-2xl border border-amber-700/40 bg-amber-950/20 p-4 text-sm text-amber-100">
-                  <div className="font-semibold">Upgrade Suggestion</div>
-                  <div className="mt-2 space-y-1 text-amber-200/90">
-                    <div><b>New principal:</b> {meta.upgrade.new_principal || "-"}</div>
-                    <div><b>Add ICD-9:</b> {(meta.upgrade.add_icd9 || []).join(", ") || "-"}</div>
-                    <div><b>Projected Adj RW:</b> {meta.upgrade.projected_adjrw}</div>
-                    <div><b>Increase:</b> {meta.upgrade.increase}</div>
-                    <div><b>Audit risk:</b> {meta.upgrade.audit_risk}</div>
-                    <div><b>Reason:</b> {meta.upgrade.reason_th}</div>
-                  </div>
+                  <div className="font-semibold">คำแนะนำเพิ่มโอกาส Adj RW / Coding</div>
+                  {meta.upgrade ? (
+                    <div className="mt-2 space-y-1 text-amber-200/90">
+                      <div><b>New principal:</b> {meta.upgrade.new_principal || "-"}</div>
+                      <div><b>Add ICD-9:</b> {(meta.upgrade.add_icd9 || []).join(", ") || "-"}</div>
+                      <div><b>Projected Adj RW:</b> {meta.upgrade.projected_adjrw}</div>
+                      <div><b>Increase:</b> {meta.upgrade.increase}</div>
+                      <div><b>Audit risk:</b> {meta.upgrade.audit_risk}</div>
+                      <div><b>Reason:</b> {meta.upgrade.reason_th}</div>
+                    </div>
+                  ) : (
+                    <div className="mt-2 text-amber-200/90">
+                      ยังไม่พบคำแนะนำเพิ่มเติมในเคสนี้ (ผลประเมินปัจจุบันอาจเพียงพอแล้ว)
+                    </div>
+                  )}
                 </div>
               ) : null}
             </Card>
