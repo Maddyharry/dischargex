@@ -43,7 +43,7 @@ export async function POST(req: Request) {
 
     if (!session?.user?.email) {
       return NextResponse.json(
-        { ok: false, error: "กรุณาเข้าสู่ระบบก่อน (Google หรือ Facebook) จึงจะส่งคำขอเปิดแพ็กเกจได้" },
+        { ok: false, error: "กรุณาเข้าสู่ระบบก่อน (Google หรืออีเมล/รหัสผ่าน) จึงจะส่งคำขอเปิดแพ็กเกจได้" },
         { status: 401 }
       );
     }

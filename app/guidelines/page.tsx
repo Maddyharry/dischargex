@@ -76,7 +76,7 @@ export default function GuidelinesPage() {
             </h2>
             <ol className="mt-4 space-y-4 text-sm leading-6 text-slate-300 list-decimal list-inside">
               <li>
-                <span className="font-medium text-slate-100">เข้าสู่ระบบ</span> — ล็อกอินด้วย Google หรือ Facebook จากหน้า Login
+                <span className="font-medium text-slate-100">เข้าสู่ระบบ</span> — ล็อกอินด้วย Google หรืออีเมล/รหัสผ่านจากหน้า Login
               </li>
               <li>
                 <span className="font-medium text-slate-100">เข้า Workspace</span> — หลังล็อกอินไปที่เมนู &quot;Workspace&quot; หรือหน้าแอปหลัก
