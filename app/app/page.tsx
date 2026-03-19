@@ -565,6 +565,7 @@ function PageContent() {
       setDiagnosisItems(buildDiagnosisItemsFromBlocks(nextBlocks));
       setCaseCount((c) => c + 1);
       void loadUsage();
+      window.dispatchEvent(new Event("usage-updated"));
     } catch (err) {
       console.error(err);
       const isLimitReached =

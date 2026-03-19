@@ -36,7 +36,7 @@ export function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
+  function refreshUsage() {
     if (!session?.user) return;
     fetch("/api/usage")
       .then((r) => r.json())
@@ -51,7 +51,19 @@ export function Header() {
         }
       })
       .catch(() => setUsage(null));
+  }
+
+  useEffect(() => {
+    refreshUsage();
   }, [session?.user]);
+
+  useEffect(() => {
+    function onUsageUpdated() {
+      refreshUsage();
+    }
+    window.addEventListener("usage-updated", onUsageUpdated);
+    return () => window.removeEventListener("usage-updated", onUsageUpdated);
+  });
 
   useEffect(() => {
     if (!menuOpen) return;
