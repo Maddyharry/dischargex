@@ -20,6 +20,7 @@ const ERROR_MESSAGES: Record<string, string> = {
 
 function LoginForm() {
   const rememberedEmailKey = "dischargex_last_login_email";
+  const rememberUserKey = "dischargex_remember_user";
   const router = useRouter();
   const { status } = useSession();
   const searchParams = useSearchParams();
@@ -35,6 +36,7 @@ function LoginForm() {
   const [resendLoading, setResendLoading] = useState(false);
   const [resendMessage, setResendMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [devVerifyUrl, setDevVerifyUrl] = useState<string | null>(null);
+  const [rememberUser, setRememberUser] = useState(true);
 
   useEffect(() => {
     if (status === "authenticated") {
@@ -49,6 +51,11 @@ function LoginForm() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    const savedPref = window.localStorage.getItem(rememberUserKey);
+    if (savedPref === "0") {
+      setRememberUser(false);
+      return;
+    }
     if (emailFromQuery) {
       window.localStorage.setItem(rememberedEmailKey, emailFromQuery);
       return;
@@ -59,6 +66,14 @@ function LoginForm() {
     }
   }, [emailFromQuery]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(rememberUserKey, rememberUser ? "1" : "0");
+    if (!rememberUser) {
+      window.localStorage.removeItem(rememberedEmailKey);
+    }
+  }, [rememberUser]);
+
   if (status === "authenticated") {
     return null;
   }
@@ -68,7 +83,7 @@ function LoginForm() {
     if (!email.trim() || !password) return;
     setLoading(true);
     try {
-      if (typeof window !== "undefined") {
+      if (typeof window !== "undefined" && rememberUser) {
         window.localStorage.setItem(rememberedEmailKey, email.trim());
       }
       const res = await signIn("credentials", {
@@ -190,6 +205,7 @@ function LoginForm() {
             placeholder="อีเมล"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            autoComplete="username"
             className="w-full rounded-xl border border-white/10 bg-slate-800/80 px-4 py-3 text-slate-100 placeholder-slate-500 focus:border-cyan-500 focus:outline-none"
             required
           />
@@ -198,10 +214,20 @@ function LoginForm() {
             placeholder="รหัสผ่าน"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            autoComplete="current-password"
             className="w-full rounded-xl border border-white/10 bg-slate-800/80 px-4 py-3 text-slate-100 placeholder-slate-500 focus:border-cyan-500 focus:outline-none"
             required
           />
-          <div className="flex justify-end">
+          <div className="flex items-center justify-between gap-3">
+            <label className="inline-flex cursor-pointer items-center gap-2 text-xs text-slate-300">
+              <input
+                type="checkbox"
+                checked={rememberUser}
+                onChange={(e) => setRememberUser(e.target.checked)}
+                className="h-4 w-4 rounded border-slate-600 bg-slate-900 text-cyan-500 focus:ring-cyan-500"
+              />
+              บันทึก user (อีเมล)
+            </label>
             <Link href="/forgot-password" className="text-xs text-cyan-400 hover:underline">
               ลืมรหัสผ่าน?
             </Link>

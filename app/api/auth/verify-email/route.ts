@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
 
   const user = await prisma.user.findFirst({
     where: { emailVerifyToken: token },
-    select: { id: true, emailVerified: true },
+    select: { id: true, email: true, emailVerified: true },
   });
 
   if (!user) {
@@ -26,5 +26,6 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  return NextResponse.redirect(new URL("/login?verified=1", req.url));
+  const emailQuery = user.email ? `&email=${encodeURIComponent(user.email)}` : "";
+  return NextResponse.redirect(new URL(`/login?verified=1${emailQuery}`, req.url));
 }
