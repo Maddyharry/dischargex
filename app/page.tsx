@@ -61,6 +61,37 @@ export default function Home() {
         </div>
       </section>
 
+      <section className="mx-auto max-w-6xl px-4 py-10">
+        <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 md:p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-semibold text-white">วิดีโอสอนใช้งานเบื้องต้น</h2>
+              <p className="mt-1 text-sm text-slate-400">
+                ชมภาพรวมการใช้งานจริงก่อนเริ่มทดลอง เพื่อเห็น flow การทำงานตั้งแต่ต้นจนจบ
+              </p>
+            </div>
+            <a
+              href="https://youtu.be/MQeL2-lcriA"
+              target="_blank"
+              rel="noreferrer"
+              className="text-sm text-cyan-300 hover:text-cyan-200 hover:underline"
+            >
+              เปิดใน YouTube
+            </a>
+          </div>
+          <div className="mt-4 overflow-hidden rounded-2xl border border-slate-700/70 bg-slate-950/70">
+            <iframe
+              className="aspect-video w-full"
+              src="https://www.youtube.com/embed/MQeL2-lcriA"
+              title="DischargeX basic usage tutorial"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              referrerPolicy="strict-origin-when-cross-origin"
+              allowFullScreen
+            />
+          </div>
+        </div>
+      </section>
+
       <section className="mx-auto max-w-6xl px-4 py-14">
         <h2 className="text-2xl font-semibold text-white">การทำงาน 3 ขั้นตอน</h2>
         <div className="mt-6 grid gap-4 md:grid-cols-3">

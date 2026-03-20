@@ -20,6 +20,33 @@ export default function GuidelinesPage() {
           กรุณาอ่านก่อนใช้งาน เพื่อความปลอดภัยของผู้ป่วยและความถูกต้องของงาน
         </p>
 
+        <section className="mt-8 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-lg font-semibold text-white">วิดีโอสอนใช้งานเบื้องต้น</h2>
+            <a
+              href="https://youtu.be/MQeL2-lcriA"
+              target="_blank"
+              rel="noreferrer"
+              className="text-sm text-cyan-300 hover:text-cyan-200 hover:underline"
+            >
+              เปิดใน YouTube
+            </a>
+          </div>
+          <p className="mt-2 text-sm text-slate-400">
+            แนะนำให้ดูวิดีโอก่อนเริ่มใช้งานจริง เพื่อเข้าใจขั้นตอนการวางข้อมูลและตรวจทานผลลัพธ์
+          </p>
+          <div className="mt-3 overflow-hidden rounded-xl border border-slate-700/70 bg-slate-950/70">
+            <iframe
+              className="aspect-video w-full"
+              src="https://www.youtube.com/embed/MQeL2-lcriA"
+              title="DischargeX basic usage tutorial"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              referrerPolicy="strict-origin-when-cross-origin"
+              allowFullScreen
+            />
+          </div>
+        </section>
+
         <div className="mt-10 space-y-10">
           {/* การปกปิดความลับผู้ป่วย */}
           <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">

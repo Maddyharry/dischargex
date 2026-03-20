@@ -19,6 +19,7 @@ const ERROR_MESSAGES: Record<string, string> = {
 };
 
 function LoginForm() {
+  const rememberedEmailKey = "dischargex_last_login_email";
   const router = useRouter();
   const { status } = useSession();
   const searchParams = useSearchParams();
@@ -42,8 +43,19 @@ function LoginForm() {
   }, [router, status]);
 
   useEffect(() => {
-    if (emailFromQuery && !email.trim()) {
-      setEmail(emailFromQuery);
+    if (!emailFromQuery) return;
+    setEmail((prev) => (prev.trim() ? prev : emailFromQuery));
+  }, [emailFromQuery]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (emailFromQuery) {
+      window.localStorage.setItem(rememberedEmailKey, emailFromQuery);
+      return;
+    }
+    const remembered = window.localStorage.getItem(rememberedEmailKey) || "";
+    if (remembered) {
+      setEmail((prev) => (prev.trim() ? prev : remembered));
     }
   }, [emailFromQuery]);
 
@@ -56,6 +68,9 @@ function LoginForm() {
     if (!email.trim() || !password) return;
     setLoading(true);
     try {
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(rememberedEmailKey, email.trim());
+      }
       const res = await signIn("credentials", {
         email: email.trim(),
         password,

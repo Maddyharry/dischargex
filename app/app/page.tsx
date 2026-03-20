@@ -64,6 +64,13 @@ type DiagnosisItem = {
   bucket: DiagnosisBucket;
 };
 
+type WorkspacePanelKey =
+  | "quickStart"
+  | "clinicalSignal"
+  | "preprocessSummary"
+  | "warnings"
+  | "diagnosisStudio";
+
 const DEFAULT_BLOCKS: Block[] = [
   { key: "principal_dx", title: "Principal Diagnosis", order: 1 },
   { key: "comorbidity", title: "Comorbidity", order: 2 },
@@ -200,6 +207,14 @@ IV rate 80 ml/hr
 Operation
 - E.C.G.(Electrocardiography)`;
 
+const WORKSPACE_PANEL_DEFAULTS: Record<WorkspacePanelKey, boolean> = {
+  quickStart: true,
+  clinicalSignal: true,
+  preprocessSummary: true,
+  warnings: true,
+  diagnosisStudio: true,
+};
+
 function createEmptyBlocks(): NormalizedBlock[] {
   return DEFAULT_BLOCKS.map((b) => ({
     ...b,
@@ -264,6 +279,8 @@ function PageContent() {
   } | null>(null);
   const [deviceId, setDeviceId] = useState<string | null>(null);
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
+  const [collapsedPanels, setCollapsedPanels] =
+    useState<Record<WorkspacePanelKey, boolean>>(WORKSPACE_PANEL_DEFAULTS);
 
   const recalcTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -272,6 +289,42 @@ function PageContent() {
       if (recalcTimerRef.current) clearTimeout(recalcTimerRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = window.localStorage.getItem("dischargex_workspace_panels");
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as Partial<Record<WorkspacePanelKey, boolean>>;
+      setCollapsedPanels({
+        quickStart:
+          typeof parsed.quickStart === "boolean"
+            ? parsed.quickStart
+            : WORKSPACE_PANEL_DEFAULTS.quickStart,
+        clinicalSignal:
+          typeof parsed.clinicalSignal === "boolean"
+            ? parsed.clinicalSignal
+            : WORKSPACE_PANEL_DEFAULTS.clinicalSignal,
+        preprocessSummary:
+          typeof parsed.preprocessSummary === "boolean"
+            ? parsed.preprocessSummary
+            : WORKSPACE_PANEL_DEFAULTS.preprocessSummary,
+        warnings:
+          typeof parsed.warnings === "boolean" ? parsed.warnings : WORKSPACE_PANEL_DEFAULTS.warnings,
+        diagnosisStudio:
+          typeof parsed.diagnosisStudio === "boolean"
+            ? parsed.diagnosisStudio
+            : WORKSPACE_PANEL_DEFAULTS.diagnosisStudio,
+      });
+    } catch {
+      // ignore corrupted localStorage
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem("dischargex_workspace_panels", JSON.stringify(collapsedPanels));
+  }, [collapsedPanels]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -706,6 +759,10 @@ function PageContent() {
     setError("");
   }
 
+  function togglePanel(key: WorkspacePanelKey) {
+    setCollapsedPanels((prev) => ({ ...prev, [key]: !prev[key] }));
+  }
+
   function handleDiagnosisTextChange(id: string, value: string) {
     const nextItems = normalizeDiagnosisItems(
       diagnosisItems.map((item) => (item.id === id ? { ...item, text: value } : item))
@@ -987,10 +1044,15 @@ function PageContent() {
 
         <section className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
           <div className="space-y-4">
-            <Card title="เริ่มต้นใช้งาน (สำหรับผู้ใช้ใหม่)" subtitle="ทำตาม 3 ขั้นตอนนี้เพื่อเริ่มใช้งานได้ทันที">
+            <CollapsibleCard
+              title="เริ่มต้นใช้งาน (สำหรับผู้ใช้ใหม่)"
+              subtitle="ทำตาม 3 ขั้นตอนนี้เพื่อเริ่มใช้งานได้ทันที"
+              collapsed={collapsedPanels.quickStart}
+              onToggle={() => togglePanel("quickStart")}
+            >
               <ol className="space-y-2 text-sm text-slate-200">
                 <li>1) Copy ข้อมูลทั้งหน้าจากระบบ order sheet แล้ววางในช่อง Clinical Input Workspace</li>
-                <li>2) กดปุ่ม "สร้างสรุป" แล้วรอผลลัพธ์</li>
+                <li>2) กดปุ่ม &quot;สร้างสรุป&quot; แล้วรอผลลัพธ์</li>
                 <li>3) ตรวจทานผลลัพธ์ก่อนคัดลอกไปใช้งานจริง</li>
               </ol>
               <p className="mt-3 text-xs text-slate-400">
@@ -1015,7 +1077,7 @@ function PageContent() {
                   ล้างข้อมูลทั้งหมด
                 </button>
               </div>
-            </Card>
+            </CollapsibleCard>
 
             <Card title="Clinical Input Workspace" subtitle="Paste source data ที่ต้องการให้ AI ช่วยสรุป">
               <ScrollTextarea
@@ -1127,7 +1189,12 @@ function PageContent() {
           </div>
 
           <div className="space-y-4">
-            <Card title="Clinical Signal" subtitle="ภาพรวมความพร้อมของข้อมูล">
+            <CollapsibleCard
+              title="Clinical Signal"
+              subtitle="ภาพรวมความพร้อมของข้อมูล"
+              collapsed={collapsedPanels.clinicalSignal}
+              onToggle={() => togglePanel("clinicalSignal")}
+            >
               <div className="grid gap-3 md:grid-cols-3">
                 <Stat label="LOS Days" value={meta.losDays ?? "-"} />
                 <Stat label="Adj RW (estimate)" value={meta.adjrw ?? "-"} />
@@ -1167,9 +1234,14 @@ function PageContent() {
                   )}
                 </div>
               ) : null}
-            </Card>
+            </CollapsibleCard>
 
-            <Card title="Preprocess Summary" subtitle="สิ่งที่ถูก clean ก่อนส่งเข้า AI">
+            <CollapsibleCard
+              title="Preprocess Summary"
+              subtitle="สิ่งที่ถูก clean ก่อนส่งเข้า AI"
+              collapsed={collapsedPanels.preprocessSummary}
+              onToggle={() => togglePanel("preprocessSummary")}
+            >
               <div className="grid gap-3 md:grid-cols-3">
                 <Stat label="Original chars" value={preprocess.originalChars || "-"} />
                 <Stat label="Cleaned chars" value={preprocess.cleanedChars || "-"} />
@@ -1201,9 +1273,14 @@ function PageContent() {
                   </pre>
                 </details>
               ) : null}
-            </Card>
+            </CollapsibleCard>
 
-            <Card title="Warnings" subtitle="สิ่งที่ควรทวนก่อน copy ไปใช้">
+            <CollapsibleCard
+              title="Warnings"
+              subtitle="สิ่งที่ควรทวนก่อน copy ไปใช้"
+              collapsed={collapsedPanels.warnings}
+              onToggle={() => togglePanel("warnings")}
+            >
               {warnings.length ? (
                 <div className="space-y-2">
                   {warnings.map((w, i) => (
@@ -1218,7 +1295,7 @@ function PageContent() {
               ) : (
                 <div className="text-sm text-slate-500">No warnings</div>
               )}
-            </Card>
+            </CollapsibleCard>
           </div>
         </section>
 
@@ -1231,15 +1308,25 @@ function PageContent() {
               </p>
             </div>
 
+            <button
+              type="button"
+              onClick={() => togglePanel("diagnosisStudio")}
+              className="rounded-xl border border-slate-600 bg-slate-900/70 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-800"
+            >
+              {collapsedPanels.diagnosisStudio ? "ขยาย" : "ย่อ"}
+            </button>
+          </div>
+
+          {!collapsedPanels.diagnosisStudio ? (
+            <>
             <div className="flex flex-wrap gap-2">
               <ActionPill onClick={() => addDiagnosis("principal")} text="+ Principal" />
               <ActionPill onClick={() => addDiagnosis("comorbidity")} text="+ Comorbidity" />
               <ActionPill onClick={() => addDiagnosis("complication")} text="+ Complication" />
               <ActionPill onClick={() => addDiagnosis("other")} text="+ Other" />
             </div>
-          </div>
-
-          <div className="grid gap-4 xl:grid-cols-4">
+          
+          <div className="mt-4 grid gap-4 xl:grid-cols-4">
             <DiagnosisColumn
               title="Principal"
               subtitle="โรคหลักของการ admit"
@@ -1328,6 +1415,8 @@ function PageContent() {
               onRemove={removeDiagnosis}
             />
           </div>
+            </>
+          ) : null}
         </section>
 
         <section className="grid gap-4 xl:grid-cols-2">
@@ -1447,6 +1536,39 @@ function Card({
         {subtitle ? <div className="text-xs text-slate-500">{subtitle}</div> : null}
       </div>
       {children}
+    </div>
+  );
+}
+
+function CollapsibleCard({
+  title,
+  subtitle,
+  collapsed,
+  onToggle,
+  children,
+}: {
+  title: string;
+  subtitle?: string;
+  collapsed: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-4 shadow-2xl shadow-black/20 backdrop-blur">
+      <div className="mb-3 flex items-start justify-between gap-3">
+        <div>
+          <div className="text-sm font-semibold text-slate-100">{title}</div>
+          {subtitle ? <div className="text-xs text-slate-500">{subtitle}</div> : null}
+        </div>
+        <button
+          type="button"
+          onClick={onToggle}
+          className="rounded-xl border border-slate-600 bg-slate-900/70 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-800"
+        >
+          {collapsed ? "ขยาย" : "ย่อ"}
+        </button>
+      </div>
+      {!collapsed ? children : null}
     </div>
   );
 }
