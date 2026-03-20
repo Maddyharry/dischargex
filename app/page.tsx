@@ -53,6 +53,9 @@ export default function Home() {
               <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-slate-200">
                 เหมาะสำหรับแพทย์และทีม coder
               </span>
+              <span className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-3 py-1 text-cyan-200">
+                เหมาะสำหรับหน่วยงานที่ใช้ระบบ IPD paperless
+              </span>
             </div>
           </div>
         </div>
