@@ -103,6 +103,17 @@ const DEFAULT_TEMPLATE_RULES = [
   "ICD-9 ให้ใส่เฉพาะ procedure",
 ].join("\n");
 
+const EXAMPLE_ORDER_SHEET = [
+  "ชายไทยอายุ 72 ปี มาด้วยไข้ ไอมีเสมหะ และเหนื่อย 2 วันก่อนมาโรงพยาบาล",
+  "โรคประจำตัว: เบาหวานชนิดที่ 2, ความดันโลหิตสูง",
+  "แรกรับ: BT 38.2 C, PR 108/min, RR 26/min, SpO2 90% (room air)",
+  "ตรวจร่างกาย: coarse crepitation ที่ปอดขวาส่วนล่าง",
+  "CXR: right lower lung infiltration",
+  "CBC: WBC 14900, neutrophil 84%",
+  "การรักษา: IV ceftriaxone, oxygen cannula, nebulization",
+  "อาการดีขึ้น ไม่มีไข้ก่อนจำหน่าย นัดติดตาม OPD 7 วัน",
+].join("\n");
+
 function createEmptyBlocks(): NormalizedBlock[] {
   return DEFAULT_BLOCKS.map((b) => ({
     ...b,
@@ -137,8 +148,6 @@ function PageContent() {
   const [lab, setLab] = useState("");
   const [radiology, setRadiology] = useState("");
   const [other, setOther] = useState("");
-  const [extraNote, setExtraNote] = useState("");
-  const [templateRules, setTemplateRules] = useState(DEFAULT_TEMPLATE_RULES);
 
   const [blocks, setBlocks] = useState<NormalizedBlock[]>(createEmptyBlocks());
   const [warnings, setWarnings] = useState<string[]>([]);
@@ -160,7 +169,6 @@ function PageContent() {
   const [dragOverKey, setDragOverKey] = useState<string | null>(null);
 
   const [caseCount, setCaseCount] = useState(0);
-  const [fastMode, setFastMode] = useState(false);
   const [usageInfo, setUsageInfo] = useState<{
     plan: string;
     total: number;
@@ -493,8 +501,8 @@ function PageContent() {
             radiology,
             other,
           },
-          extraNote,
-          templateRules,
+          extraNote: "",
+          templateRules: DEFAULT_TEMPLATE_RULES,
           settings: {
             model: "gpt-5.4",
           },
@@ -546,11 +554,10 @@ function PageContent() {
             radiology,
             other,
           },
-          extraNote,
-          templateRules,
+          extraNote: "",
+          templateRules: DEFAULT_TEMPLATE_RULES,
           settings: {
-            model: fastMode ? "gpt-5-mini" : "gpt-5.4",
-            fast: fastMode,
+            model: "gpt-5.4",
           },
         }),
       });
@@ -591,8 +598,6 @@ function PageContent() {
     setLab("");
     setRadiology("");
     setOther("");
-    setExtraNote("");
-    setTemplateRules(DEFAULT_TEMPLATE_RULES);
     setBlocks(createEmptyBlocks());
     setWarnings([]);
     setMeta({
@@ -605,6 +610,14 @@ function PageContent() {
     setDiagnosisItems([]);
     setError("");
     setWorkspaceSnapshot(null);
+  }
+
+  function handleFillExampleCase() {
+    setOrderSheet(EXAMPLE_ORDER_SHEET);
+    setLab("");
+    setRadiology("");
+    setOther("");
+    setError("");
   }
 
   function handleDiagnosisTextChange(id: string, value: string) {
@@ -888,6 +901,33 @@ function PageContent() {
 
         <section className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
           <div className="space-y-4">
+            <Card title="เริ่มต้นใช้งาน (สำหรับผู้ใช้ใหม่)" subtitle="ทำตาม 3 ขั้นตอนนี้เพื่อเริ่มใช้งานได้ทันที">
+              <ol className="space-y-2 text-sm text-slate-200">
+                <li>1) Copy ข้อมูลทั้งหน้าจากระบบ order sheet แล้ววางในช่อง Clinical Input Workspace</li>
+                <li>2) กดปุ่ม "สร้างสรุป" แล้วรอผลลัพธ์</li>
+                <li>3) ตรวจทานผลลัพธ์ก่อนคัดลอกไปใช้งานจริง</li>
+              </ol>
+              <p className="mt-3 text-xs text-slate-400">
+                หมายเหตุ: เหมาะสำหรับหน่วยงานที่ใช้ระบบ IPD paperless (มีข้อมูลข้อความให้ copy ได้)
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={handleFillExampleCase}
+                  className="rounded-xl border border-cyan-500/40 bg-cyan-500/10 px-3 py-2 text-xs font-medium text-cyan-200 hover:bg-cyan-500/20"
+                >
+                  วางตัวอย่างอัตโนมัติ
+                </button>
+                <button
+                  type="button"
+                  onClick={handleNewPatient}
+                  className="rounded-xl border border-slate-700 bg-slate-900/80 px-3 py-2 text-xs font-medium text-slate-200 hover:bg-slate-800"
+                >
+                  ล้างข้อมูลทั้งหมด
+                </button>
+              </div>
+            </Card>
+
             <Card title="Clinical Input Workspace" subtitle="Paste source data ที่ต้องการให้ AI ช่วยสรุป">
               <ScrollTextarea
                 value={orderSheet}
@@ -926,26 +966,6 @@ function PageContent() {
               />
             </Card>
 
-            <div className="grid gap-4 md:grid-cols-2">
-              <Card title="Extra Note" subtitle="Case-specific instruction">
-                <AutoResizeTextarea
-                  value={extraNote}
-                  onChange={(e) => setExtraNote(e.target.value)}
-                  placeholder="Extra instruction for this case..."
-                  className="w-full rounded-2xl border border-slate-700/80 bg-slate-950/80 px-4 py-3 text-sm text-slate-100 outline-none transition focus:border-cyan-500"
-                />
-              </Card>
-
-              <Card title="Template Rules" subtitle="Default rule set">
-                <AutoResizeTextarea
-                  value={templateRules}
-                  onChange={(e) => setTemplateRules(e.target.value)}
-                  placeholder="Template rules..."
-                  className="w-full rounded-2xl border border-slate-700/80 bg-slate-950/80 px-4 py-3 text-sm text-slate-100 outline-none transition focus:border-cyan-500"
-                />
-              </Card>
-            </div>
-
             <div className="flex flex-wrap items-center gap-3">
               <button
                 type="button"
@@ -971,18 +991,6 @@ function PageContent() {
               >
                 {copiedKey === "copy-all" ? "คัดลอกแล้ว" : "คัดลอกทั้งหมด"}
               </button>
-
-              <label className="inline-flex items-center gap-2 rounded-2xl border border-slate-700 bg-slate-900/70 px-3 py-2 text-xs text-slate-200">
-                <input
-                  type="checkbox"
-                  className="h-3 w-3 rounded border-slate-600 bg-slate-900 text-cyan-500"
-                  checked={fastMode}
-                  onChange={(e) => setFastMode(e.target.checked)}
-                />
-                <span title="ใช้แค่ 1 รอบ AI ไม่ทำ compare principal / recalc ICD — ควรเร็วประมาณ 2–3 เท่า">
-                  โหมดเร็ว (1 รอบเดียว เร็วขึ้นมาก)
-                </span>
-              </label>
 
               {usageInfo ? (
                 <span className="text-xs text-slate-400">
