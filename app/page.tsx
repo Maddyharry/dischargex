@@ -9,7 +9,7 @@ export default function Home() {
         <div className="mx-auto max-w-6xl px-4 py-14 md:py-24">
           <div className="mx-auto max-w-4xl text-center">
             <p className="inline-flex rounded-full border border-cyan-500/30 bg-cyan-500/10 px-3 py-1 text-xs font-medium text-cyan-200">
-              Medical Documentation Assistant
+              AI-assisted discharge workflow
             </p>
             <h1 className="mt-4 text-4xl font-bold tracking-tight text-white md:text-6xl">
               Discharge<span className="text-cyan-400">X</span>
