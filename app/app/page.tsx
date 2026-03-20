@@ -103,16 +103,102 @@ const DEFAULT_TEMPLATE_RULES = [
   "ICD-9 ให้ใส่เฉพาะ procedure",
 ].join("\n");
 
-const EXAMPLE_ORDER_SHEET = [
-  "ชายไทยอายุ 72 ปี มาด้วยไข้ ไอมีเสมหะ และเหนื่อย 2 วันก่อนมาโรงพยาบาล",
-  "โรคประจำตัว: เบาหวานชนิดที่ 2, ความดันโลหิตสูง",
-  "แรกรับ: BT 38.2 C, PR 108/min, RR 26/min, SpO2 90% (room air)",
-  "ตรวจร่างกาย: coarse crepitation ที่ปอดขวาส่วนล่าง",
-  "CXR: right lower lung infiltration",
-  "CBC: WBC 14900, neutrophil 84%",
-  "การรักษา: IV ceftriaxone, oxygen cannula, nebulization",
-  "อาการดีขึ้น ไม่มีไข้ก่อนจำหน่าย นัดติดตาม OPD 7 วัน",
-].join("\n");
+const EXAMPLE_ORDER_SHEET = `Sex: Female
+Age: 78 ปี 10 เดือน
+=== ORDER_SHEET ===
+Date Time ORDER FOR ONE DAY CONTINUOUS ORDER
+19/02/69
+10:33
+Other
+- Retain foley's cayth No.14
+19/02/69
+09:45
+Medication
+- Diazepam inj. 10 mg/2ml. Ampule (2 ml.) [STAT]
+ฉีดเข้าเส้นเลือด 1 amp ทันที
+Other
+- on ETT , no.7 Mark 19
+- refer
+- case หญิง 78 ปี U/D HT
+admit รพ.บ้านไร่ 18/2/69
+CC เหนื่อยมากขึ้น 3 วัน
+PI 3 วัน ไข้ ไอเสมหะเยอะ อ่อนเพลีย
+วันนี้เหนื่อยมากขึ้น รักษาคลินิกได้ CXR RLL infiltration จึงมารพ.
+PE not pale, no jx , dyspnea, lung crepitation RLL, fair air entry,
+heart regular, no murmur, abdomen soft, not tender ,
+no pitting edema
+CXR RLL infiltration
+SpO2 84
+Dx pneumonia
+Rx ceftri + Rulid , berodual NB
+เช้านี้ ไอ เหนื่อยมากขึ้น ร้องคราง
+RR 36,accesory muscle use, lung crepitation Rt lung, poor air entry
+SpO2 83 on mask c bag
+on ETT No.7 Mark 19, valium10mg iv ก่อน ETT
+1.Lobar pneumonia RLL with septic shock
+2.AKI
+3.acute respiratory failure
+consult นพ.สุรเดช ให้ refer ได้
+19/02/69 09:45
+S : เหนื่อยมากขึ้น ร้องคราง
+accesory m. use RR 36 , SpO2 83 on mask c bag
+lung crepitation Rt lung , decrease BS
+19/02/69
+07:52
+Medication
+- *Berodual NB 1.25+0.5 mg/4 ml. หลอด (4 ml.)
+พ่นผ่านเครื่องละอองฟอย 1 NB q 4 hr [Locked]
+- NSS [1,000 ml.] 0.9 % ขวด
+IV rate 80 ml/hr
+Examination
+- Lab : Sputum Culture : <Item>
+- Lab : Sputum AFB 1 ครั้ง : <Item>
+x 3 วัน
+- Lab : Gram stain : <Item>
+sputum
+19/02/69 07:52
+S : case U/D HT
+CC เหนื่อยมากขึ้น 3 วัน
+PI 3 วัน ไข้ ไอเสมหะเยอะ อ่อนเพลีย มีไข้
+วันนี้เหนื่อยมากขึ้น รักษาคลินิกได้ CXR พบ ปอดบวม
+O : not pale, no jx , dyspnea, lung crepitation RLL
+no pitting edema
+CXR RLL infiltration
+SpO2 84
+A : Lobar pneumonia RLL with septic shock
+AKI
+P : septic w/u , IV load, IV ATB
+19/02/69
+07:19
+Medication
+- Dexamethasone inj. 4 mg/ml. Ampule (1 ml.) [STAT]
+ฉีดเข้าเส้นเลือดดำ 1 amp/vial [Locked]
+Examination
+- Radiology : Film CXR (PA)
+19/02/69 07:19
+Note : รายงานผู้ป่วยหายใจเหนื่อย RR 28/min retraction หายใจเป่าปาก + urine 100 ml/8hr แพทย์รับทราบ
+18/02/69
+19:24
+Medication
+- NSS [1,000 ml.] 0.9 % ขวด
+500 ml iv load [Locked]
+18/02/69 19:24
+S : ปฏิเสธกินยาชุด ยาสมุนไพร ยาหม้อ
+O : U/S IVC kissing IVC
+try load NSS 500 ml
+18/02/69
+18:40
+Medication
+- *Berodual NB 1.25+0.5 mg/4 ml. หลอด (4 ml.)
+พ่นผ่านเครื่องละอองฟอย 1 NB q 15 min x 2 doses [Locked]
+- *Berodual NB 1.25+0.5 mg/4 ml. หลอด (4 ml.)
+พ่นผ่านเครื่องละอองฟอย 1 NB q 4 hr [Locked]
+- NSS [1,000 ml.] 0.9 % ขวด
+1000 ml iv load [Locked]
+- NSS [1,000 ml.] 0.9 % ขวด
+IV rate 80 ml/hr
+Operation
+- E.C.G.(Electrocardiography)`;
 
 function createEmptyBlocks(): NormalizedBlock[] {
   return DEFAULT_BLOCKS.map((b) => ({
@@ -909,6 +995,9 @@ function PageContent() {
               </ol>
               <p className="mt-3 text-xs text-slate-400">
                 หมายเหตุ: เหมาะสำหรับหน่วยงานที่ใช้ระบบ IPD paperless (มีข้อมูลข้อความให้ copy ได้)
+              </p>
+              <p className="mt-2 text-xs text-cyan-200">
+                เพื่อความปลอดภัย ระบบจะตัดข้อมูลสำคัญของผู้ป่วยออกก่อนนำไปประมวลผล
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 <button
