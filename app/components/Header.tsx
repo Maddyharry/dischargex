@@ -124,6 +124,18 @@ export function Header() {
 
         <nav className="flex min-w-0 flex-1 items-center justify-end gap-1 sm:gap-2">
           <Link
+            href="/about"
+            className="hidden shrink-0 rounded-lg px-2.5 py-2 text-sm text-slate-300 hover:bg-white/5 hover:text-white sm:inline"
+          >
+            About
+          </Link>
+          <Link
+            href="/legal"
+            className="hidden shrink-0 rounded-lg px-2.5 py-2 text-sm text-slate-300 hover:bg-white/5 hover:text-white md:inline"
+          >
+            Reference
+          </Link>
+          <Link
             href="/guidelines"
             className="shrink-0 rounded-lg px-2.5 py-2 text-sm text-slate-300 hover:bg-white/5 hover:text-white"
           >

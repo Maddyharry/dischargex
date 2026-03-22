@@ -1,0 +1,39 @@
+{
+  "id": "hiv_opportunistic",
+  "title": "HIV-Opportunistic Disease Pattern",
+  "activation_hints": [
+    "hiv",
+    "aids",
+    "pcp",
+    "pjp",
+    "pneumocystis",
+    "oral candidiasis",
+    "esophageal candidiasis",
+    "cryptococ",
+    "toxoplasma",
+    "cmv",
+    "tuberculosis",
+    "kaposi",
+    "hiv wasting",
+    "opportunistic"
+  ],
+  "case_graph_roles": [
+    "hiv_disease_framework",
+    "opportunistic_infection",
+    "hiv_associated_malignancy",
+    "nutritional_hematologic_consequence",
+    "unrelated_comorbidity"
+  ],
+  "output_helpers": [
+    "hiv_status_documented",
+    "opportunistic_infections",
+    "hiv_associated_conditions",
+    "unrelated_coincidental_conditions",
+    "linkage_wording_present"
+  ],
+  "reasoning_notes": [
+    "If chart indicates HIV/AIDS context, treat HIV as underlying framework before isolating OI as unrelated principal.",
+    "TB + HIV: do not auto-merge; follow explicit linkage wording in chart.",
+    "Oral candidiasis/anemia/wasting: require documentation support; do not infer from drugs or single lab alone."
+  ]
+}

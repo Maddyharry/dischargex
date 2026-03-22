@@ -1,0 +1,66 @@
+{
+  "do_not_overcall": [
+    {
+      "id": "pulmonary_edema_imaging_only",
+      "concept_hints": ["pulmonary edema", "pulmonary oedema"],
+      "block_if": {
+        "missing_any_of": ["physician assessment of pulmonary edema", "diuretic", "dialysis", "oxygen escalation", "respiratory distress", "desaturation"],
+        "has_only": ["cxr", "infiltration", "congestion", "pleural effusion alone"]
+      },
+      "message_th": "ห้ามใส่ pulmonary edema ถ้ามีแค่ CXR/infiltration/effusion โดยไม่มี clinical support ตามเกณฑ์ที่กำหนด"
+    },
+    {
+      "id": "aki_single_cr",
+      "concept_hints": ["acute kidney injury", "aki"],
+      "block_if": {
+        "missing_any_of": ["baseline creatinine", "trend", "physician assessment acute kidney", "oliguria context"],
+        "has_only": ["single creatinine", "cr elevated once"]
+      },
+      "message_th": "ห้ามใส่ AKI ถ้ามี Cr สูงค่าเดียว โดยไม่มี baseline/trend/assessment"
+    },
+    {
+      "id": "sepsis_antibiotics_only",
+      "concept_hints": ["sepsis", "septic shock"],
+      "block_if": {
+        "missing_any_of": ["sepsis wording", "septic shock wording", "organ dysfunction documentation", "culture positive context", "lactate", "vasopressor"],
+        "has_only": ["broad spectrum antibiotic", "antibiotic"]
+      },
+      "message_th": "ห้ามใส่ sepsis เพราะให้ broad-spectrum antibiotic อย่างเดียว"
+    },
+    {
+      "id": "resp_failure_o2_only",
+      "concept_hints": ["respiratory failure", "acute respiratory failure"],
+      "block_if": {
+        "missing_any_of": ["abg", "ventilation", "bipap", "intubation", "acute hypercapnia", "severe hypoxemia documented", "respiratory failure assessment"],
+        "has_only": ["oxygen", "nasal cannula", "mask"]
+      },
+      "message_th": "ห้ามใส่ respiratory failure เพราะให้ออกซิเจนอย่างเดียว"
+    },
+    {
+      "id": "hiv_linkage",
+      "concept_hints": ["hiv disease resulting", "aids with", "opportunistic infection in hiv"],
+      "block_if": {
+        "missing_any_of": ["explicit linkage wording", "hiv disease", "aids"],
+        "inferred_only": true
+      },
+      "message_th": "ห้ามลง HIV-associated linkage ถ้า chart ไม่ยืนยันความเชื่อมโยง"
+    },
+    {
+      "id": "electrolyte_as_principal",
+      "concept_hints": ["hyperkalemia", "hyponatremia", "hypokalemia", "metabolic acidosis"],
+      "avoid_principal_if": {
+        "stronger_admission_driver_documented": true,
+        "unless_explicit_admission_reason": true
+      },
+      "message_th": "ห้ามยก electrolyte abnormality เป็น principal ถ้าเป็นเพียงผลรองของโรคหลักที่ชัดกว่า เว้นแต่เป็นเหตุ admit จริง"
+    },
+    {
+      "id": "pmh_not_sdx",
+      "concept_hints": ["past medical history", "known case", "underlying disease only"],
+      "block_if": {
+        "no_active_management_this_admission": true
+      },
+      "message_th": "ห้ามใช้ past medical history เป็น SDx ถ้าไม่มี active management ใน admission นี้"
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "id": "cirrhosis_ascites_sbp_encephalopathy",
+  "title": "Cirrhosis-Ascites-SBP-Encephalopathy",
+  "activation_hints": ["cirrhosis", "ascites", "spontaneous bacterial peritonitis", "sbp", "hepatic encephalopathy", "variceal"],
+  "case_graph_roles": ["liver_failure_framework", "portal_hypertension_complication", "infection_in_cirrhosis", "neuro_metabolic"],
+  "reasoning_notes": ["SBP and HE are often complications; principal depends on admission driver documented."]
+}

@@ -1,0 +1,10 @@
+{
+  "id": "sepsis_infection_organ_failure",
+  "title": "Sepsis-Infection-Organ Failure",
+  "activation_hints": ["sepsis", "septic shock", "bacteremia", "pneumonia", "uti", "pyelonephritis", "cholangitis"],
+  "case_graph_roles": ["infection_source", "systemic_response", "organ_dysfunction"],
+  "reasoning_notes": [
+    "Require explicit sepsis/septic shock wording and supporting evidence; antibiotics alone are insufficient.",
+    "Keep likely infection source aligned with principal/sepsis logic per chart."
+  ]
+}

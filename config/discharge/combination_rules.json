@@ -1,0 +1,15 @@
+{
+  "notes": "Prefer combination categories when chart documents linked conditions that map to a valid combination code per Thai ICD-10-TM / ICD-10. LLM proposes; coder validates against index.",
+  "examples": [
+    {
+      "pattern": "hypertensive_heart_and_renal",
+      "trigger_text": ["hypertensive heart", "hypertensive renal", "hypertension with heart failure and renal failure"],
+      "action": "consider_combination_category_before_separate_coding"
+    },
+    {
+      "pattern": "hiv_resulting_in",
+      "trigger_text": ["hiv disease resulting in", "aids with"],
+      "action": "evaluate_B20_B24_linkage_rules"
+    }
+  ]
+}

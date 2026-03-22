@@ -76,15 +76,13 @@ export default function GuidelinesPage() {
             </h2>
             <ul className="mt-4 space-y-3 text-sm leading-6 text-slate-300 list-disc list-inside">
               <li>
-                DischargeX เป็น{" "}
-                <span className="font-medium text-amber-200">AI assistant</span>{" "}
-                เพื่อช่วยสรุปข้อมูลและจัดกลุ่ม diagnosis เท่านั้น{" "}
-                <span className="font-medium text-slate-100">ไม่ใช่เครื่องมือวินิจฉัยหรือตัดสินใจแทนแพทย์</span>
+                DischargeX เป็นเครื่องมือ<span className="font-medium text-amber-200">ช่วยสรุปและทบทวน coding</span>{" "}
+                ไม่ใช่เครื่องมือวินิจฉัยหรือตัดสินใจแทนแพทย์ และไม่ใช่ระบบจัดกลุ่มอย่างเป็นทางการ
               </li>
               <li>
-                ผลลัพธ์ทุกช่อง (รวม Principal, Comorbidity, Complication, ICD-9, Outcome, Follow-up) ต้อง{" "}
-                <span className="font-medium text-amber-200">ได้รับการตรวจสอบซ้ำโดยแพทย์หรือ coder</span>{" "}
-                ก่อนนำไปใช้งานจริงในเวชระเบียนหรือส่งต่อ
+                ผลลัพธ์ทุกช่อง (รวม Principal, Comorbidity, Complication, ICD-9, Outcome, Follow-up) ควร{" "}
+                <span className="font-medium text-amber-200">ทบทวนร่วมกับเวชระเบียนโดยแพทย์หรือผู้ตรวจรหัส</span>{" "}
+                ก่อนนำไปใช้งานจริง
               </li>
               <li>
                 โดยเฉพาะ Principal diagnosis และ ICD ต้องอ้างอิงจากเวชระเบียนจริงเสมอ

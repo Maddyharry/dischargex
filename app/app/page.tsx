@@ -1,9 +1,11 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useFeedbackContext } from "@/app/context/FeedbackContext";
+import { ResultDisclaimer } from "@/app/components/ResultDisclaimer";
+import type { DiagnosisEngineItem, DischargeEnginePayload } from "@/lib/discharge-engine/types";
 
 type Block = {
   key: string;
@@ -47,6 +49,7 @@ type ApiResponse = {
     warnings: string[];
     meta: ResultMeta;
     preprocess: PreprocessSummary;
+    engine?: DischargeEnginePayload | null;
   };
 };
 
@@ -68,8 +71,7 @@ type WorkspacePanelKey =
   | "quickStart"
   | "clinicalSignal"
   | "preprocessSummary"
-  | "warnings"
-  | "diagnosisStudio";
+  | "warnings";
 
 const DEFAULT_BLOCKS: Block[] = [
   { key: "principal_dx", title: "Principal Diagnosis", order: 1 },
@@ -100,14 +102,16 @@ const BASIC_PLAN_LOCKED_KEYS = new Set([
 ]);
 
 const DEFAULT_TEMPLATE_RULES = [
-  "Principal diagnosis ต้องเป็นโรคเดียวที่เหมาะที่สุดและ audit-safe",
-  "Comorbidity ใช้โรคร่วมที่ active หรือมีผลต่อการรักษาใน admit นี้",
-  "Complication ต้องเป็นภาวะที่เกิดใหม่หลัง admit / ระหว่างนอน รพ.",
-  "Other diagnosis ใช้โรคที่มีมาก่อนเข้า รพ. หรือโรคประจำตัว ที่ไม่ได้มีการรักษาโดยตรงในการ admit ครั้งนี้",
+  "Thai coding-first: เลือก principal จากหลักฐานใน chart + เหตุผลทางคลินิก ไม่เลือกเพื่อ RW",
+  "ทุก diagnosis/procedure ที่ลงต้องมี evidence อย่างน้อย 1 จุด (แพทย์บันทึก / lab / imaging / procedure / ยา / discharge plan)",
+  "Principal diagnosis ต้องเป็นโรคเดียว — เหตุหลักของการ admit และการใช้ทรัพยากร",
+  "Comorbidity = โรคร่วมที่มีผลต่อการดูแลใน admit นี้",
+  "Complication = ภาวะใหม่ระหว่าง admit ที่มีการรักษา/ติดตามจริง",
+  "Other diagnosis = ภาวะเดิมที่ไม่มี active management ใน admit นี้ (ไม่ dump โรคเฉียบพลัน)",
   "Diagnosis ใช้ full English term, no abbreviation, no parentheses",
-  "Investigations / Treatment / Home medication ให้เป็น one line และสามารถใช้คำย่อทางการแพทย์หรือ shorthand ยาได้",
-  "Outcome ให้ขึ้นต้น improved, refer, dead, against advice เท่านั้น",
-  "ICD-9 ให้ใส่เฉพาะ procedure",
+  "Investigations / Treatment / Home medication one line; ใช้คำย่อทางการแพทย์ได้",
+  "Outcome ขึ้นต้น improved, refer, dead, against advice เท่านั้น",
+  "ICD-9-CM เฉพาะหัตถการใน admission นี้",
 ].join("\n");
 
 const EXAMPLE_ORDER_SHEET = `Sex: Female
@@ -212,7 +216,6 @@ const WORKSPACE_PANEL_DEFAULTS: Record<WorkspacePanelKey, boolean> = {
   clinicalSignal: true,
   preprocessSummary: true,
   warnings: true,
-  diagnosisStudio: true,
 };
 
 function createEmptyBlocks(): NormalizedBlock[] {
@@ -246,8 +249,6 @@ function PageContent() {
   const searchParams = useSearchParams();
   const { setWorkspaceSnapshot, openFeedbackTo } = useFeedbackContext();
   const [orderSheet, setOrderSheet] = useState("");
-  const [lab, setLab] = useState("");
-  const [radiology, setRadiology] = useState("");
   const [other, setOther] = useState("");
 
   const [blocks, setBlocks] = useState<NormalizedBlock[]>(createEmptyBlocks());
@@ -259,15 +260,15 @@ function PageContent() {
     upgrade: null,
   });
   const [preprocess, setPreprocess] = useState<PreprocessSummary>(emptyPreprocess());
+  const [engine, setEngine] = useState<DischargeEnginePayload | null>(null);
+  const [showDiseaseGraph, setShowDiseaseGraph] = useState(false);
+  const [showWeakSupported, setShowWeakSupported] = useState(false);
 
   const [diagnosisItems, setDiagnosisItems] = useState<DiagnosisItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [recalcLoading, setRecalcLoading] = useState(false);
   const [copiedKey, setCopiedKey] = useState("");
   const [error, setError] = useState("");
-
-  const [draggingId, setDraggingId] = useState<string | null>(null);
-  const [dragOverKey, setDragOverKey] = useState<string | null>(null);
 
   const [caseCount, setCaseCount] = useState(0);
   const [usageInfo, setUsageInfo] = useState<{
@@ -311,10 +312,6 @@ function PageContent() {
             : WORKSPACE_PANEL_DEFAULTS.preprocessSummary,
         warnings:
           typeof parsed.warnings === "boolean" ? parsed.warnings : WORKSPACE_PANEL_DEFAULTS.warnings,
-        diagnosisStudio:
-          typeof parsed.diagnosisStudio === "boolean"
-            ? parsed.diagnosisStudio
-            : WORKSPACE_PANEL_DEFAULTS.diagnosisStudio,
       });
     } catch {
       // ignore corrupted localStorage
@@ -421,26 +418,10 @@ function PageContent() {
       preprocess,
       blocks,
       warnings,
+      engine,
     });
     return () => setWorkspaceSnapshot(null);
-  }, [orderSheet, meta, preprocess, blocks, warnings, setWorkspaceSnapshot]);
-
-  const principalItems = useMemo(
-    () => diagnosisItems.filter((x) => x.bucket === "principal"),
-    [diagnosisItems]
-  );
-  const comorbidityItems = useMemo(
-    () => diagnosisItems.filter((x) => x.bucket === "comorbidity"),
-    [diagnosisItems]
-  );
-  const complicationItems = useMemo(
-    () => diagnosisItems.filter((x) => x.bucket === "complication"),
-    [diagnosisItems]
-  );
-  const otherItems = useMemo(
-    () => diagnosisItems.filter((x) => x.bucket === "other"),
-    [diagnosisItems]
-  );
+  }, [orderSheet, meta, preprocess, blocks, warnings, engine, setWorkspaceSnapshot]);
 
   function normalizeBlocks(input: NormalizedBlock[]) {
     const map = new Map(input.map((b) => [b.key, b]));
@@ -614,7 +595,14 @@ function PageContent() {
               ? maybe.raw
               : null)
           : null;
-      throw new Error(msg || "Request failed");
+      const base = msg || "Request failed";
+      const isTxnLock =
+        /transaction|Unable to start a transaction|maxWait/i.test(base);
+      throw new Error(
+        isTxnLock
+          ? `${base} ลองกดสร้างใหม่อีกครั้งในไม่กี่วินาที (เซิร์ฟเวอร์ยุ่งชั่วคราว)`
+          : base
+      );
     }
 
     return data as ApiResponse;
@@ -636,8 +624,6 @@ function PageContent() {
           currentBlocks: nextBlocks,
           inputs: {
             order_sheet: orderSheet,
-            lab,
-            radiology,
             other,
           },
           extraNote: "",
@@ -655,6 +641,7 @@ function PageContent() {
       setWarnings(parsed.result.warnings || []);
       setMeta(parsed.result.meta);
       setPreprocess(parsed.result.preprocess || emptyPreprocess());
+      setEngine(parsed.result.engine ?? null);
       setDiagnosisItems(buildDiagnosisItemsFromBlocks(refreshedBlocks));
     } catch (err) {
       console.error(err);
@@ -689,8 +676,6 @@ function PageContent() {
           template: { blocks: DEFAULT_BLOCKS },
           inputs: {
             order_sheet: orderSheet,
-            lab,
-            radiology,
             other,
           },
           extraNote: "",
@@ -708,6 +693,7 @@ function PageContent() {
       setWarnings(parsed.result.warnings || []);
       setMeta(parsed.result.meta);
       setPreprocess(parsed.result.preprocess || emptyPreprocess());
+      setEngine(parsed.result.engine ?? null);
       setDiagnosisItems(buildDiagnosisItemsFromBlocks(nextBlocks));
       setCaseCount((c) => c + 1);
       void loadUsage();
@@ -734,8 +720,6 @@ function PageContent() {
 
   function handleNewPatient() {
     setOrderSheet("");
-    setLab("");
-    setRadiology("");
     setOther("");
     setBlocks(createEmptyBlocks());
     setWarnings([]);
@@ -746,6 +730,9 @@ function PageContent() {
       upgrade: null,
     });
     setPreprocess(emptyPreprocess());
+    setEngine(null);
+    setShowDiseaseGraph(false);
+    setShowWeakSupported(false);
     setDiagnosisItems([]);
     setError("");
     setWorkspaceSnapshot(null);
@@ -753,139 +740,12 @@ function PageContent() {
 
   function handleFillExampleCase() {
     setOrderSheet(EXAMPLE_ORDER_SHEET);
-    setLab("");
-    setRadiology("");
     setOther("");
     setError("");
   }
 
   function togglePanel(key: WorkspacePanelKey) {
     setCollapsedPanels((prev) => ({ ...prev, [key]: !prev[key] }));
-  }
-
-  function handleDiagnosisTextChange(id: string, value: string) {
-    const nextItems = normalizeDiagnosisItems(
-      diagnosisItems.map((item) => (item.id === id ? { ...item, text: value } : item))
-    );
-    const nextBlocks = recomputeBlocksFromDiagnosis(blocks, nextItems);
-
-    setDiagnosisItems(nextItems);
-    setBlocks(nextBlocks);
-    scheduleRecalc(nextBlocks, 700);
-  }
-
-  function addDiagnosis(bucket: DiagnosisBucket) {
-    if (bucket === "principal" && diagnosisItems.some((x) => x.bucket === "principal")) {
-      return;
-    }
-
-    const nextItems = normalizeDiagnosisItems([
-      ...diagnosisItems,
-      {
-        id: `${bucket}-${crypto.randomUUID?.() || Date.now()}`,
-        text: "",
-        bucket,
-      },
-    ]);
-
-    const nextBlocks = recomputeBlocksFromDiagnosis(blocks, nextItems);
-    setDiagnosisItems(nextItems);
-    setBlocks(nextBlocks);
-    scheduleRecalc(nextBlocks, 400);
-  }
-
-  function removeDiagnosis(id: string) {
-    const nextItems = diagnosisItems.filter((item) => item.id !== id);
-    const nextBlocks = recomputeBlocksFromDiagnosis(blocks, nextItems);
-
-    setDiagnosisItems(nextItems);
-    setBlocks(nextBlocks);
-    scheduleRecalc(nextBlocks, 400);
-  }
-
-  function handleDragStart(id: string) {
-    setDraggingId(id);
-  }
-
-  function handleDragEnd() {
-    setDraggingId(null);
-    setDragOverKey(null);
-  }
-
-  function moveDiagnosisToBucket(
-    dragId: string,
-    targetBucket: DiagnosisBucket,
-    targetIndex?: number
-  ) {
-    const dragged = diagnosisItems.find((x) => x.id === dragId);
-    if (!dragged) return;
-
-    const sourceBucket = dragged.bucket;
-
-    if (targetBucket === "principal") {
-      const currentPrincipal = diagnosisItems.find(
-        (x) => x.bucket === "principal" && x.id !== dragId
-      );
-
-      let nextItems: DiagnosisItem[];
-
-      if (currentPrincipal) {
-        nextItems = diagnosisItems.map((item) => {
-          if (item.id === dragId) {
-            return { ...item, bucket: "principal" as const };
-          }
-          if (item.id === currentPrincipal.id) {
-            return { ...item, bucket: sourceBucket };
-          }
-          return item;
-        });
-      } else {
-        nextItems = diagnosisItems.map((item) =>
-          item.id === dragId ? { ...item, bucket: "principal" as const } : item
-        );
-      }
-
-      nextItems = normalizeDiagnosisItems(nextItems);
-      const nextBlocks = recomputeBlocksFromDiagnosis(blocks, nextItems);
-
-      setDiagnosisItems(nextItems);
-      setBlocks(nextBlocks);
-      scheduleRecalc(nextBlocks, 250);
-      return;
-    }
-
-    const rest = diagnosisItems.filter((x) => x.id !== dragId);
-    const nonTarget = rest.filter((x) => x.bucket !== targetBucket);
-    const targetItems = rest.filter((x) => x.bucket === targetBucket);
-
-    const moved = { ...dragged, bucket: targetBucket };
-    const insertIndex =
-      typeof targetIndex === "number"
-        ? Math.max(0, Math.min(targetIndex, targetItems.length))
-        : targetItems.length;
-
-    const newTargetItems = [
-      ...targetItems.slice(0, insertIndex),
-      moved,
-      ...targetItems.slice(insertIndex),
-    ];
-
-    const nextItems = normalizeDiagnosisItems([...nonTarget, ...newTargetItems]);
-    const nextBlocks = recomputeBlocksFromDiagnosis(blocks, nextItems);
-
-    setDiagnosisItems(nextItems);
-    setBlocks(nextBlocks);
-    scheduleRecalc(nextBlocks, 250);
-  }
-
-  function getBucketItems(bucket: DiagnosisBucket) {
-    return diagnosisItems.filter((x) => x.bucket === bucket);
-  }
-
-  function getDropIndex(bucket: DiagnosisBucket, targetId?: string) {
-    const items = getBucketItems(bucket);
-    if (!targetId) return items.length;
-    return items.findIndex((x) => x.id === targetId);
   }
 
   async function copyText(key: string, text: string) {
@@ -951,6 +811,11 @@ function PageContent() {
 
   const icd9Items = parseIcd9Items(getBlockValue("icd9"));
 
+  const userPlanId = (session?.user as { plan?: string })?.plan ?? "trial";
+  const showChartCaptureHints =
+    (userPlanId === "trial" || userPlanId.startsWith("pro")) &&
+    !!engine?.chart_capture_hints?.length;
+
   const copyAllText = blocks
     .slice()
     .sort((a, b) => a.order - b.order)
@@ -965,7 +830,34 @@ function PageContent() {
       : "ข้อมูลยังไม่ครบหรือมีความไม่แน่นอนสูง ต้องตรวจซ้ำกับ order sheet และเวชระเบียนอย่างรอบคอบ";
 
   return (
-    <main className="min-h-screen bg-[#081120] text-slate-100">
+    <main className={`min-h-screen bg-[#081120] text-slate-100 ${loading ? "cursor-wait" : ""}`}>
+      {loading ? (
+        <div
+          className="fixed inset-0 z-[100] flex cursor-wait items-center justify-center bg-[#081120]/85 backdrop-blur-md"
+          role="status"
+          aria-live="polite"
+          aria-busy="true"
+        >
+          <div className="mx-4 flex max-w-md flex-col items-center gap-6 rounded-3xl border border-cyan-500/30 bg-gradient-to-b from-slate-900/98 to-slate-950/98 px-8 py-10 text-center shadow-2xl shadow-cyan-950/40">
+            <div
+              className="relative flex h-20 w-20 items-center justify-center"
+              aria-hidden
+            >
+              <div className="absolute h-16 w-16 animate-spin rounded-full border-4 border-cyan-500/15 border-t-cyan-400" />
+              <div className="absolute h-11 w-11 animate-spin rounded-full border-4 border-indigo-500/15 border-b-indigo-400 [animation-direction:reverse] [animation-duration:0.9s]" />
+              <div className="h-2 w-2 animate-pulse rounded-full bg-cyan-300 shadow-[0_0_12px_rgba(34,211,238,0.8)]" />
+            </div>
+            <div>
+              <p className="text-base font-semibold text-white">กำลังสร้างสรุปและจัดโครง coding…</p>
+              <p className="mt-2 text-sm leading-relaxed text-slate-400">
+                ระบบกำลังอ่านข้อความทางคลินิก — โดยปกติใช้เวลาประมาณ 1 นาที
+              </p>
+              <p className="mt-1 text-xs text-slate-500">โปรดอย่าปิดหรือรีเฟรชหน้าจนน์จนกว่าจะเสร็จ</p>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <div className="fixed right-4 top-4 z-50 space-y-2">
         {toasts.map((toast) => (
           <div
@@ -1000,7 +892,7 @@ function PageContent() {
           <div className="grid gap-6 px-6 py-7 lg:grid-cols-[1.2fr_0.8fr] lg:px-8">
             <div className="space-y-4">
               <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-xs font-medium uppercase tracking-[0.18em] text-cyan-300">
-                AI-assisted discharge workflow
+                Discharge summary · coding review
               </div>
 
               <div>
@@ -1008,34 +900,34 @@ function PageContent() {
                   Discharge<span className="text-cyan-400">X</span>
                 </h1>
                 <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300 md:text-base">
-                  ช่วยสรุปชาร์จ จัดกลุ่ม diagnosis ตรวจความสอดคล้องของ field สำคัญ
-                  และลดงาน copy-paste ใน workflow ของแพทย์และ coder
+                  ช่วยสรุป discharge summary, จัดกลุ่มวินิจฉัย, และช่วยประเมินผลต่อการทบทวน coding และ AdjRW แบบประมาณการ
+                  — ลดงานคัดลอกและจัดโครงข้อมูลใน workflow ของทีมแพทย์และผู้ตรวจรหัส
                 </p>
               </div>
 
               <div className="flex flex-wrap gap-2">
-                <FeaturePill text="Drag & Drop Diagnosis" />
+                <FeaturePill text="Diagnosis fields" />
                 <FeaturePill text="Live ICD-10 Recalc" />
-                <FeaturePill text="AdjRW Re-estimate" />
+                <FeaturePill text="AdjRW (estimate)" />
                 <FeaturePill text="Preprocess Summary" />
               </div>
             </div>
 
             <div className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur">
-              <div className="text-sm font-semibold text-white">ข้อจำกัดการใช้งาน</div>
+              <div className="text-sm font-semibold text-white">ข้อควรทราบ</div>
               <div className="mt-3 space-y-2 text-sm leading-6 text-slate-300">
                 <p>
-                  โปรแกรมนี้เป็น <span className="font-semibold text-cyan-300">AI assistant</span>{" "}
-                  เพื่อช่วยสรุปข้อมูลและจัดโครงสร้าง discharge summary เท่านั้น
+                  DischargeX เป็นเครื่องมือช่วยสรุปและ<span className="font-semibold text-cyan-300">ทบทวนการจัดโครง coding</span>{" "}
+                  ไม่ใช่ระบบจัดกลุ่มอย่างเป็นทางการ และไม่รับประกันผลการเบิกจ่าย
                 </p>
                 <p>
-                  ผลลัพธ์ทุกช่องต้องได้รับการ{" "}
-                  <span className="font-semibold text-amber-300">ตรวจสอบซ้ำโดยแพทย์ / coder</span>{" "}
-                  ก่อนนำไปใช้งานจริง
+                  ผลลัพธ์ควรได้รับการ{" "}
+                  <span className="font-semibold text-amber-300">ทบทวนร่วมกับเวชระเบียน</span>{" "}
+                  โดยแพทย์หรือผู้ตรวจรหัสก่อนนำไปใช้งานจริง
                 </p>
                 <p>
-                  โดยเฉพาะ Principal diagnosis, Comorbidity, Complication, ICD-9,
-                  Outcome และ Follow-up ต้องอ้างอิงจากเวชระเบียนจริงเสมอ
+                  Principal diagnosis, Comorbidity, Complication, ICD-9, Outcome และ Follow-up
+                  ต้องสอดคล้องกับข้อมูลในเวชระเบียนต้นฉบับ
                 </p>
               </div>
             </div>
@@ -1051,7 +943,10 @@ function PageContent() {
               onToggle={() => togglePanel("quickStart")}
             >
               <ol className="space-y-2 text-sm text-slate-200">
-                <li>1) Copy ข้อมูลทั้งหน้าจากระบบ order sheet แล้ววางในช่อง Clinical Input Workspace</li>
+                <li>
+                  1) Copy ข้อมูลทั้งหน้าจากระบบ order sheet (รวมบรรทัด lab / รังสีที่อยู่ในหน้านั้น) แล้ววางในช่อง Clinical
+                  Input Workspace
+                </li>
                 <li>2) กดปุ่ม &quot;สร้างสรุป&quot; แล้วรอผลลัพธ์</li>
                 <li>3) ตรวจทานผลลัพธ์ก่อนคัดลอกไปใช้งานจริง</li>
               </ol>
@@ -1079,7 +974,10 @@ function PageContent() {
               </div>
             </CollapsibleCard>
 
-            <Card title="Clinical Input Workspace" subtitle="Paste source data ที่ต้องการให้ AI ช่วยสรุป">
+            <Card
+              title="Clinical Input Workspace"
+              subtitle="Paste หน้า order sheet — รวมผล lab / รังสีที่แสดงในหน้านั้นในช่องเดียวกัน (ระบบไม่แยกช่อง lab)"
+            >
               <ScrollTextarea
                 value={orderSheet}
                 onChange={(e) => setOrderSheet(e.target.value)}
@@ -1087,26 +985,6 @@ function PageContent() {
                 className="h-[340px] w-full rounded-2xl border border-slate-700/80 bg-slate-950/80 px-4 py-3 text-sm text-slate-100 outline-none transition focus:border-cyan-500"
               />
             </Card>
-
-            <div className="grid gap-4 md:grid-cols-2">
-              <Card title="Lab" subtitle="Optional">
-                <AutoResizeTextarea
-                  value={lab}
-                  onChange={(e) => setLab(e.target.value)}
-                  placeholder="Paste lab..."
-                  className="w-full rounded-2xl border border-slate-700/80 bg-slate-950/80 px-4 py-3 text-sm text-slate-100 outline-none transition focus:border-cyan-500"
-                />
-              </Card>
-
-              <Card title="Radiology" subtitle="Optional">
-                <AutoResizeTextarea
-                  value={radiology}
-                  onChange={(e) => setRadiology(e.target.value)}
-                  placeholder="Paste radiology..."
-                  className="w-full rounded-2xl border border-slate-700/80 bg-slate-950/80 px-4 py-3 text-sm text-slate-100 outline-none transition focus:border-cyan-500"
-                />
-              </Card>
-            </div>
 
             <Card title="Other / Extra Clinical Text" subtitle="Optional supporting note">
               <AutoResizeTextarea
@@ -1122,9 +1000,19 @@ function PageContent() {
                 type="button"
                 onClick={handleGenerate}
                 disabled={loading || !orderSheet.trim()}
-                className="rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-cyan-900/30 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex min-w-[148px] items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-cyan-900/30 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {loading ? "กำลังสร้าง..." : "สร้างสรุป"}
+                {loading ? (
+                  <>
+                    <span
+                      className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white"
+                      aria-hidden
+                    />
+                    <span>กำลังสร้าง…</span>
+                  </>
+                ) : (
+                  "สร้างสรุป"
+                )}
               </button>
 
               <button
@@ -1210,14 +1098,18 @@ function PageContent() {
               </div>
 
               {recalcLoading ? (
-                <div className="mt-3 text-xs text-cyan-300">
-                  Recalculating ICD-10 / AdjRW...
+                <div className="mt-3 flex items-center gap-2 text-xs text-cyan-300">
+                  <span
+                    className="inline-block h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-cyan-500/30 border-t-cyan-300"
+                    aria-hidden
+                  />
+                  <span>กำลังคำนวณ ICD-10 / AdjRW ใหม่…</span>
                 </div>
               ) : null}
 
               {meta.adjrw !== null ? (
                 <div className="mt-4 rounded-2xl border border-amber-700/40 bg-amber-950/20 p-4 text-sm text-amber-100">
-                  <div className="font-semibold">คำแนะนำเพิ่มโอกาส Adj RW / Coding</div>
+                  <div className="font-semibold">การจับ documentation / coding ที่อาจเพิ่ม complexity (ประมาณการ)</div>
                   {meta.upgrade ? (
                     <div className="mt-2 space-y-1 text-amber-200/90">
                       <div><b>New principal:</b> {meta.upgrade.new_principal || "-"}</div>
@@ -1232,6 +1124,56 @@ function PageContent() {
                       ยังไม่พบคำแนะนำเพิ่มเติมในเคสนี้ (ผลประเมินปัจจุบันอาจเพียงพอแล้ว)
                     </div>
                   )}
+                </div>
+              ) : null}
+
+              {showChartCaptureHints && engine?.chart_capture_hints ? (
+                <div className="mt-4 border-t border-amber-700/30 pt-4">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-amber-200">
+                    แนะนำเติมข้อความใน order sheet
+                  </div>
+                  <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
+                    ช่วยระบุว่าในข้อความที่วางยังขาดอะไรบ้าง หากต้องการให้การลงรหัสรองรับ diagnosis นั้นได้ชัดขึ้น
+                  </p>
+                  <ul className="mt-3 space-y-4">
+                    {engine.chart_capture_hints.map((h, i) => (
+                      <li
+                        key={i}
+                        className="rounded-xl border border-amber-900/40 bg-amber-950/15 p-3 text-sm text-slate-200"
+                      >
+                        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 font-medium text-amber-100/95">
+                          <span>{h.target_diagnosis_text}</span>
+                          {h.target_icd10 ? (
+                            <span className="text-xs font-normal text-slate-400">
+                              ICD-10 {h.target_icd10}
+                            </span>
+                          ) : null}
+                          {h.tier ? (
+                            <span className="text-[10px] uppercase text-slate-500">{h.tier}</span>
+                          ) : null}
+                        </div>
+                        {h.missing_in_input?.length ? (
+                          <div className="mt-2 text-xs text-slate-400">
+                            <span className="text-slate-500">ในข้อมูลที่วางยังไม่พอ: </span>
+                            {h.missing_in_input.join(" · ")}
+                          </div>
+                        ) : null}
+                        {h.suggested_order_sheet_wording_th ? (
+                          <div className="mt-2 text-xs leading-relaxed text-cyan-100/90">
+                            <span className="text-slate-500">
+                              ตัวอย่างคำที่อาจเพิ่มใน chart (ถ้าเป็นจริงตามเคส):{" "}
+                            </span>
+                            {h.suggested_order_sheet_wording_th}
+                          </div>
+                        ) : null}
+                        {h.suggested_lab_or_imaging?.length ? (
+                          <div className="mt-1 text-xs text-slate-400">
+                            Lab / imaging ที่มักช่วยสนับสนุน: {h.suggested_lab_or_imaging.join(", ")}
+                          </div>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               ) : null}
             </CollapsibleCard>
@@ -1299,125 +1241,109 @@ function PageContent() {
           </div>
         </section>
 
-        <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 backdrop-blur">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h2 className="text-lg font-semibold text-white">Diagnosis Reorder Studio</h2>
-              <p className="text-sm text-slate-400">
-                ลาก diagnosis ไปจัดกลุ่มให้ตรง clinical meaning ของเคส
-              </p>
+        {engine ? (
+          <section className="rounded-3xl border border-cyan-500/20 bg-[#0a1525]/80 p-5 backdrop-blur">
+            <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold text-white">Thai coding pipeline</h2>
+                <p className="text-sm text-slate-400">
+                  สองโซน: สรุปสุดท้าย · Coding
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowDiseaseGraph((v) => !v)}
+                  className="rounded-xl border border-slate-600 bg-slate-900/70 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-800"
+                >
+                  {showDiseaseGraph ? "ซ่อน" : "แสดง"} disease graph
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowWeakSupported((v) => !v)}
+                  className="rounded-xl border border-slate-600 bg-slate-900/70 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-800"
+                >
+                  {showWeakSupported ? "ซ่อน" : "แสดง"} weakly supported dx
+                </button>
+              </div>
             </div>
 
-            <button
-              type="button"
-              onClick={() => togglePanel("diagnosisStudio")}
-              className="rounded-xl border border-slate-600 bg-slate-900/70 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-800"
-            >
-              {collapsedPanels.diagnosisStudio ? "ขยาย" : "ย่อ"}
-            </button>
-          </div>
+            {showDiseaseGraph && engine.case_graph ? (
+              <pre className="mb-4 max-h-64 overflow-auto rounded-2xl border border-slate-700 bg-slate-950/80 p-4 text-xs text-slate-300">
+                {JSON.stringify(engine.case_graph, null, 2)}
+              </pre>
+            ) : null}
 
-          {!collapsedPanels.diagnosisStudio ? (
-            <>
-            <div className="flex flex-wrap gap-2">
-              <ActionPill onClick={() => addDiagnosis("principal")} text="+ Principal" />
-              <ActionPill onClick={() => addDiagnosis("comorbidity")} text="+ Comorbidity" />
-              <ActionPill onClick={() => addDiagnosis("complication")} text="+ Complication" />
-              <ActionPill onClick={() => addDiagnosis("other")} text="+ Other" />
+            <div className="grid gap-4 xl:grid-cols-2">
+              <div className="rounded-2xl border border-white/10 bg-slate-950/50 p-4">
+                <div className="text-xs font-semibold uppercase tracking-wide text-cyan-300">1. Final summary</div>
+                <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-200">
+                  {engine.summary_text?.trim() ||
+                    getBlockValue("final_diag") ||
+                    "—"}
+                </p>
+                {engine.why_this_principal_diagnosis ? (
+                  <details className="mt-3 text-sm text-slate-400">
+                    <summary className="cursor-pointer text-cyan-200/90">Why this principal</summary>
+                    <p className="mt-2 whitespace-pre-wrap text-slate-300">
+                      {engine.why_this_principal_diagnosis}
+                    </p>
+                  </details>
+                ) : null}
+              </div>
+
+              <div className="rounded-2xl border border-white/10 bg-slate-950/50 p-4">
+                <div className="text-xs font-semibold uppercase tracking-wide text-cyan-300">2. Coding panel</div>
+                <div className="mt-2 space-y-2 text-sm text-slate-200">
+                  <div>
+                    <span className="text-slate-500">Principal · </span>
+                    {(() => {
+                      const fromBlock = getBlockValue("principal_dx").trim();
+                      const icdFromBlock = (blocks.find((b) => b.key === "principal_dx")?.icd10 || "").trim();
+                      const text = fromBlock || engine.principal_diagnosis.text || "—";
+                      const icd = icdFromBlock || engine.principal_diagnosis.icd10 || "—";
+                      return (
+                        <>
+                          {text}{" "}
+                          <span className="text-slate-500">(ICD-10 {icd})</span>
+                        </>
+                      );
+                    })()}
+                  </div>
+                  <div className="text-slate-400">
+                    Confidence: {engine.principal_diagnosis.confidence} · Trust:{" "}
+                    {engine.principal_diagnosis.trust_label || "—"}
+                  </div>
+                  <EngineDxList title="Comorbidity" items={engine.comorbidities} showWeak={showWeakSupported} />
+                  <EngineDxList title="Complication" items={engine.complications} showWeak={showWeakSupported} />
+                  <EngineDxList title="Other" items={engine.other_diagnoses} showWeak={showWeakSupported} />
+                  <EngineDxList title="External cause" items={engine.external_causes} showWeak={showWeakSupported} />
+                  {engine.procedures_icd9?.length ? (
+                    <div className="mt-2 border-t border-slate-700/60 pt-2">
+                      <div className="text-xs text-slate-500">ICD-9-CM procedures</div>
+                      <ul className="mt-1 list-inside list-disc text-slate-300">
+                        {engine.procedures_icd9.map((p, i) => (
+                          <li key={i}>{p.text}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
             </div>
-          
-          <div className="mt-4 grid gap-4 xl:grid-cols-4">
-            <DiagnosisColumn
-              title="Principal"
-              subtitle="โรคหลักของการ admit"
-              bucket="principal"
-              items={principalItems}
-              draggingId={draggingId}
-              dragOverKey={dragOverKey}
-              onDragStart={handleDragStart}
-              onDragEnd={handleDragEnd}
-              onDropToColumn={() => draggingId && moveDiagnosisToBucket(draggingId, "principal")}
-              onDropBefore={(targetId) =>
-                draggingId &&
-                moveDiagnosisToBucket(draggingId, "principal", getDropIndex("principal", targetId))
-              }
-              onDragOverColumn={() => setDragOverKey("principal-column")}
-              onDragLeaveColumn={() => setDragOverKey(null)}
-              onDragOverItem={(targetId) => setDragOverKey(`principal-${targetId}`)}
-              onDragLeaveItem={() => setDragOverKey(null)}
-              onChangeText={handleDiagnosisTextChange}
-              onRemove={removeDiagnosis}
-            />
 
-            <DiagnosisColumn
-              title="Comorbidity"
-              subtitle="active / monitored / treated"
-              bucket="comorbidity"
-              items={comorbidityItems}
-              draggingId={draggingId}
-              dragOverKey={dragOverKey}
-              onDragStart={handleDragStart}
-              onDragEnd={handleDragEnd}
-              onDropToColumn={() => draggingId && moveDiagnosisToBucket(draggingId, "comorbidity")}
-              onDropBefore={(targetId) =>
-                draggingId &&
-                moveDiagnosisToBucket(draggingId, "comorbidity", getDropIndex("comorbidity", targetId))
-              }
-              onDragOverColumn={() => setDragOverKey("comorbidity-column")}
-              onDragLeaveColumn={() => setDragOverKey(null)}
-              onDragOverItem={(targetId) => setDragOverKey(`comorbidity-${targetId}`)}
-              onDragLeaveItem={() => setDragOverKey(null)}
-              onChangeText={handleDiagnosisTextChange}
-              onRemove={removeDiagnosis}
-            />
-
-            <DiagnosisColumn
-              title="Complication"
-              subtitle="ภาวะเกิดใหม่ใน รพ."
-              bucket="complication"
-              items={complicationItems}
-              draggingId={draggingId}
-              dragOverKey={dragOverKey}
-              onDragStart={handleDragStart}
-              onDragEnd={handleDragEnd}
-              onDropToColumn={() => draggingId && moveDiagnosisToBucket(draggingId, "complication")}
-              onDropBefore={(targetId) =>
-                draggingId &&
-                moveDiagnosisToBucket(draggingId, "complication", getDropIndex("complication", targetId))
-              }
-              onDragOverColumn={() => setDragOverKey("complication-column")}
-              onDragLeaveColumn={() => setDragOverKey(null)}
-              onDragOverItem={(targetId) => setDragOverKey(`complication-${targetId}`)}
-              onDragLeaveItem={() => setDragOverKey(null)}
-              onChangeText={handleDiagnosisTextChange}
-              onRemove={removeDiagnosis}
-            />
-
-            <DiagnosisColumn
-              title="Other Diagnosis"
-              subtitle="เดิม / ไม่ได้รักษา"
-              bucket="other"
-              items={otherItems}
-              draggingId={draggingId}
-              dragOverKey={dragOverKey}
-              onDragStart={handleDragStart}
-              onDragEnd={handleDragEnd}
-              onDropToColumn={() => draggingId && moveDiagnosisToBucket(draggingId, "other")}
-              onDropBefore={(targetId) =>
-                draggingId &&
-                moveDiagnosisToBucket(draggingId, "other", getDropIndex("other", targetId))
-              }
-              onDragOverColumn={() => setDragOverKey("other-column")}
-              onDragLeaveColumn={() => setDragOverKey(null)}
-              onDragOverItem={(targetId) => setDragOverKey(`other-${targetId}`)}
-              onDragLeaveItem={() => setDragOverKey(null)}
-              onChangeText={handleDiagnosisTextChange}
-              onRemove={removeDiagnosis}
-            />
-          </div>
-            </>
-          ) : null}
-        </section>
+            {engine.coder_notes?.length ? (
+              <div className="mt-4 rounded-2xl border border-slate-700 bg-slate-950/60 p-4 text-sm text-slate-300">
+                <div className="text-xs font-medium text-slate-500">Coder notes</div>
+                <ul className="mt-2 list-inside list-disc">
+                  {engine.coder_notes.map((n, i) => (
+                    <li key={i}>{n}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+          </section>
+        ) : null}
 
         <section className="grid gap-4 xl:grid-cols-2">
           {blocks
@@ -1495,6 +1421,8 @@ function PageContent() {
             );
             })}
         </section>
+
+        <ResultDisclaimer />
       </div>
     </main>
   );
@@ -1505,18 +1433,6 @@ function FeaturePill({ text }: { text: string }) {
     <div className="rounded-full border border-slate-700/70 bg-slate-900/70 px-3 py-1 text-xs text-slate-300">
       {text}
     </div>
-  );
-}
-
-function ActionPill({ text, onClick }: { text: string; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="rounded-2xl border border-slate-700 bg-slate-900/80 px-3 py-2 text-sm text-slate-100 transition hover:bg-slate-800"
-    >
-      {text}
-    </button>
   );
 }
 
@@ -1662,130 +1578,6 @@ function FieldCard({
   );
 }
 
-function DiagnosisColumn({
-  title,
-  subtitle,
-  bucket,
-  items,
-  draggingId,
-  dragOverKey,
-  onDragStart,
-  onDragEnd,
-  onDropToColumn,
-  onDropBefore,
-  onDragOverColumn,
-  onDragLeaveColumn,
-  onDragOverItem,
-  onDragLeaveItem,
-  onChangeText,
-  onRemove,
-}: {
-  title: string;
-  subtitle: string;
-  bucket: DiagnosisBucket;
-  items: DiagnosisItem[];
-  draggingId: string | null;
-  dragOverKey: string | null;
-  onDragStart: (id: string) => void;
-  onDragEnd: () => void;
-  onDropToColumn: () => void;
-  onDropBefore: (targetId: string) => void;
-  onDragOverColumn: () => void;
-  onDragLeaveColumn: () => void;
-  onDragOverItem: (targetId: string) => void;
-  onDragLeaveItem: () => void;
-  onChangeText: (id: string, value: string) => void;
-  onRemove: (id: string) => void;
-}) {
-  const isActive = dragOverKey === `${bucket}-column`;
-
-  return (
-    <div
-      className={`rounded-3xl border p-3 transition ${
-        isActive
-          ? "border-cyan-500/70 bg-cyan-950/20"
-          : "border-slate-700/70 bg-slate-950/60"
-      }`}
-      onDragOver={(e) => {
-        e.preventDefault();
-        onDragOverColumn();
-      }}
-      onDragLeave={onDragLeaveColumn}
-      onDrop={(e) => {
-        e.preventDefault();
-        onDropToColumn();
-        onDragLeaveColumn();
-      }}
-    >
-      <div className="mb-3">
-        <div className="text-sm font-semibold text-slate-100">{title}</div>
-        <div className="text-xs text-slate-500">{subtitle}</div>
-      </div>
-
-      <div className="space-y-2">
-        {items.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-900/70 px-3 py-4 text-sm text-slate-500">
-            Drop diagnosis here
-          </div>
-        ) : null}
-
-        {items.map((item) => {
-          const isDragging = draggingId === item.id;
-          const isOver = dragOverKey === `${bucket}-${item.id}`;
-
-          return (
-            <div key={item.id}>
-              <div
-                className={`mb-2 h-2 rounded-full transition ${
-                  isOver ? "bg-cyan-500/50" : "bg-transparent"
-                }`}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  onDragOverItem(item.id);
-                }}
-                onDragLeave={onDragLeaveItem}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  onDropBefore(item.id);
-                  onDragLeaveItem();
-                }}
-              />
-
-              <div
-                draggable
-                onDragStart={() => onDragStart(item.id)}
-                onDragEnd={onDragEnd}
-                className={`rounded-2xl border border-slate-700/70 bg-[#0d1627] p-3 shadow-lg shadow-black/20 transition ${
-                  isDragging ? "opacity-60" : "opacity-100"
-                }`}
-              >
-                <div className="mb-2 flex items-center justify-between gap-2">
-                  <span className="cursor-grab text-xs text-slate-500">↕ ลาก</span>
-                  <button
-                    type="button"
-                    onClick={() => onRemove(item.id)}
-                    className="rounded-xl border border-slate-700 bg-slate-900/80 px-2 py-1 text-xs text-slate-100 hover:bg-slate-800"
-                  >
-                    ลบ
-                  </button>
-                </div>
-
-                <AutoResizeTextarea
-                  value={item.text}
-                  onChange={(e) => onChangeText(item.id, e.target.value)}
-                  rows={1}
-                  placeholder="Diagnosis..."
-                  className="w-full rounded-2xl border border-slate-700/80 bg-slate-950/80 px-4 py-3 text-sm text-slate-100 outline-none transition focus:border-cyan-500"
-                />
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
 function AutoResizeTextarea(
   props: React.TextareaHTMLAttributes<HTMLTextAreaElement>
 ) {
@@ -1815,5 +1607,40 @@ function ScrollTextarea(
       {...props}
       style={{ resize: "vertical", overflowY: "auto" }}
     />
+  );
+}
+
+function EngineDxList({
+  title,
+  items,
+  showWeak,
+}: {
+  title: string;
+  items: DiagnosisEngineItem[];
+  showWeak: boolean;
+}) {
+  const filtered = showWeak
+    ? items
+    : items.filter(
+        (x) =>
+          x.confidence !== "suggest_if_documented" &&
+          x.trust_label !== "weak_support" &&
+          x.trust_label !== "missing_documentation"
+      );
+  if (!filtered.length) return null;
+  return (
+    <div className="mt-1">
+      <div className="text-xs text-slate-500">{title}</div>
+      <ul className="mt-1 list-inside list-disc text-slate-300">
+        {filtered.map((x, i) => (
+          <li key={i}>
+            {x.text}{" "}
+            <span className="text-slate-600">
+              ({x.icd10 || "—"}) · {x.confidence}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }

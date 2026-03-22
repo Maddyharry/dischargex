@@ -8,6 +8,7 @@ export type WorkspaceSnapshot = {
   preprocess?: unknown;
   blocks?: unknown;
   warnings?: string[];
+  engine?: unknown;
 };
 
 export type FeedbackOpenTab = "chat" | "report" | null;

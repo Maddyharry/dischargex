@@ -12,23 +12,26 @@ export async function grantBonusCredits(params: {
   createdBy?: string | null;
 }) {
   if (!params.userId || params.amount <= 0) return;
-  await prisma.$transaction(async (tx: PrismaTx) => {
-    await tx.user.update({
-      where: { id: params.userId },
-      data: { extraCredits: { increment: params.amount } },
-    });
-    await tx.creditLedger.create({
-      data: {
-        userId: params.userId,
-        sourceType: params.sourceType,
-        sourceId: params.sourceId ?? null,
-        amount: params.amount,
-        direction: "plus",
-        note: params.note ?? null,
-        createdBy: params.createdBy ?? null,
-      },
-    });
-  });
+  await prisma.$transaction(
+    async (tx: PrismaTx) => {
+      await tx.user.update({
+        where: { id: params.userId },
+        data: { extraCredits: { increment: params.amount } },
+      });
+      await tx.creditLedger.create({
+        data: {
+          userId: params.userId,
+          sourceType: params.sourceType,
+          sourceId: params.sourceId ?? null,
+          amount: params.amount,
+          direction: "plus",
+          note: params.note ?? null,
+          createdBy: params.createdBy ?? null,
+        },
+      });
+    },
+    { maxWait: 15_000, timeout: 30_000 }
+  );
 }
 
 export async function revokeBonusCredits(params: {
@@ -40,26 +43,29 @@ export async function revokeBonusCredits(params: {
   createdBy?: string | null;
 }) {
   if (!params.userId || params.amount <= 0) return;
-  await prisma.$transaction(async (tx: PrismaTx) => {
-    const updated = await tx.user.updateMany({
-      where: { id: params.userId, extraCredits: { gte: params.amount } },
-      data: { extraCredits: { decrement: params.amount } },
-    });
-    if (updated.count === 0) {
-      throw new Error("เครดิตคงเหลือไม่พอสำหรับการ revoke");
-    }
-    await tx.creditLedger.create({
-      data: {
-        userId: params.userId,
-        sourceType: params.sourceType ?? "revoke",
-        sourceId: params.sourceId ?? null,
-        amount: params.amount,
-        direction: "minus",
-        note: params.note ?? null,
-        createdBy: params.createdBy ?? null,
-      },
-    });
-  });
+  await prisma.$transaction(
+    async (tx: PrismaTx) => {
+      const updated = await tx.user.updateMany({
+        where: { id: params.userId, extraCredits: { gte: params.amount } },
+        data: { extraCredits: { decrement: params.amount } },
+      });
+      if (updated.count === 0) {
+        throw new Error("เครดิตคงเหลือไม่พอสำหรับการ revoke");
+      }
+      await tx.creditLedger.create({
+        data: {
+          userId: params.userId,
+          sourceType: params.sourceType ?? "revoke",
+          sourceId: params.sourceId ?? null,
+          amount: params.amount,
+          direction: "minus",
+          note: params.note ?? null,
+          createdBy: params.createdBy ?? null,
+        },
+      });
+    },
+    { maxWait: 15_000, timeout: 30_000 }
+  );
 }
 
 export async function ensureUserReferralCode(userId: string) {

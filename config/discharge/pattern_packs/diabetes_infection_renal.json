@@ -1,0 +1,7 @@
+{
+  "id": "diabetes_infection_renal",
+  "title": "Diabetes-Infection-Renal",
+  "activation_hints": ["diabetes", "dm", "dka", "hhs", "diabetic foot", "cellulitis"],
+  "case_graph_roles": ["glycemic_emergency", "infection_focus", "renal_microvascular"],
+  "reasoning_notes": ["If infection drives admission, principal selection should reflect infection vs diabetes complication per documentation."]
+}

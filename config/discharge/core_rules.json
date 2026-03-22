@@ -1,0 +1,48 @@
+{
+  "rule_priority": [
+    "thai_coding_standard",
+    "explicit_physician_documentation",
+    "objective_evidence",
+    "llm_inference"
+  ],
+  "product_copy": {
+    "allowed_phrases_th": [
+      "ช่วยสรุปและจัดโครง coding ตามแนวทางมาตรฐาน",
+      "ช่วยค้นหา diagnosis/procedure ที่อาจตกหล่น",
+      "ช่วยประเมินผลต่อ AdjRW แบบประมาณการ",
+      "แพทย์/ผู้ตรวจรหัสควรทบทวนก่อนใช้งานจริง"
+    ],
+    "forbidden_phrases": [
+      "คำนวณ AdjRW ได้แน่นอน",
+      "รับประกันเบิกผ่าน",
+      "แทน coder ได้ 100%"
+    ]
+  },
+  "unacceptable_principal_icd10_prefixes": [
+    "Z03",
+    "Z08",
+    "Z09",
+    "Z54"
+  ],
+  "unacceptable_principal_text_hints": [
+    "observation",
+    "ruled out",
+    "convalescence",
+    "follow-up after",
+    "Z03",
+    "Z08",
+    "Z09",
+    "Z54"
+  ],
+  "status_categories_require_explicit_documentation": {
+    "Z03": "Observation / suspected condition evaluation",
+    "Z08": "Follow-up after malignant neoplasm treatment",
+    "Z09": "Follow-up after non-malignant condition treatment",
+    "Z54": "Convalescence"
+  },
+  "dagger_asterisk_note": "When ICD-10 dual coding applies (dagger/asterisk), validate paired codes per Thai ICD-10-TM tables; do not output incomplete pairs as final.",
+  "complex_case_fallback": {
+    "enabled": true,
+    "top_principal_candidates_limit": 3
+  }
+}

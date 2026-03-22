@@ -1,0 +1,18 @@
+{
+  "id": "organ_failure_overlay",
+  "title": "Organ Failure Overlay",
+  "activation_hints": [
+    "respiratory failure",
+    "renal failure",
+    "heart failure",
+    "shock",
+    "encephalopathy",
+    "hepatic encephalopathy",
+    "septic shock"
+  ],
+  "overlays_any_case": true,
+  "reasoning_notes": [
+    "Organ failure must not be added because patient looks sick alone; require objective support + clinical wording + active management.",
+    "If consequence of primary disease, assign role principal vs complication vs active secondary diagnosis per chart timing and resource use."
+  ]
+}

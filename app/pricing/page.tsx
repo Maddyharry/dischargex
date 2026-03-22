@@ -203,11 +203,23 @@ function PricingPageContent() {
 
         <section className="rounded-2xl border border-white/5 bg-white/[0.02] p-6 md:p-8">
           <h1 className="text-3xl font-semibold tracking-tight text-white md:text-4xl">
-            ลดเวลาการสรุปชาร์จของแพทย์ — ครบถ้วน ใช้ได้จริง
+            เลือกแพ็กเกจตามปริมาณงาน
           </h1>
           <p className="mt-3 max-w-2xl text-sm text-slate-400 md:text-base">
             1 เครดิต = 1 เคส (รองรับเคสทั่วไป) · เคสยาวมากอาจใช้มากกว่า 1 เครดิต
           </p>
+
+          <div className="mt-8 rounded-2xl border border-cyan-500/20 bg-cyan-950/15 p-5 md:p-6">
+            <h2 className="text-lg font-semibold text-cyan-100">มากกว่าการสรุปข้อความ</h2>
+            <p className="mt-3 text-sm leading-relaxed text-slate-300">
+              ทุกแพ็กเกจช่วยให้คุณสรุปเคสได้เร็วขึ้น พร้อมตัวช่วยค้นหา diagnosis/procedure ที่อาจตกหล่น
+              และแสดงจุดที่ควรทบทวนก่อนนำไปใช้จริง
+            </p>
+            <p className="mt-2 text-xs leading-relaxed text-slate-500">
+              หมายเหตุ: DischargeX เป็นเครื่องมือช่วยทบทวนและประเมินเชิงสนับสนุน ไม่ใช่การรับรองผลการเบิกจ่าย
+              และควรมีผู้ใช้งานตรวจสอบข้อมูลก่อนเสมอ
+            </p>
+          </div>
 
           <div className="mt-6 flex flex-wrap items-center gap-3">
             <span className="text-xs font-medium text-slate-400">มุมมองราคา</span>
@@ -319,6 +331,7 @@ function PricingPageContent() {
               <ul className="mt-4 space-y-2 text-sm text-slate-100">
                 <li>- ทุกอย่างใน Standard</li>
                 <li>- วิเคราะห์เชิงลึกมากขึ้นสำหรับเคสซับซ้อน</li>
+                <li>- แนะนำเติมข้อความใน order sheet (รวมผล lab/รังสีในหน้า) เพื่อรองรับรหัส (AdjRW ประมาณการ ไม่รับประกันการเบิกจ่าย)</li>
                 <li>- คำแนะนำเชิงกลยุทธ์เพื่อปรับปรุง coding</li>
                 <li>- ช่วยลดการตกหล่นของ coding</li>
                 <li>- Case history / Export text</li>
@@ -380,7 +393,9 @@ function PricingPageContent() {
                   <td className={`px-4 py-3 ${selectedPlanTier === "pro" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>✓</td>
                 </tr>
                 <tr>
-                  <td className="px-4 py-3">คำแนะนำเพิ่มโอกาส Adj RW / Coding</td>
+                  <td className="px-4 py-3">
+                    แนะนำเติมข้อความใน order sheet (รวมผล lab/รังสีในหน้า) เพื่อรองรับรหัส (AdjRW ประมาณการ)
+                  </td>
                   <td className={`px-4 py-3 ${selectedPlanTier === "basic" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>-</td>
                   <td className={`px-4 py-3 ${selectedPlanTier === "standard" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>-</td>
                   <td className={`px-4 py-3 ${selectedPlanTier === "pro" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>✓</td>
@@ -396,6 +411,8 @@ function PricingPageContent() {
           </div>
           <p className="mt-2 text-xs text-slate-500">
             เครดิตฐานรีเฟรชเป็นรอบ 30 วัน และโบนัสเครดิตอยู่ในกลุ่มเครดิตเสริมตามเงื่อนไขระบบ
+            <br />
+            ทดลองใช้ (Trial) รวมฟีเจอร์ &quot;แนะนำเติม chart / AdjRW ประมาณการ&quot; เช่นเดียวกับ Pro ในขอบเขตที่ระบบกำหนด
           </p>
         </section>
 

@@ -4,10 +4,12 @@ import { Providers } from "./providers";
 import { Header } from "./components/Header";
 import { FeedbackProvider } from "./context/FeedbackContext";
 import { FeedbackWidget } from "./components/FeedbackWidget";
+import { SiteFooter } from "./components/SiteFooter";
 
 export const metadata: Metadata = {
   title: "DischargeX",
-  description: "Discharge summary workspace",
+  description:
+    "ช่วยสรุป discharge summary และทบทวนการจัดโครง coding — อ้างอิงหลักการจากเอกสารที่เผยแพร่สาธารณะ ไม่ใช่ระบบจัดกลุ่มอย่างเป็นทางการ",
 };
 
 export default function RootLayout({
@@ -20,6 +22,7 @@ export default function RootLayout({
           <FeedbackProvider>
             <Header />
             {children}
+            <SiteFooter />
             <FeedbackWidget />
           </FeedbackProvider>
         </Providers>

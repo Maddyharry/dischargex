@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { THAI_PROVINCES, validateBirthDateBE, validateThaiPhone } from "@/lib/thai-input";
+import { LAST_REVIEWED_DATE, REFERENCE_SET_NAME } from "@/lib/reference-info";
 
 type UserInfo = {
   id: string;
@@ -325,6 +326,18 @@ export default function ProfilePage() {
             ← กลับไป Workspace
           </Link>
         </header>
+
+        <section className="rounded-3xl border border-white/10 bg-slate-950/50 p-6">
+          <h2 className="text-lg font-semibold text-white">ชุดอ้างอิง (reference set)</h2>
+          <p className="mt-2 break-words text-xs leading-relaxed text-slate-400">{REFERENCE_SET_NAME}</p>
+          <p className="mt-2 text-xs text-slate-500">Last reviewed: {LAST_REVIEWED_DATE}</p>
+          <p className="mt-3 text-sm text-slate-400">
+            รายละเอียดทางกฎหมายและการอ้างอิง:{" "}
+            <Link href="/legal" className="text-cyan-400 hover:underline">
+              Reference &amp; Legal Notice
+            </Link>
+          </p>
+        </section>
 
         {error ? (
           <div className="rounded-2xl border border-red-900/60 bg-red-950/40 px-4 py-3 text-sm text-red-200">

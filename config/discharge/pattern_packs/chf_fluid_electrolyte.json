@@ -1,0 +1,7 @@
+{
+  "id": "chf_fluid_electrolyte",
+  "title": "CHF-Fluid-Electrolyte",
+  "activation_hints": ["heart failure", "chf", "nyha", "pleural effusion", "hyponatremia", "volume overload", "diuretic"],
+  "case_graph_roles": ["cardiac_decompensation", "fluid_electrolyte_complication", "renal_cardio_interaction"],
+  "reasoning_notes": ["Separate chronic HF from acute decompensation drivers documented in this admission."]
+}

@@ -1,72 +1,133 @@
 import Link from "next/link";
 
+const heroFeatures = [
+  "ลดเวลาการสรุปชาร์จต่อเคส",
+  "ช่วยลดการพิมพ์ตกหล่นของข้อมูลสำคัญ",
+  "ช่วยเสนอ ICD ที่เหมาะสมตามข้อมูลในเวชระเบียน",
+  "ช่วยเตือนจุดที่ควรทบทวนก่อนใช้งานจริง",
+] as const;
+
 export default function Home() {
   return (
     <main className="min-h-screen bg-[#081120] text-slate-100">
-      <section className="relative overflow-hidden border-b border-white/5 bg-gradient-to-b from-slate-900/50 via-[#0a1628] to-transparent">
-        <div className="pointer-events-none absolute -top-20 right-0 h-72 w-72 rounded-full bg-cyan-500/10 blur-3xl" />
-        <div className="pointer-events-none absolute bottom-0 left-0 h-64 w-64 rounded-full bg-emerald-500/10 blur-3xl" />
-        <div className="mx-auto max-w-6xl px-4 py-14 md:py-24">
+      <section className="relative overflow-hidden border-b border-white/5 bg-gradient-to-b from-slate-900/60 via-[#0a1628] to-[#081120]">
+        <div className="pointer-events-none absolute -top-24 right-[-10%] h-[28rem] w-[28rem] rounded-full bg-cyan-500/[0.12] blur-3xl" />
+        <div className="pointer-events-none absolute bottom-[-20%] left-[-5%] h-80 w-80 rounded-full bg-blue-600/[0.08] blur-3xl" />
+        <div className="pointer-events-none absolute top-1/2 left-1/2 h-96 w-96 -translate-x-1/2 -translate-y-1/2 rounded-full bg-emerald-500/[0.04] blur-3xl" />
+        <div className="relative mx-auto max-w-6xl px-4 py-16 md:py-28">
           <div className="mx-auto max-w-4xl text-center">
-            <p className="inline-flex rounded-full border border-cyan-500/30 bg-cyan-500/10 px-3 py-1 text-xs font-medium text-cyan-200">
+            <p className="inline-flex rounded-full border border-cyan-500/35 bg-gradient-to-r from-cyan-500/15 to-emerald-500/10 px-4 py-1.5 text-xs font-semibold tracking-wide text-cyan-100/95 shadow-sm shadow-cyan-900/20">
               AI-assisted discharge workflow
             </p>
-            <h1 className="mt-4 text-4xl font-bold tracking-tight text-white md:text-6xl">
-              Discharge<span className="text-cyan-400">X</span>
+
+            <h1 className="mt-8 sm:mt-10">
+              <span className="block text-5xl font-semibold tracking-tight text-white sm:text-6xl md:text-7xl lg:text-8xl">
+                Discharge<span className="text-cyan-400">X</span>
+              </span>
+              <span className="mt-4 block text-balance text-xl font-semibold leading-snug text-slate-100 sm:text-2xl md:text-3xl md:leading-tight">
+                สรุปชาร์จไวขึ้น
+                <span className="text-slate-400"> · </span>
+                จัดโครง coding เป็นระบบมากขึ้น
+              </span>
             </h1>
-            <h2 className="mx-auto mt-5 max-w-4xl text-3xl font-semibold tracking-tight text-white md:text-5xl md:leading-tight">
-              ลดเวลาในการสรุปชาร์จ
-              <span className="hidden md:inline"> </span>
-              <br className="hidden md:block" />
-              พร้อมช่วยให้ข้อมูลสำคัญครบถ้วนยิ่งขึ้น
-            </h2>
-            <p className="mx-auto mt-5 max-w-3xl text-sm leading-7 text-slate-300 md:text-base">
-              ระบบช่วยจัดเรียงและสรุปข้อมูลผู้ป่วยอย่างเป็นระบบ ลดความเสี่ยงจากการพิมพ์ตกหล่น
-              ช่วยค้นหา ICD-10 ที่เหมาะสม และสนับสนุนการสรุปชาร์จได้ภายในเวลาไม่ถึง 1 นาทีต่อเคส
+
+            <p className="mx-auto mt-6 max-w-2xl text-pretty text-base leading-relaxed text-slate-300/95 md:text-lg md:leading-relaxed">
+              ช่วยสรุป discharge summary จัดกลุ่มวินิจฉัย ค้นหา diagnosis และ procedure ที่อาจตกหล่น
+              และช่วยประเมินผลต่อการ coding review กับ AdjRW แบบประมาณการ
             </p>
-            <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+
+            <ul className="mx-auto mt-10 grid max-w-3xl gap-3 text-left sm:grid-cols-2 sm:gap-4">
+              {heroFeatures.map((line) => (
+                <li
+                  key={line}
+                  className="flex gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.03] px-4 py-3 text-sm leading-snug text-slate-200 shadow-sm shadow-black/20 backdrop-blur-sm transition hover:border-cyan-500/20 hover:bg-white/[0.05]"
+                >
+                  <span
+                    className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-cyan-500/20 text-xs font-bold text-cyan-300"
+                    aria-hidden
+                  >
+                    ✓
+                  </span>
+                  <span>{line}</span>
+                </li>
+              ))}
+            </ul>
+
+            <p className="mx-auto mt-8 max-w-2xl text-pretty text-sm leading-relaxed text-slate-500 md:text-[0.95rem]">
+              พัฒนาตามหลักการจาก ICD-10, Thai DRG และแนวทาง coding ที่เกี่ยวข้อง
+              เพื่อใช้เป็นเครื่องมือช่วยทบทวนการสรุปและการจัดโครง coding
+            </p>
+
+            <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
               <Link
                 href="/signup"
-                className="rounded-2xl bg-cyan-500 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-cyan-900/30 hover:bg-cyan-600"
+                className="inline-flex min-w-[160px] items-center justify-center rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 px-7 py-3.5 text-sm font-semibold text-white shadow-lg shadow-cyan-900/40 transition hover:brightness-110"
               >
-                ทดลองใช้ฟรี
+                เริ่มทดลองใช้งาน
               </Link>
               <Link
                 href="/guidelines"
-                className="rounded-2xl border border-slate-600 bg-slate-800/80 px-6 py-3 text-sm font-medium text-slate-200 hover:bg-slate-700"
+                className="rounded-2xl border border-slate-600/90 bg-slate-900/60 px-6 py-3.5 text-sm font-medium text-slate-100 backdrop-blur-sm transition hover:border-slate-500 hover:bg-slate-800/80"
               >
-                ดูวิธีใช้งาน
+                ดูวิธีทำงาน
+              </Link>
+              <Link
+                href="#example-output"
+                className="rounded-2xl border border-slate-600/90 bg-slate-900/60 px-6 py-3.5 text-sm font-medium text-slate-100 backdrop-blur-sm transition hover:border-slate-500 hover:bg-slate-800/80"
+              >
+                ดูตัวอย่างผลลัพธ์
               </Link>
             </div>
-            <div className="mt-4">
-              <Link href="/pricing" className="text-sm text-cyan-300 hover:text-cyan-200 hover:underline">
+
+            <div className="mt-8 flex flex-wrap items-center justify-center gap-2.5 text-xs font-medium">
+              <span className="rounded-full border border-white/10 bg-white/[0.05] px-4 py-1.5 text-slate-200">
+                ทดลองใช้ 10 เครดิต / 7 วัน
+              </span>
+              <span className="rounded-full border border-white/10 bg-white/[0.05] px-4 py-1.5 text-slate-200">
+                เหมาะกับงาน IPD ที่มีข้อความให้คัดลอก
+              </span>
+            </div>
+
+            <div className="mt-5">
+              <Link
+                href="/pricing"
+                className="text-sm font-medium text-cyan-300/95 underline-offset-4 transition hover:text-cyan-200 hover:underline"
+              >
                 ดูแพ็กเกจและราคา
               </Link>
-            </div>
-            <div className="mt-6 flex flex-wrap items-center justify-center gap-2 text-xs">
-              <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-slate-200">
-                เฉลี่ย &lt; 1 นาทีต่อเคส
-              </span>
-              <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-slate-200">
-                ทดลองใช้ฟรี 10 เครดิต / 7 วัน
-              </span>
-              <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-slate-200">
-                เหมาะสำหรับแพทย์และทีม coder
-              </span>
-              <span className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-3 py-1 text-cyan-200">
-                เหมาะสำหรับหน่วยงานที่ใช้ระบบ IPD paperless
-              </span>
             </div>
           </div>
         </div>
       </section>
 
-      <section className="mx-auto max-w-6xl px-4 py-10">
-        <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 md:p-6">
-          <div className="flex flex-wrap items-center justify-between gap-3">
+      <section className="mx-auto max-w-6xl px-4 py-14 md:py-20">
+        <div className="relative overflow-hidden rounded-3xl border border-white/[0.08] bg-gradient-to-br from-white/[0.06] via-white/[0.02] to-transparent p-8 md:p-10">
+          <div className="pointer-events-none absolute -right-20 top-0 h-48 w-48 rounded-full bg-cyan-500/10 blur-2xl" />
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-400/90">ทำไมต้องใช้</p>
+          <h2 className="mt-2 text-2xl font-bold tracking-tight text-white md:text-3xl">
+            ออกแบบมาเพื่อช่วยงานจริง
+            <span className="text-slate-400"> — </span>
+            ไม่ใช่แค่สรุปข้อความ
+          </h2>
+          <div className="mt-6 space-y-4 text-pretty border-l-2 border-cyan-500/30 pl-5 md:pl-6">
+            <p className="max-w-3xl text-base leading-relaxed text-slate-200 md:text-lg">
+              ระบบไม่ได้พยายามเขียนสรุปให้สวยอย่างเดียว แต่ช่วยดึงข้อมูลจาก chart แยกบทบาทโรค ชี้ diagnosis และ procedure
+              ที่อาจตกหล่น และแสดงจุดที่ควรตรวจซ้ำก่อนนำไปใช้จริง
+            </p>
+            <p className="max-w-3xl text-sm leading-relaxed text-slate-400 md:text-base">
+              ผลลัพธ์ทุกเคสควรถูกใช้เป็นเครื่องมือช่วยตัดสินใจ โดยแพทย์หรือผู้ตรวจรหัสควรทบทวนร่วมกับข้อมูลในเวชระเบียนก่อนเสมอ
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-6xl px-4 py-6 md:py-8">
+        <div className="rounded-3xl border border-white/[0.08] bg-slate-950/40 p-6 md:p-8">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <h2 className="text-xl font-semibold text-white">วิดีโอสอนใช้งานเบื้องต้น</h2>
-              <p className="mt-1 text-sm text-slate-400">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-400/90">เรียนรู้เร็ว</p>
+              <h2 className="mt-1 text-xl font-bold text-white md:text-2xl">วิดีโอสอนใช้งานเบื้องต้น</h2>
+              <p className="mt-2 max-w-xl text-sm leading-relaxed text-slate-400">
                 ชมภาพรวมการใช้งานจริงก่อนเริ่มทดลอง เพื่อเห็น flow การทำงานตั้งแต่ต้นจนจบ
               </p>
             </div>
@@ -74,12 +135,12 @@ export default function Home() {
               href="https://youtu.be/MQeL2-lcriA"
               target="_blank"
               rel="noreferrer"
-              className="text-sm text-cyan-300 hover:text-cyan-200 hover:underline"
+              className="inline-flex shrink-0 items-center justify-center rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-4 py-2 text-sm font-medium text-cyan-200 transition hover:border-cyan-400/50 hover:bg-cyan-500/15"
             >
               เปิดใน YouTube
             </a>
           </div>
-          <div className="mt-4 overflow-hidden rounded-2xl border border-slate-700/70 bg-slate-950/70">
+          <div className="mt-6 overflow-hidden rounded-2xl border border-slate-700/60 bg-slate-950/80 shadow-[0_0_0_1px_rgba(255,255,255,0.04)]">
             <iframe
               className="aspect-video w-full"
               src="https://www.youtube.com/embed/MQeL2-lcriA"
@@ -92,64 +153,53 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-6xl px-4 py-14">
-        <h2 className="text-2xl font-semibold text-white">การทำงาน 3 ขั้นตอน</h2>
-        <div className="mt-6 grid gap-4 md:grid-cols-3">
-          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-            <p className="text-xs font-medium text-cyan-300">STEP 1</p>
-            <h3 className="mt-2 text-base font-semibold text-white">วางข้อมูลผู้ป่วย</h3>
-            <p className="mt-2 text-sm leading-6 text-slate-300">
-              นำข้อมูลจากเวชระเบียนหรือบันทึกการรักษาเข้าสู่ระบบในช่องที่กำหนด
-            </p>
-          </div>
-          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-            <p className="text-xs font-medium text-cyan-300">STEP 2</p>
-            <h3 className="mt-2 text-base font-semibold text-white">ระบบช่วยสรุปและจัดโครงสร้างข้อมูล</h3>
-            <p className="mt-2 text-sm leading-6 text-slate-300">
-              จัดเรียงข้อมูลสำคัญ พร้อมข้อเสนอแนะ ICD-10 เพื่อช่วยในการทบทวน
-            </p>
-          </div>
-          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-            <p className="text-xs font-medium text-cyan-300">STEP 3</p>
-            <h3 className="mt-2 text-base font-semibold text-white">คัดลอกผลลัพธ์ไปใช้งานต่อ</h3>
-            <p className="mt-2 text-sm leading-6 text-slate-300">
-              ตรวจสอบความถูกต้องโดยแพทย์/ผู้รับผิดชอบ ก่อนนำไปใช้ในกระบวนการจริง
-            </p>
-          </div>
+      <section className="mx-auto max-w-6xl px-4 py-14 md:py-16">
+        <div className="text-center md:text-left">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-400/90">ขั้นตอนง่ายๆ</p>
+          <h2 className="mt-2 text-2xl font-bold tracking-tight text-white md:text-3xl">การทำงาน 3 ขั้นตอน</h2>
+        </div>
+        <div className="mt-8 grid gap-5 md:grid-cols-3 md:gap-6">
+          {[
+            {
+              step: "1",
+              title: "วางข้อมูลจากเวชระเบียน",
+              body: "นำข้อความจาก order sheet หรือบันทึกที่เกี่ยวข้องเข้าสู่ช่องที่กำหนด",
+            },
+            {
+              step: "2",
+              title: "ช่วยสรุปและจัดโครง",
+              body: "จัดลำดับหัวข้อสำคัญ และเสนอ ICD เพื่อช่วยทบทวนร่วมกับ chart",
+            },
+            {
+              step: "3",
+              title: "ทบทวนแล้วคัดลอกไปใช้",
+              body: "ตรวจความถูกต้องโดยแพทย์หรือผู้รับผิดชอบก่อนนำไปใช้ใน workflow จริง",
+            },
+          ].map((item) => (
+            <div
+              key={item.step}
+              className="relative rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.05] to-transparent p-6 transition hover:border-cyan-500/25 hover:shadow-lg hover:shadow-cyan-950/30"
+            >
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-500/15 text-sm font-bold text-cyan-300 ring-1 ring-cyan-500/25">
+                {item.step}
+              </div>
+              <h3 className="mt-4 text-lg font-semibold text-white">{item.title}</h3>
+              <p className="mt-2 text-sm leading-relaxed text-slate-400">{item.body}</p>
+            </div>
+          ))}
         </div>
       </section>
 
-      <section className="mx-auto max-w-6xl px-4 pb-14">
-        <h2 className="text-2xl font-semibold text-white">คุณค่าหลักของระบบ</h2>
-        <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <article className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-            <h3 className="text-base font-semibold text-white">ลดเวลาในการสรุปชาร์จ</h3>
-            <p className="mt-2 text-sm text-slate-300">ช่วยลดภาระงานเอกสาร และเพิ่มความคล่องตัวในการทำงานรายวัน</p>
-          </article>
-          <article className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-            <h3 className="text-base font-semibold text-white">ลดความเสี่ยงข้อมูลตกหล่น</h3>
-            <p className="mt-2 text-sm text-slate-300">ช่วยจัดลำดับหัวข้อสำคัญให้ครบถ้วนและสม่ำเสมอมากขึ้น</p>
-          </article>
-          <article className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-            <h3 className="text-base font-semibold text-white">ช่วยค้นหา ICD-10 ที่เหมาะสม</h3>
-            <p className="mt-2 text-sm text-slate-300">สนับสนุนการพิจารณารหัสวินิจฉัยจากข้อมูลที่ป้อนเข้าสู่ระบบ</p>
-          </article>
-          <article className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-            <h3 className="text-base font-semibold text-white">ใช้งานได้จริงในงานประจำ</h3>
-            <p className="mt-2 text-sm text-slate-300">ออกแบบเพื่อบริบทงานทางการแพทย์ที่ต้องการทั้งความเร็วและความชัดเจน</p>
-          </article>
-        </div>
-      </section>
-
-      <section className="mx-auto max-w-6xl px-4 pb-14">
-        <h2 className="text-2xl font-semibold text-white">ตัวอย่าง Input → Output</h2>
-        <p className="mt-2 max-w-3xl text-sm text-slate-400">
-          แสดงแนวทางการแปลงข้อมูลที่กระจัดกระจาย ให้เป็นสรุปที่อ่านง่ายและนำไปใช้งานต่อได้สะดวกขึ้น
+      <section id="example-output" className="mx-auto max-w-6xl scroll-mt-24 px-4 pb-14 md:pb-20">
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-400/90">ทดลองดู</p>
+        <h2 className="mt-2 text-2xl font-bold tracking-tight text-white md:text-3xl">ตัวอย่าง Input → Output</h2>
+        <p className="mt-3 max-w-3xl text-sm leading-relaxed text-slate-400 md:text-base">
+          ตัวอย่างเชิงแนวคิด — ผลจริงขึ้นกับข้อมูลที่วางและการทบทวนของผู้ใช้งาน
         </p>
-        <div className="mt-6 grid gap-4 md:grid-cols-2">
-          <div className="rounded-2xl border border-slate-700 bg-slate-900/70 p-5">
-            <p className="text-xs font-medium text-slate-400">Input (ตัวอย่าง)</p>
-            <p className="mt-2 text-sm leading-7 text-slate-300">
+        <div className="mt-8 grid gap-5 md:grid-cols-2 md:gap-6">
+          <div className="rounded-2xl border border-slate-700/80 bg-slate-900/80 p-6 shadow-inner shadow-black/20">
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Input (ตัวอย่าง)</p>
+            <p className="mt-4 text-sm leading-7 text-slate-300">
               ผู้ป่วยชายอายุ 72 ปี มาด้วยไข้ ไอมีเสมหะ และเหนื่อย 2 วันก่อนมาโรงพยาบาล
               <br />
               โรคประจำตัว: เบาหวานชนิดที่ 2 และความดันโลหิตสูง
@@ -163,9 +213,9 @@ export default function Home() {
               ได้รับการรักษาด้วย IV ceftriaxone, oxygen cannula และ nebulization อาการดีขึ้นตามลำดับ
             </p>
           </div>
-          <div className="rounded-2xl border border-cyan-500/20 bg-cyan-950/20 p-5">
-            <p className="text-xs font-medium text-cyan-300">Output (ตัวอย่าง)</p>
-            <p className="mt-2 text-sm leading-7 text-slate-200">
+          <div className="rounded-2xl border border-cyan-500/30 bg-gradient-to-br from-cyan-950/40 to-slate-900/80 p-6 shadow-lg shadow-cyan-950/20">
+            <p className="text-xs font-semibold uppercase tracking-wider text-cyan-400/90">Output (ตัวอย่าง)</p>
+            <p className="mt-4 text-sm leading-7 text-slate-200">
               Principal diagnosis: Pneumonia
               <br />
               Comorbidities: Type 2 diabetes mellitus, Hypertension
@@ -189,37 +239,50 @@ export default function Home() {
       </section>
 
       <section className="border-t border-white/5">
-        <div className="mx-auto max-w-6xl px-4 py-14">
-          <div className="rounded-3xl border border-cyan-500/20 bg-cyan-950/20 p-6 md:p-8">
-            <h2 className="text-2xl font-semibold text-white">เริ่มใช้งานได้ทันที พร้อมทดลองใช้ฟรี</h2>
-            <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-300 md:text-base">
-              ทดลองใช้ฟรี 10 เครดิต ภายใน 7 วัน เพื่อประเมินความเหมาะสมกับการใช้งานในหน่วยงาน
-              หลังจากนั้นสามารถเลือกแพ็กเกจตามปริมาณงานได้ทันที
+        <div className="mx-auto max-w-6xl px-4 py-14 md:py-16">
+          <div className="relative overflow-hidden rounded-3xl border border-cyan-500/25 bg-gradient-to-br from-cyan-950/50 via-slate-900/50 to-slate-950 p-8 md:p-10">
+            <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-cyan-400/10 blur-3xl" />
+            <h2 className="relative text-2xl font-bold text-white md:text-3xl">เริ่มทดลองใช้งาน</h2>
+            <p className="relative mt-4 max-w-2xl text-pretty text-base leading-relaxed text-slate-300 md:text-lg">
+              ทดลองใช้ 10 เครดิต ภายใน 7 วัน เพื่อประเมินว่าเหมาะกับ workflow ของคุณหรือไม่
+              หลังจากนั้นเลือกแพ็กเกจตามปริมาณงานได้
             </p>
-            <div className="mt-6 flex flex-wrap gap-3">
+            <div className="relative mt-8 flex flex-wrap gap-3">
               <Link
                 href="/signup"
-                className="rounded-2xl bg-cyan-500 px-6 py-3 text-sm font-semibold text-white hover:bg-cyan-600"
+                className="inline-flex min-w-[160px] items-center justify-center rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 px-7 py-3.5 text-sm font-semibold text-white shadow-lg shadow-cyan-900/40 transition hover:brightness-110"
               >
-                เริ่มทดลองใช้ฟรี
+                เริ่มทดลองใช้งาน
               </Link>
               <Link
                 href="/pricing"
-                className="rounded-2xl border border-slate-600 bg-slate-800/80 px-6 py-3 text-sm font-medium text-slate-200 hover:bg-slate-700"
+                className="rounded-2xl border border-slate-600/90 bg-slate-900/70 px-6 py-3.5 text-sm font-medium text-slate-100 backdrop-blur-sm transition hover:border-slate-500 hover:bg-slate-800/80"
               >
                 ดูแพ็กเกจและราคา
               </Link>
             </div>
           </div>
-          <p className="mt-5 text-xs text-slate-500">
-            DischargeX เป็นเครื่องมือช่วยจัดระบบข้อมูลทางคลินิก ผู้ใช้งานต้องตรวจสอบความถูกต้องของข้อมูลและรหัสวินิจฉัยก่อนนำไปใช้จริงทุกครั้ง
+          <p className="mx-auto mt-6 max-w-3xl text-center text-xs leading-relaxed text-slate-500 md:text-sm">
+            ผลลัพธ์เป็นเครื่องมือช่วยทบทวน ไม่ใช่ผลจัดกลุ่มหรือการเบิกจ่ายอย่างเป็นทางการ — โปรดทบทวนกับเวชระเบียนก่อนใช้งานจริง
           </p>
         </div>
       </section>
 
-      <div className="mx-auto max-w-6xl px-4 pb-12 text-center">
-        <Link href="/guidelines" className="text-sm text-cyan-400 hover:underline">
-          แนวทางการใช้งานและข้อจำกัดสำหรับงานทางการแพทย์
+      <div className="mx-auto max-w-6xl px-4 pb-14 text-center">
+        <Link
+          href="/guidelines"
+          className="text-sm font-medium text-cyan-400/95 underline-offset-4 transition hover:text-cyan-300 hover:underline"
+        >
+          แนวทางการใช้งานและข้อควรทราบ
+        </Link>
+        <span className="mx-2 text-slate-600" aria-hidden>
+          ·
+        </span>
+        <Link
+          href="/legal"
+          className="text-sm font-medium text-cyan-400/95 underline-offset-4 transition hover:text-cyan-300 hover:underline"
+        >
+          Reference &amp; Legal Notice
         </Link>
       </div>
     </main>

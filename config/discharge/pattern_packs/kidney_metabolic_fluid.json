@@ -1,0 +1,37 @@
+{
+  "id": "kidney_metabolic_fluid",
+  "title": "Kidney-Metabolic-Fluid Pattern",
+  "activation_hints": [
+    "ckd",
+    "chronic kidney",
+    "aki",
+    "acute kidney",
+    "fluid overload",
+    "pulmonary edema",
+    "hyperkalemia",
+    "hyponatremia",
+    "metabolic acidosis",
+    "uremia",
+    "dialysis",
+    "hemodialysis",
+    "crrt",
+    "oliguria"
+  ],
+  "case_graph_roles": [
+    "underlying_renal_disease",
+    "acute_decompensation",
+    "metabolic_consequence",
+    "volume_consequence"
+  ],
+  "output_helpers": [
+    "renal_pattern_type",
+    "fluid_status",
+    "electrolyte_active_list",
+    "renal_support_level"
+  ],
+  "reasoning_notes": [
+    "Separate underlying renal disease vs acute decompensation vs metabolic/volume consequences before ICD mapping.",
+    "Pulmonary edema must not be inferred from CXR congestion alone; require physician assessment and/or treatment escalation context.",
+    "Electrolyte abnormalities: confirmed_from_chart only with lab and/or physician assessment plus active management/monitoring."
+  ]
+}

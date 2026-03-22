@@ -1,0 +1,7 @@
+{
+  "id": "malignancy_infection_anemia_palliative",
+  "title": "Malignancy-Infection-Anemia-Palliative",
+  "activation_hints": ["malignancy", "cancer", "chemotherapy", "neutropenic fever", "anemia", "palliative"],
+  "case_graph_roles": ["oncologic_diagnosis", "treatment_complication", "supportive_care_focus"],
+  "reasoning_notes": ["Principal vs complication depends on whether admission is for cancer treatment, infection, or supportive care per chart."]
+}

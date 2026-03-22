@@ -25,6 +25,12 @@ export default function AdminUsersPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [adjustingId, setAdjustingId] = useState<string | null>(null);
   const [edits, setEdits] = useState<Record<string, { plan: string; role: string }>>({});
+  /** ลบ user ต้องยืนยัน 2 ขั้นใน modal (ไม่ใช้ window.confirm — บางเบราว์เซอร์ไม่โชว์ชัด) */
+  const [deleteModal, setDeleteModal] = useState<{
+    userId: string;
+    label: string;
+    step: 1 | 2;
+  } | null>(null);
 
   async function loadUsers() {
     setLoading(true);
@@ -98,10 +104,11 @@ export default function AdminUsersPage() {
     }
   }
 
-  async function deleteUser(userId: string, emailLabel: string) {
-    if (!confirm(`ต้องการลบผู้ใช้ "${emailLabel}" อย่างถาวรหรือไม่?\nการดำเนินการนี้ไม่สามารถย้อนกลับได้`)) {
-      return;
-    }
+  function openDeleteModal(userId: string, label: string) {
+    setDeleteModal({ userId, label, step: 1 });
+  }
+
+  async function runDeleteUser(userId: string) {
     setDeletingId(userId);
     setError(null);
     try {
@@ -120,6 +127,7 @@ export default function AdminUsersPage() {
         delete next[userId];
         return next;
       });
+      setDeleteModal(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "ลบผู้ใช้ไม่สำเร็จ");
     } finally {
@@ -309,7 +317,7 @@ export default function AdminUsersPage() {
                           <button
                             type="button"
                             disabled={deletingId === u.id}
-                            onClick={() => deleteUser(u.id, u.email || u.name || u.id)}
+                            onClick={() => openDeleteModal(u.id, u.email || u.name || u.id)}
                             className="rounded-2xl border border-red-800 bg-red-950/50 px-3 py-1.5 text-xs font-medium text-red-300 hover:bg-red-900/50 disabled:opacity-50"
                           >
                             {deletingId === u.id ? "กำลังลบ..." : "ลบ"}
@@ -324,6 +332,67 @@ export default function AdminUsersPage() {
           </div>
         )}
       </div>
+
+      {deleteModal ? (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-modal-title"
+          onClick={() => setDeleteModal(null)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl border border-slate-600 bg-slate-900 p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 id="delete-modal-title" className="text-lg font-semibold text-white">
+              {deleteModal.step === 1 ? "ยืนยันการลบ (ขั้นที่ 1/2)" : "ยืนยันครั้งสุดท้าย (ขั้นที่ 2/2)"}
+            </h2>
+            <p className="mt-3 text-sm leading-relaxed text-slate-300">
+              {deleteModal.step === 1 ? (
+                <>
+                  จะลบผู้ใช้{" "}
+                  <span className="font-mono font-medium text-cyan-200">{deleteModal.label}</span>{" "}
+                  อย่างถาวร — ไม่สามารถกู้คืนได้
+                </>
+              ) : (
+                <>
+                  กด &quot;ลบถาวร&quot; เพื่อลบบัญชี{" "}
+                  <span className="font-mono font-medium text-cyan-200">{deleteModal.label}</span>{" "}
+                  จริงๆ หากกดผิด ให้กดยกเลิก
+                </>
+              )}
+            </p>
+            <div className="mt-6 flex flex-wrap justify-end gap-2">
+              <button
+                type="button"
+                className="rounded-xl border border-slate-600 bg-slate-800 px-4 py-2 text-sm font-medium text-slate-200 hover:bg-slate-700"
+                onClick={() => setDeleteModal(null)}
+              >
+                ยกเลิก
+              </button>
+              {deleteModal.step === 1 ? (
+                <button
+                  type="button"
+                  className="rounded-xl border border-amber-700 bg-amber-950/60 px-4 py-2 text-sm font-semibold text-amber-100 hover:bg-amber-900/50"
+                  onClick={() => setDeleteModal((m) => (m ? { ...m, step: 2 } : null))}
+                >
+                  ถัดไป — ยืนยัน
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  disabled={deletingId === deleteModal.userId}
+                  className="rounded-xl border border-red-700 bg-red-950/50 px-4 py-2 text-sm font-semibold text-red-200 hover:bg-red-900/50 disabled:opacity-50"
+                  onClick={() => void runDeleteUser(deleteModal.userId)}
+                >
+                  {deletingId === deleteModal.userId ? "กำลังลบ..." : "ลบถาวร"}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }

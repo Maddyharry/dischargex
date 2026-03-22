@@ -1,0 +1,7 @@
+{
+  "id": "stroke_aspiration_pneumonia_uti",
+  "title": "Stroke-Aspiration-Pneumonia-UTI",
+  "activation_hints": ["stroke", "cva", "aspiration", "pneumonia", "uti", "dysphagia"],
+  "case_graph_roles": ["acute_neurologic_event", "pulmonary_complication", "infectious_complication"],
+  "reasoning_notes": ["Principal should reflect main reason for hospitalization; aspiration pneumonia vs stroke sequelae per chart."]
+}

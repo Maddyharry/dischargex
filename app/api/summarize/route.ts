@@ -12,6 +12,26 @@ import {
   planRank,
 } from "@/lib/billing-rules";
 import { markReferralFirstUsage } from "@/lib/referral";
+import { summarizeRulesForPrompt } from "@/lib/discharge-engine/rules";
+import { REFERENCE_SET_NAME } from "@/lib/reference-info";
+import { detectLinkageInText } from "@/lib/discharge-engine/linkage";
+import {
+  mergeEngineAuditWarnings,
+  validatePrincipalAndEngine,
+} from "@/lib/discharge-engine/validators";
+import {
+  alignPrincipalEngineToPrincipalBlock,
+  mergePartialEngine,
+  synthesizeEngineFromBlocks,
+  type NormalizedBlock as EngineNormalizedBlock,
+} from "@/lib/discharge-engine/normalize-engine";
+import type {
+  CaseGraph,
+  ConceptNode,
+  DischargeEnginePayload,
+  ExtractionLayer,
+  LinkageEdge,
+} from "@/lib/discharge-engine/types";
 
 export const runtime = "nodejs";
 
@@ -57,6 +77,7 @@ type ReqBody = {
   mode?: "generate" | "recalc";
   template: { blocks: Block[] };
   currentBlocks?: NormalizedBlock[];
+  /** lab/radiology in body are ignored — evidence comes from order_sheet paste only */
   inputs: { order_sheet?: string; lab?: string; radiology?: string; other?: string };
   extraNote?: string;
   templateRules?: string;
@@ -82,6 +103,12 @@ type GenerateModelOutput = {
     best_principal_clinical?: string;
     best_principal_adjrw_safe?: string;
   };
+  extraction?: Record<string, unknown>;
+  case_graph?: Record<string, unknown>;
+  concepts?: unknown[];
+  linkage?: unknown[];
+  classification?: Record<string, unknown>;
+  engine?: Partial<DischargeEnginePayload>;
   blocks?: Array<{
     key?: string;
     title?: string;
@@ -101,27 +128,6 @@ type GenerateModelOutput = {
       reason_th?: string;
     } | null;
   };
-};
-
-type CandidateCompareOutput = {
-  candidate_scores?: Array<{
-    principal?: string;
-    expected_adjrw?: number | string;
-    audit_safe?: boolean;
-    evidence_strength?: string;
-    why?: string;
-  }>;
-  best_principal?: string;
-  best_expected_adjrw?: number | string;
-  best_reason_th?: string;
-  blocks?: Array<{
-    key?: string;
-    title?: string;
-    order?: number;
-    content?: string;
-    icd10?: string;
-  }>;
-  warnings?: string[];
 };
 
 function json(data: unknown, status = 200) {
@@ -792,26 +798,6 @@ function computeDiagnosisConfidence(blocks: NormalizedBlock[], warnings: string[
   return "Low";
 }
 
-function collectPrincipalCandidates(
-  out: GenerateModelOutput,
-  normalized: NormalizedBlock[]
-) {
-  const rawCandidates = [
-    ...(out.analysis?.principal_candidates || []),
-    out.analysis?.best_principal_clinical || "",
-    out.analysis?.best_principal_adjrw_safe || "",
-    normalized.find((b) => b.key === "principal_dx")?.content || "",
-  ];
-
-  const clean = rawCandidates
-    .flatMap((x) => String(x || "").split(","))
-    .map((x) => x.trim())
-    .filter(Boolean);
-
-  const unique = Array.from(new Set(clean));
-  return unique.slice(0, 6);
-}
-
 function mergeModelBlocksOntoBase(
   base: NormalizedBlock[],
   modelBlocks:
@@ -857,20 +843,21 @@ async function runRecalcPass(params: {
   const { openai, model, clinical, blocks, admit, discharge, losDays } = params;
 
   const system = [
-    "You are DischargeX, an AI assistant for discharge summary and DRG-oriented coding support in Thai hospitals.",
+    "You are DischargeX (Thai coding-first, LLM-assisted).",
     "Return ONLY JSON. No markdown. No extra explanation outside JSON.",
     "RECALC MODE:",
     "Use CURRENT BLOCKS as the source of truth for diagnosis grouping.",
     "Do NOT move diagnoses between principal/comorbidity/complication/other unless content is impossible or clearly contradictory.",
     "Preserve block content as much as possible.",
-    "Your main job is to update ICD-10 code mapping per block, keep or improve ICD-9 procedure content when supported, warnings, and meta.adjrw_estimate / meta.upgrade.",
-    "Principal diagnosis must be ONE disease.",
+    "Your main job is to update ICD-10 / ICD-10-TM mapping per block, keep or improve ICD-9-CM procedure lines when supported, warnings, and meta.adjrw_estimate / meta.upgrade.",
+    "Never choose or revise principal diagnosis to maximize RW/AdjRW without chart evidence.",
+    "Principal diagnosis must be ONE disease with documentation support.",
     "Diagnosis fields must be full English terms. No abbreviations. No parentheses.",
     "Investigations, Treatment, and Home medication may use standard medical abbreviations, common drug shorthand, and concise workflow-friendly wording.",
-    "ICD-9 must contain procedures ONLY.",
+    "ICD-9 must contain procedures ONLY (in-hospital procedures for this admission).",
     "Outcome must start with one of only: improved, refer, dead, against advice.",
-    "AdjRW is an estimate only.",
-    "Propose only ONE best upgrade suggestion, only if projected increase > 0.2 and still audit-safe. Otherwise upgrade must be null.",
+    "AdjRW / meta.upgrade are ESTIMATES only — not grouper output, not a payment guarantee.",
+    "If meta.upgrade is non-null, it must describe documentation/coding capture opportunities supported by chart text, not 'pick higher RW'. Otherwise upgrade must be null.",
   ].join("\n");
 
   const user = [
@@ -909,61 +896,6 @@ async function runRecalcPass(params: {
   ].join("\n\n");
 
   return callModelJSON<GenerateModelOutput>(openai, model, system, user);
-}
-
-async function runCandidateCompare(params: {
-  openai: OpenAI;
-  model: string;
-  clinical: string;
-  blocks: NormalizedBlock[];
-  candidates: string[];
-  admit: string | null;
-  discharge: string | null;
-  losDays: number | null;
-}) {
-  const { openai, model, clinical, blocks, candidates, admit, discharge, losDays } = params;
-
-  const system = [
-    "You are DischargeX principal selector.",
-    "Return ONLY JSON. No markdown. No extra explanation outside JSON.",
-    "Compare clinically supportable principal diagnosis candidates for the SAME case.",
-    "Goal: choose the candidate with the HIGHEST EXPECTED AdjRW, as long as it remains clinically supportable and audit-safe.",
-    "Do not prefer severity wording alone if another clinically supportable principal is expected to yield better AdjRW.",
-    "You must estimate each candidate separately, then choose the best one.",
-    "Revise the final block set so that the chosen principal is in principal_dx and the remaining diagnoses are redistributed appropriately.",
-    "Principal diagnosis must be ONE disease.",
-    "Keep diagnosis terms in full English.",
-    "ICD-9 must contain procedures only.",
-    "Investigations, Treatment, and Home medication may use standard medical abbreviations.",
-  ].join("\n");
-
-  const user = [
-    "CLINICAL TEXT:\n" + clinical,
-    "\nCURRENT DRAFT BLOCKS:\n" + JSON.stringify(blocks, null, 2),
-    "\nCANDIDATE PRINCIPALS:\n" + candidates.map((c, i) => `${i + 1}. ${c}`).join("\n"),
-    "\nADMIT_DATE_HINT: " + (admit || "unknown"),
-    "\nDC_DATE_HINT: " + (discharge || "unknown"),
-    "\nLOS_DAYS (if known): " + (losDays === null ? "unknown" : String(losDays)),
-    "\nOUTPUT JSON SHAPE EXACTLY:",
-    `{
-  "candidate_scores":[
-    {
-      "principal":"...",
-      "expected_adjrw":0,
-      "audit_safe":true,
-      "evidence_strength":"High|Medium|Low",
-      "why":"..."
-    }
-  ],
-  "best_principal":"...",
-  "best_expected_adjrw":0,
-  "best_reason_th":"...",
-  "blocks":[{"key":"...","title":"...","order":0,"content":"...","icd10":""}],
-  "warnings":["..."]
-}`,
-  ].join("\n\n");
-
-  return callModelJSON<CandidateCompareOutput>(openai, model, system, user);
 }
 
 function getMaxDevices(rawPlan: string | null | undefined): number {
@@ -1121,8 +1053,6 @@ export async function POST(req: Request) {
 
     const mergedRaw = [
       body.inputs?.order_sheet ? `=== ORDER_SHEET ===\n${body.inputs.order_sheet}` : "",
-      body.inputs?.lab ? `=== LAB ===\n${body.inputs.lab}` : "",
-      body.inputs?.radiology ? `=== RADIOLOGY ===\n${body.inputs.radiology}` : "",
       body.inputs?.other ? `=== OTHER ===\n${body.inputs.other}` : "",
     ]
       .filter(Boolean)
@@ -1169,19 +1099,22 @@ export async function POST(req: Request) {
     const system =
       mode === "recalc"
         ? [
-            "You are DischargeX, an AI assistant for discharge summary and DRG-oriented coding support in Thai hospitals.",
+            "You are DischargeX (Thai coding-first, LLM-assisted).",
             "Return ONLY JSON. No markdown. No extra explanation outside JSON.",
+            `Reference anchor: ${REFERENCE_SET_NAME}. CONFIG_RULES_JSON is the authoritative product rule pack — follow it for ICD/DRG-oriented behavior; do not override it with ad-hoc guesses.`,
+            "Source rule: CLINICAL TEXT is ORDER_SHEET plus optional OTHER only. Lab/imaging evidence must appear inside ORDER_SHEET if documented — ignore any separate lab/radiology fields.",
             "RECALC MODE:",
             "Use CURRENT BLOCKS as the source of truth for diagnosis grouping.",
             "Do NOT move diagnoses between principal/comorbidity/complication/other unless content is impossible or clearly contradictory.",
             "Preserve block content as much as possible.",
             ...(includeAdjrwMeta
               ? [
-                  "Your main job is to update ICD-10 code mapping per block, keep or improve ICD-9 procedure content when supported, warnings, and meta.adjrw_estimate / meta.upgrade.",
+                  "Your main job is to update ICD-10 / ICD-10-TM mapping per block, keep or improve ICD-9-CM procedure lines when supported, warnings, and meta.adjrw_estimate / meta.upgrade.",
                 ]
               : [
                   "Your main job is to update ICD-10 code mapping per block, keep or improve ICD-9 procedure content when supported, and warnings.",
                 ]),
+            "Never revise coding to maximize RW/AdjRW without chart evidence.",
             "Principal diagnosis must be ONE disease.",
             "Diagnosis fields must be full English terms. No abbreviations. No parentheses.",
             "Investigations, Treatment, and Home medication may use standard medical abbreviations, common drug shorthand, and concise workflow-friendly wording.",
@@ -1189,43 +1122,46 @@ export async function POST(req: Request) {
             "Outcome must start with one of only: improved, refer, dead, against advice.",
             ...(includeAdjrwMeta
               ? [
-                  "AdjRW is an estimate only.",
-                  "Propose only ONE best upgrade suggestion, only if projected increase > 0.2 and still audit-safe. Otherwise upgrade must be null.",
+                  "AdjRW / meta.upgrade are ESTIMATES only — not grouper truth.",
+                  "meta.upgrade must describe documentation-supported capture opportunities, not selecting higher RW for financial reasons. Otherwise null.",
                 ]
               : []),
           ].join("\n")
         : [
-            "You are DischargeX, an AI assistant for discharge summary and DRG-oriented coding support in Thai hospitals.",
+            "You are DischargeX — Thai coding-first, LLM-assisted (NOT LLM-first).",
             "Return ONLY JSON. No markdown. No extra explanation outside JSON.",
-            "Think in 2 layers: first analyze the case, then render fields.",
-            "Do not lock too early to one principal if there are multiple clinically supportable candidates.",
-            "You should expose principal_candidates whenever more than one candidate is plausible.",
+            `Reference anchor: ${REFERENCE_SET_NAME}. CONFIG_RULES_JSON is the authoritative product rule pack — follow it for ICD/DRG-oriented behavior; do not override it with ad-hoc guesses.`,
+            "Source rule: CLINICAL TEXT merges ORDER_SHEET plus optional OTHER only. There is no separate lab/radiology channel — if labs/imaging exist, they must appear inside the ORDER_SHEET paste.",
+            "Pipeline you must follow conceptually: Extraction -> Clinical classification -> Concept layer -> Coding -> estimated DRG/AdjRW impact -> Audit safety.",
+            "Hard rule: NEVER output a diagnosis/procedure as 'confirmed' unless at least one evidence anchor exists in chart text (physician dx/assessment, objective labs/imaging, procedures, medications, or discharge plan).",
+            "Hard rule: NEVER choose principal diagnosis to maximize RW/AdjRW. Choose principal ONLY among evidence-supported candidates using Thai coding/clinical justification (main reason for admission + resource use), not financial optimization.",
+            "If multiple principals are plausible, list them in analysis.principal_candidates and pick ONE principal with the strongest documentation + admission alignment.",
+            "Concept layer: normalize findings into concepts with onset + evidence strength + active management BEFORE ICD mapping.",
+            "Complex cases: populate case_graph (underlying vs acute vs organ/metabolic complications) and activate relevant pattern_pack ids in engine.active_pattern_packs.",
             "Diagnosis fields must be full English terms. No abbreviations. No parentheses.",
-            "Principal diagnosis must be ONE disease.",
-            "Comorbidity may contain MULTIPLE diagnoses and must be comma-separated in one line.",
-            "Complication may contain MULTIPLE diagnoses and must be comma-separated in one line.",
-            "Other diagnosis means pre-existing / chronic / older diagnoses that are not actively treated in this visit. It must NOT become a dump bucket.",
-            "If a diagnosis is active and treated in this visit, prefer principal / comorbidity / complication, not other diagnosis.",
-            "Use comorbidity before other diagnosis for active coexisting diagnoses unless there is clear timing support for complication.",
+            "Principal diagnosis must be exactly ONE disease/condition.",
+            "Comorbidity may contain MULTIPLE diagnoses (comma-separated).",
+            "Complication may contain MULTIPLE diagnoses (comma-separated).",
+            "Other diagnosis: chronic/past conditions without active management this admission (not a dump for acute problems).",
+            "Complication: NEW in-hospital condition after admission / caused by treatment course when supported.",
             "Final diagnosis must contain ALL important diagnoses in one line separated by commas. Never use numbered list.",
-            "Complication means NEW in-hospital condition after treatment started.",
-            "Do not place presenting/pre-existing conditions into complication.",
-            "Do not omit clinically important diagnoses such as anemia, sepsis, septic shock, respiratory failure, shock, acute kidney injury, hypokalemia, or hypoglycemia if active in this visit.",
-            "If transfusion/PRC/FFP/platelet is given and anemia is clinically supported, anemia must not disappear.",
-            "If principal is sepsis or septic shock, the likely infection source such as pneumonia should not be put in other diagnosis.",
-            "Understand Thai shorthand: U/D = underlying disease, HT = hypertension, DM = diabetes mellitus, CKD = chronic kidney disease, COPD = chronic obstructive pulmonary disease, AF = atrial fibrillation.",
-            "admit รพ. ... [date] usually indicates admission date.",
-            "ICD-9 must contain procedures ONLY. Do not place diagnoses in ICD-9.",
-            "When ICD-9 is present, prefer full string with code plus English description.",
-            "Investigations, Treatment, and Home medication may use standard medical abbreviations, common drug shorthand, and concise workflow-friendly wording.",
-            "Investigations, Treatment, and Home medication should remain one line comma-separated.",
-            "Follow-up should be empty if not documented. Do not invent follow-up.",
-            "Outcome must start with one of only: improved, refer, dead, against advice. If needed, append detail after comma.",
-            "Thai is allowed only in reason_th.",
+            "Do not omit clinically important ACTIVE problems if supported (but do not invent).",
+            "If transfusion is given and anemia is clinically supported, do not omit anemia.",
+            "If principal is sepsis/septic shock, do not place likely infection source in other diagnosis if it is part of active care.",
+            "Thai shorthand: U/D underlying, HT hypertension, DM diabetes, CKD chronic kidney disease, COPD, AF atrial fibrillation.",
+            "ICD-9-CM lines must be procedures performed in THIS admission only; diagnoses belong in ICD-10 fields.",
+            "Follow-up empty if not documented.",
+            "Outcome must start with: improved, refer, dead, against advice.",
+            "Thai is allowed in coder notes / audit warnings / reason_th fields inside engine/meta as appropriate.",
             ...(includeAdjrwMeta
               ? [
-                  "AdjRW is an estimate only.",
-                  "Propose only ONE best upgrade suggestion, only if projected increase > 0.2 and still audit-safe. Otherwise upgrade must be null.",
+                  "AdjRW / DRG fields are ESTIMATES only — label them as estimated impact, not grouper truth.",
+                  "meta.upgrade must only suggest documentation-supported capture opportunities (NOT 'pick highest RW'). Otherwise null.",
+                  "engine.chart_capture_hints (Pro/Trial): 0-8 items. Each item = one target diagnosis + ICD that could be BETTER SUPPORTED if chart had more explicit evidence.",
+                  "For each hint: missing_in_input must list concrete gaps vs ORDER_SHEET text (and OTHER if present), e.g. order sheet lacks sepsis wording; no lactate line; no baseline creatinine in the pasted page.",
+                  "suggested_order_sheet_wording_th = example phrasing clinicians might add IF true — never invent patient facts.",
+                  "approx_adjrw_note_th = Thai, APPROXIMATE only: e.g. 'ถ้ามีหลักฐานครบ อาจช่วยให้การ capture diagnosis/complexity สอดคล้องแนวทางมากขึ้น (AdjRW ประมาณการ ไม่รับประกัน)'.",
+                  "Never advise falsifying records. Empty chart_capture_hints if nothing reasonable.",
                 ]
               : []),
           ].join("\n");
@@ -1252,11 +1188,116 @@ export async function POST(req: Request) {
     } | null
   }`;
 
+    const rulesEmbedded = summarizeRulesForPrompt(
+      mode === "generate" ? 9000 : 6000
+    );
+
+    const chartHintsShapeBlock =
+      includeAdjrwMeta && mode === "generate"
+        ? `
+    "chart_capture_hints": [
+      {
+        "target_diagnosis_text": "",
+        "target_icd10": "",
+        "missing_in_input": [""],
+        "suggested_order_sheet_wording_th": "",
+        "suggested_lab_or_imaging": [""],
+        "approx_adjrw_note_th": "",
+        "tier": "suggest_if_documented"
+      }
+    ],`
+        : "";
+
+    const generateExtendedShape =
+      mode === "generate" && !isBasicPlan
+        ? `,
+  "extraction": {
+    "admit_date": "",
+    "discharge_date": "",
+    "discharge_type": "",
+    "chief_problem_on_admission": "",
+    "final_assessed_conditions": [],
+    "conditions_present_on_admission": [],
+    "conditions_arising_after_admission": [],
+    "symptoms_only": [],
+    "abnormal_labs": [],
+    "procedures": [],
+    "operations": [],
+    "investigations": [],
+    "treatments": [],
+    "discharge_medications": [],
+    "maternal_context": {},
+    "newborn_context": {},
+    "injury_context": {},
+    "evidence_map": {}
+  },
+  "case_graph": {
+    "underlying_diseases": [],
+    "acute_admission_problems": [],
+    "organ_failures": [],
+    "metabolic_derangements": [],
+    "infections": [],
+    "opportunistic_conditions": [],
+    "procedures": [],
+    "resource_intensive_treatments": [],
+    "evidence": {}
+  },
+  "concepts": [],
+  "linkage": [],
+  "classification": {
+    "principal_candidate": [],
+    "comorbidity_candidates": [],
+    "complication_candidates": [],
+    "other_diagnosis_candidates": [],
+    "external_cause_candidates": []
+  },
+  "engine": {
+    "summary_text": "",
+    "principal_diagnosis": {
+      "text": "",
+      "icd10": "",
+      "icd10_tm": "",
+      "confidence": "confirmed_from_chart",
+      "evidence": [],
+      "trust_label": "supported_by_chart",
+      "existence_confidence": "explicit",
+      "coding_linkage_confidence": "unlinked"
+    },
+    "comorbidities": [],
+    "complications": [],
+    "other_diagnoses": [],
+    "external_causes": [],
+    "procedures_icd9": [],
+    "drg_estimation": {
+      "status": "estimated",
+      "drivers": [],
+      "possible_complexity_adders": [],
+      "audit_warnings": []
+    },
+    "documentation_gaps": [],
+    "coder_notes": [],${chartHintsShapeBlock}
+    "why_this_principal_diagnosis": "",
+    "active_pattern_packs": [],
+    "complex_case": {
+      "mode": "pattern_pack",
+      "top_principal_candidates": [],
+      "missing_documentation": [],
+      "possible_combination_categories": [],
+      "active_secondary_candidates": [],
+      "audit_risk_items": []
+    }
+  }`
+        : "";
+
     const user =
       mode === "recalc"
         ? [
             "CURRENT BLOCKS (source of truth):\n" + JSON.stringify(blocks, null, 2),
             dateAndLosLines,
+            rulesEmbedded
+              ? "\nCONFIG_RULES_JSON (primary reference for coding rules + pattern packs; must conform when applicable — Thai coding > explicit doc > objective evidence > inference):\n" +
+                rulesEmbedded
+              : "",
             "\nCLINICAL TEXT:\n" + clinical,
             isBasicPlan || !includeAdjrwMeta
               ? "\nReturn same block keys/titles/orders. Keep block content aligned with CURRENT BLOCKS, update ICD-10 code mapping and warnings only. Do not include meta."
@@ -1282,6 +1323,10 @@ export async function POST(req: Request) {
             "\nFIELDS:\n" + fieldSpec,
             "\nEXTRA NOTE:\n" + (extra || "(none)"),
             dateAndLosLines,
+            rulesEmbedded
+              ? "\nCONFIG_RULES_JSON (primary reference for coding rules + pattern packs; must conform when applicable — Thai coding > explicit doc > objective evidence > inference):\n" +
+                rulesEmbedded
+              : "",
             "\nCLINICAL TEXT:\n" + clinical,
             "\nOUTPUT JSON SHAPE EXACTLY:",
             `{
@@ -1294,7 +1339,7 @@ export async function POST(req: Request) {
     "principal_candidates":[""],
     "best_principal_clinical":"",
     "best_principal_adjrw_safe":""
-  },
+  }${generateExtendedShape},
   "blocks":[{"key":"...","title":"...","order":0,"content":"...","icd10":""}],
   ${metaJsonShape}
 }`,
@@ -1302,7 +1347,7 @@ export async function POST(req: Request) {
               ? "BASIC PLAN: Fill ONLY the blocks listed in FIELDS (principal_dx, comorbidity, complication, other_diag, external_cause, icd9). Return only those blocks in the blocks array. Do not fill or return any other block keys. Do not include meta."
               : !includeAdjrwMeta
               ? "Fill all blocks from FIELDS. Use empty string if unknown. Do not include meta."
-              : "Fill all blocks from FIELDS. Use empty string if unknown.",
+              : "Fill all blocks from FIELDS. Use empty string if unknown. Populate extraction/case_graph/concepts/linkage/classification/engine for non-basic plans as in OUTPUT JSON.",
           ].join("\n\n");
 
     if (mode === "generate" && (isExpired || availableCredits < requiredCreditsForCase)) {
@@ -1359,62 +1404,87 @@ export async function POST(req: Request) {
     let upgradeMeta = includeAdjrwMeta ? (draftOut.meta?.upgrade || null) : null;
 
     if (mode === "generate" && !fast && includeAdjrwMeta) {
-      const candidates = collectPrincipalCandidates(draftOut, normalized);
+      const recalcOut = await runRecalcPass({
+        openai,
+        model,
+        clinical,
+        blocks: normalized,
+        admit,
+        discharge,
+        losDays,
+      });
 
-      if (candidates.length > 1) {
-        const compareOut = await runCandidateCompare({
-          openai,
-          model,
-          clinical,
-          blocks: normalized,
-          candidates,
-          admit,
-          discharge,
-          losDays,
-        });
+      warnings.push(...(recalcOut.warnings || []).slice(0, 20));
+      normalized = mergeModelBlocksOntoBase(normalized, recalcOut.blocks, "recalc");
+      normalized = postProcessBlocks(normalized, warnings);
 
-        warnings.push(...(compareOut.warnings || []).slice(0, 20));
-
-        if (compareOut.blocks?.length) {
-          normalized = mergeModelBlocksOntoBase(normalized, compareOut.blocks, "generate");
-          normalized = postProcessBlocks(normalized, warnings);
+      if (includeAdjrwMeta) {
+        const recalcAdj = toNum(recalcOut.meta?.adjrw_estimate);
+        if (recalcAdj !== null) {
+          adjrwEstimate = recalcAdj;
         }
 
-        const comparedAdj = toNum(compareOut.best_expected_adjrw);
-        if (comparedAdj !== null) {
-          adjrwEstimate = comparedAdj;
-        }
-
-        if (compareOut.candidate_scores?.length) {
-          warnings.push("Principal candidates were compared by expected AdjRW before final selection.");
+        if (recalcOut.meta?.upgrade) {
+          upgradeMeta = recalcOut.meta.upgrade;
         }
       }
+    }
 
-      if (!fast) {
-        const recalcOut = await runRecalcPass({
-          openai,
-          model,
-          clinical,
-          blocks: normalized,
-          admit,
-          discharge,
-          losDays,
-        });
+    let enginePayload: DischargeEnginePayload | null = null;
 
-        warnings.push(...(recalcOut.warnings || []).slice(0, 20));
-        normalized = mergeModelBlocksOntoBase(normalized, recalcOut.blocks, "recalc");
-        normalized = postProcessBlocks(normalized, warnings);
+    if (mode === "generate" || mode === "recalc") {
+      const baseEngine = synthesizeEngineFromBlocks(normalized as EngineNormalizedBlock[]);
+      enginePayload = mergePartialEngine(baseEngine, draftOut.engine);
+      if (draftOut.extraction && typeof draftOut.extraction === "object") {
+        enginePayload = {
+          ...enginePayload,
+          extraction: draftOut.extraction as ExtractionLayer,
+        };
+      }
+      if (draftOut.case_graph && typeof draftOut.case_graph === "object") {
+        enginePayload = {
+          ...enginePayload,
+          case_graph: draftOut.case_graph as CaseGraph,
+        };
+      }
+      if (Array.isArray(draftOut.concepts) && draftOut.concepts.length) {
+        enginePayload = { ...enginePayload, concepts: draftOut.concepts as ConceptNode[] };
+      }
+      if (Array.isArray(draftOut.linkage) && draftOut.linkage.length) {
+        enginePayload = { ...enginePayload, linkage: draftOut.linkage as LinkageEdge[] };
+      }
+      if (draftOut.classification && typeof draftOut.classification === "object") {
+        enginePayload = {
+          ...enginePayload,
+          classification: draftOut.classification as DischargeEnginePayload["classification"],
+        };
+      }
+      if (!enginePayload.linkage?.length) {
+        enginePayload = { ...enginePayload, linkage: detectLinkageInText(clinical) };
+      }
+      enginePayload = alignPrincipalEngineToPrincipalBlock(enginePayload, normalized);
+      const principalBlock = normalized.find((b) => b.key === "principal_dx");
+      const ageLine = clinical.match(/Age:\s*([^\n]+)/i)?.[1] || "";
+      const sexLine = clinical.match(/Sex:\s*([^\n]+)/i)?.[1] || "";
+      const valIssues = validatePrincipalAndEngine({
+        principalBlockText: principalBlock?.content || "",
+        principalBlockIcd10: principalBlock?.icd10 || "",
+        engine: enginePayload,
+        patientAgeText: ageLine,
+        patientSex: sexLine,
+      });
+      for (const vi of valIssues) {
+        warnings.push(vi.message_th);
+      }
+      enginePayload =
+        mergeEngineAuditWarnings(
+          enginePayload,
+          valIssues.filter((v) => v.severity === "warning").map((v) => v.message_th)
+        ) || enginePayload;
 
-        if (includeAdjrwMeta) {
-          const recalcAdj = toNum(recalcOut.meta?.adjrw_estimate);
-          if (recalcAdj !== null) {
-            adjrwEstimate = recalcAdj;
-          }
-
-          if (recalcOut.meta?.upgrade) {
-            upgradeMeta = recalcOut.meta.upgrade;
-          }
-        }
+      if (enginePayload && !includeAdjrwMeta) {
+        const { chart_capture_hints: _strip, ...rest } = enginePayload;
+        enginePayload = rest as DischargeEnginePayload;
       }
     }
 
@@ -1490,42 +1560,45 @@ export async function POST(req: Request) {
               .map((b) => `${b.title}: ${b.content}`)
               .join("\n")
           : null;
-      await prisma.$transaction(async (tx: PrismaTx) => {
-        await tx.usage.upsert({
-          where: { userId },
-          create: { userId, count: 1 },
-          update: { count: { increment: 1 } },
-        });
+      await prisma.$transaction(
+        async (tx: PrismaTx) => {
+          await tx.usage.upsert({
+            where: { userId },
+            create: { userId, count: 1 },
+            update: { count: { increment: 1 } },
+          });
 
-        if (addonToUse > 0) {
-          const updatedCount = await tx.user.updateMany({
-            where: { id: userId, extraCredits: { gte: addonToUse } },
+          if (addonToUse > 0) {
+            const updatedCount = await tx.user.updateMany({
+              where: { id: userId, extraCredits: { gte: addonToUse } },
+              data: {
+                extraCredits: { decrement: addonToUse },
+                totalGenerations: { increment: 1 },
+              },
+            });
+            if (updatedCount.count === 0) {
+              throw new Error("เครดิต add-on ไม่เพียงพอ กรุณาลองใหม่อีกครั้ง");
+            }
+          } else {
+            await tx.user.update({
+              where: { id: userId },
+              data: { totalGenerations: { increment: 1 } },
+            });
+          }
+
+          await tx.usageLog.create({
             data: {
-              extraCredits: { decrement: addonToUse },
-              totalGenerations: { increment: 1 },
+              userId,
+              creditsUsed: requiredCreditsForCase,
+              baseCreditsUsed: baseToUse,
+              addonCreditsUsed: addonToUse,
+              reason: requiredCreditsForCase > 1 ? "long_case_generate" : "generate",
+              ...(exportText != null && exportText !== "" ? { summarySnapshot: exportText } : {}),
             },
           });
-          if (updatedCount.count === 0) {
-            throw new Error("เครดิต add-on ไม่เพียงพอ กรุณาลองใหม่อีกครั้ง");
-          }
-        } else {
-          await tx.user.update({
-            where: { id: userId },
-            data: { totalGenerations: { increment: 1 } },
-          });
-        }
-
-        await tx.usageLog.create({
-          data: {
-            userId,
-            creditsUsed: requiredCreditsForCase,
-            baseCreditsUsed: baseToUse,
-            addonCreditsUsed: addonToUse,
-            reason: requiredCreditsForCase > 1 ? "long_case_generate" : "generate",
-            ...(exportText != null && exportText !== "" ? { summarySnapshot: exportText } : {}),
-          },
-        });
-      });
+        },
+        { maxWait: 20_000, timeout: 60_000 }
+      );
       await markReferralFirstUsage(userId);
     }
 
@@ -1540,6 +1613,7 @@ export async function POST(req: Request) {
           upgrade: includeAdjrwMeta ? upgrade : null,
         },
         preprocess: preprocess.summary,
+        engine: enginePayload,
       },
     });
   } catch (err: unknown) {
