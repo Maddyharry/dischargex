@@ -327,6 +327,28 @@ export default function ProfilePage() {
           </Link>
         </header>
 
+        <section className="rounded-3xl border border-cyan-500/25 bg-cyan-950/35 p-6">
+          <h2 className="text-lg font-semibold text-white">การแนะนำ Workspace</h2>
+          <p className="mt-2 text-sm leading-relaxed text-slate-300">
+            เคยจบหรือข้าม tutorial แล้วอยากลอง flow แบบทีละขั้นอีกครั้ง? กดด้านล่างแล้วไปที่ workspace
+            — ระบบจะเปิดหน้าต่างแนะนำใหม่ (ไม่ต้องรอให้โหมดสาธิตขึ้นทุกครั้งที่เข้าเว็บ)
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Link
+              href="/app?replayTutorial=1"
+              className="inline-flex items-center justify-center rounded-2xl bg-gradient-to-r from-cyan-600 to-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-cyan-950/30 transition hover:brightness-110"
+            >
+              เริ่ม tutorial อีกครั้ง
+            </Link>
+            <Link
+              href="/app"
+              className="inline-flex items-center justify-center rounded-2xl border border-slate-600 bg-slate-900/90 px-5 py-2.5 text-sm font-medium text-slate-200 hover:bg-slate-800"
+            >
+              ไป Workspace โดยไม่เริ่ม tutorial
+            </Link>
+          </div>
+        </section>
+
         <section className="rounded-3xl border border-white/10 bg-slate-950/50 p-6">
           <h2 className="text-lg font-semibold text-white">ชุดอ้างอิง (reference set)</h2>
           <p className="mt-2 break-words text-xs leading-relaxed text-slate-400">{REFERENCE_SET_NAME}</p>

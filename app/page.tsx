@@ -66,6 +66,12 @@ export default function Home() {
                 เริ่มทดลองใช้งาน
               </Link>
               <Link
+                href="/app/guest?tutorial=1"
+                className="inline-flex min-w-[160px] items-center justify-center rounded-2xl border border-emerald-500/50 bg-emerald-500/10 px-7 py-3.5 text-sm font-semibold text-emerald-100 shadow-sm shadow-emerald-900/20 transition hover:border-emerald-400/70 hover:bg-emerald-500/15"
+              >
+                ลองใช้แบบสาธิต (ไม่ต้องสมัคร)
+              </Link>
+              <Link
                 href="/guidelines"
                 className="rounded-2xl border border-slate-600/90 bg-slate-900/60 px-6 py-3.5 text-sm font-medium text-slate-100 backdrop-blur-sm transition hover:border-slate-500 hover:bg-slate-800/80"
               >

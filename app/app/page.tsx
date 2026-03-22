@@ -1,10 +1,22 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import React, { useEffect, useRef, useState, forwardRef } from "react";
+import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
+import {
+  buildTutorialMockApiResponse,
+  readWorkspaceTutorialDone,
+  WORKSPACE_TUTORIAL_DONE_KEY,
+} from "@/lib/tutorial-mock";
 import { useFeedbackContext } from "@/app/context/FeedbackContext";
 import { ResultDisclaimer } from "@/app/components/ResultDisclaimer";
+import {
+  TutorialCompleteModal,
+  TutorialIntroModal,
+} from "@/app/components/WorkspaceTutorialModals";
+import { WorkspaceTutorialOverlay } from "@/app/components/WorkspaceTutorialOverlay";
+import { type WorkspaceCoachPhase } from "@/app/components/WorkspaceTutorialFloating";
 import type { DiagnosisEngineItem, DischargeEnginePayload } from "@/lib/discharge-engine/types";
 
 type Block = {
@@ -73,6 +85,16 @@ type WorkspacePanelKey =
   | "preprocessSummary"
   | "warnings";
 
+/** flow แบบเกม: intro → mock หน้าต่าง → workspace → สร้างสรุป → จบ */
+type TutorialPhase =
+  | "off"
+  | "intro_modal"
+  | "mock_window"
+  | "workspace_click"
+  | "workspace_paste"
+  | "generate_prompt"
+  | "finished_modal";
+
 const DEFAULT_BLOCKS: Block[] = [
   { key: "principal_dx", title: "Principal Diagnosis", order: 1 },
   { key: "comorbidity", title: "Comorbidity", order: 2 },
@@ -114,103 +136,6 @@ const DEFAULT_TEMPLATE_RULES = [
   "ICD-9-CM เฉพาะหัตถการใน admission นี้",
 ].join("\n");
 
-const EXAMPLE_ORDER_SHEET = `Sex: Female
-Age: 78 ปี 10 เดือน
-=== ORDER_SHEET ===
-Date Time ORDER FOR ONE DAY CONTINUOUS ORDER
-19/02/69
-10:33
-Other
-- Retain foley's cayth No.14
-19/02/69
-09:45
-Medication
-- Diazepam inj. 10 mg/2ml. Ampule (2 ml.) [STAT]
-ฉีดเข้าเส้นเลือด 1 amp ทันที
-Other
-- on ETT , no.7 Mark 19
-- refer
-- case หญิง 78 ปี U/D HT
-admit รพ.บ้านไร่ 18/2/69
-CC เหนื่อยมากขึ้น 3 วัน
-PI 3 วัน ไข้ ไอเสมหะเยอะ อ่อนเพลีย
-วันนี้เหนื่อยมากขึ้น รักษาคลินิกได้ CXR RLL infiltration จึงมารพ.
-PE not pale, no jx , dyspnea, lung crepitation RLL, fair air entry,
-heart regular, no murmur, abdomen soft, not tender ,
-no pitting edema
-CXR RLL infiltration
-SpO2 84
-Dx pneumonia
-Rx ceftri + Rulid , berodual NB
-เช้านี้ ไอ เหนื่อยมากขึ้น ร้องคราง
-RR 36,accesory muscle use, lung crepitation Rt lung, poor air entry
-SpO2 83 on mask c bag
-on ETT No.7 Mark 19, valium10mg iv ก่อน ETT
-1.Lobar pneumonia RLL with septic shock
-2.AKI
-3.acute respiratory failure
-consult นพ.สุรเดช ให้ refer ได้
-19/02/69 09:45
-S : เหนื่อยมากขึ้น ร้องคราง
-accesory m. use RR 36 , SpO2 83 on mask c bag
-lung crepitation Rt lung , decrease BS
-19/02/69
-07:52
-Medication
-- *Berodual NB 1.25+0.5 mg/4 ml. หลอด (4 ml.)
-พ่นผ่านเครื่องละอองฟอย 1 NB q 4 hr [Locked]
-- NSS [1,000 ml.] 0.9 % ขวด
-IV rate 80 ml/hr
-Examination
-- Lab : Sputum Culture : <Item>
-- Lab : Sputum AFB 1 ครั้ง : <Item>
-x 3 วัน
-- Lab : Gram stain : <Item>
-sputum
-19/02/69 07:52
-S : case U/D HT
-CC เหนื่อยมากขึ้น 3 วัน
-PI 3 วัน ไข้ ไอเสมหะเยอะ อ่อนเพลีย มีไข้
-วันนี้เหนื่อยมากขึ้น รักษาคลินิกได้ CXR พบ ปอดบวม
-O : not pale, no jx , dyspnea, lung crepitation RLL
-no pitting edema
-CXR RLL infiltration
-SpO2 84
-A : Lobar pneumonia RLL with septic shock
-AKI
-P : septic w/u , IV load, IV ATB
-19/02/69
-07:19
-Medication
-- Dexamethasone inj. 4 mg/ml. Ampule (1 ml.) [STAT]
-ฉีดเข้าเส้นเลือดดำ 1 amp/vial [Locked]
-Examination
-- Radiology : Film CXR (PA)
-19/02/69 07:19
-Note : รายงานผู้ป่วยหายใจเหนื่อย RR 28/min retraction หายใจเป่าปาก + urine 100 ml/8hr แพทย์รับทราบ
-18/02/69
-19:24
-Medication
-- NSS [1,000 ml.] 0.9 % ขวด
-500 ml iv load [Locked]
-18/02/69 19:24
-S : ปฏิเสธกินยาชุด ยาสมุนไพร ยาหม้อ
-O : U/S IVC kissing IVC
-try load NSS 500 ml
-18/02/69
-18:40
-Medication
-- *Berodual NB 1.25+0.5 mg/4 ml. หลอด (4 ml.)
-พ่นผ่านเครื่องละอองฟอย 1 NB q 15 min x 2 doses [Locked]
-- *Berodual NB 1.25+0.5 mg/4 ml. หลอด (4 ml.)
-พ่นผ่านเครื่องละอองฟอย 1 NB q 4 hr [Locked]
-- NSS [1,000 ml.] 0.9 % ขวด
-1000 ml iv load [Locked]
-- NSS [1,000 ml.] 0.9 % ขวด
-IV rate 80 ml/hr
-Operation
-- E.C.G.(Electrocardiography)`;
-
 const WORKSPACE_PANEL_DEFAULTS: Record<WorkspacePanelKey, boolean> = {
   quickStart: true,
   clinicalSignal: true,
@@ -246,6 +171,9 @@ export default function Page() {
 
 function PageContent() {
   const { data: session } = useSession();
+  const pathname = usePathname();
+  const router = useRouter();
+  const isGuestWorkspace = pathname === "/app/guest";
   const searchParams = useSearchParams();
   const { setWorkspaceSnapshot, openFeedbackTo } = useFeedbackContext();
   const [orderSheet, setOrderSheet] = useState("");
@@ -283,7 +211,47 @@ function PageContent() {
   const [collapsedPanels, setCollapsedPanels] =
     useState<Record<WorkspacePanelKey, boolean>>(WORKSPACE_PANEL_DEFAULTS);
 
+  const [tutorialPhase, setTutorialPhase] = useState<TutorialPhase>("off");
+  const [tutorialInit, setTutorialInit] = useState(false);
+  /** จำไว้ว่าเคยจบ/ข้าม tutorial แล้ว — ใช้ซ่อนการ์ดตัวอย่างใหญ่เพื่อให้ workspace รู้สึกเหมือนโหมดใช้งานจริง */
+  const [tutorialDonePersisted, setTutorialDonePersisted] = useState(false);
+  const [mockPopupBlocked, setMockPopupBlocked] = useState(false);
+  const orderSheetInputRef = useRef<HTMLTextAreaElement | null>(null);
+  const mockOrderSheetPopupRef = useRef<Window | null>(null);
+  const replayTutorialConsumedRef = useRef(false);
+  const tutorialAnchorPopupRef = useRef<HTMLDivElement | null>(null);
+  const tutorialAnchorClinicalRef = useRef<HTMLDivElement | null>(null);
+  const tutorialAnchorGenerateRef = useRef<HTMLDivElement | null>(null);
+
   const recalcTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const bypassWorkspaceApi =
+    isGuestWorkspace ||
+    (tutorialPhase !== "off" &&
+      tutorialPhase !== "intro_modal" &&
+      tutorialPhase !== "finished_modal");
+  const showWorkspaceCoach =
+    tutorialInit &&
+    (tutorialPhase === "workspace_click" ||
+      tutorialPhase === "workspace_paste" ||
+      tutorialPhase === "generate_prompt");
+  const coachPhase: WorkspaceCoachPhase | null =
+    tutorialPhase === "workspace_click"
+      ? "workspace_click"
+      : tutorialPhase === "workspace_paste"
+        ? "workspace_paste"
+        : tutorialPhase === "generate_prompt"
+          ? "generate_prompt"
+          : null;
+  /** แสดงการ์ดเปิดหน้าต่างตัวอย่างขนาดใหญ่ระหว่าง flow tutorial หรือเมื่อยังไม่เคยจบ tutorial */
+  const showMockLauncherCard =
+    tutorialPhase === "intro_modal" ||
+    tutorialPhase === "finished_modal" ||
+    tutorialPhase === "mock_window" ||
+    tutorialPhase === "workspace_click" ||
+    tutorialPhase === "workspace_paste" ||
+    tutorialPhase === "generate_prompt" ||
+    (tutorialPhase === "off" && tutorialInit && !tutorialDonePersisted);
 
   useEffect(() => {
     return () => {
@@ -340,6 +308,125 @@ function PageContent() {
     }
     setDeviceId(id);
   }, []);
+
+  useEffect(() => {
+    try {
+      const params =
+        typeof window !== "undefined"
+          ? new URLSearchParams(window.location.search)
+          : null;
+      /** จากหน้าแรก: /app/guest?tutorial=1 — บังคับเปิด flow tutorial แม้เคยจบแล้วในเครื่อง */
+      const forceGuestTutorial =
+        isGuestWorkspace && params?.get("tutorial") === "1";
+      const done = readWorkspaceTutorialDone();
+      setTutorialPhase(
+        forceGuestTutorial ? "intro_modal" : done ? "off" : "intro_modal"
+      );
+      if (forceGuestTutorial) {
+        router.replace(pathname, { scroll: false });
+      }
+    } catch {
+      setTutorialPhase("intro_modal");
+    }
+    setTutorialInit(true);
+  }, [isGuestWorkspace, pathname, router]);
+
+  useEffect(() => {
+    if (!tutorialInit) return;
+    setTutorialDonePersisted(readWorkspaceTutorialDone());
+  }, [tutorialInit]);
+
+  useEffect(() => {
+    const onMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      const d = event.data as { type?: string; kind?: string } | null;
+      if (!d || d.type !== "dischargex-tutorial") return;
+      if (d.kind === "mock_complete") {
+        /** ไม่ปิดป๊อปอัปจากฝั่งนี้ — ให้ผู้ใช้ปิดหน้าต่าง mock เองหลังคัดลอก */
+        setTutorialPhase("workspace_click");
+      }
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, []);
+
+  useEffect(() => {
+    if (
+      tutorialPhase !== "workspace_click" &&
+      tutorialPhase !== "workspace_paste" &&
+      tutorialPhase !== "generate_prompt"
+    ) {
+      return;
+    }
+    const map: Record<string, HTMLElement | null> = {
+      workspace_click: tutorialAnchorClinicalRef.current,
+      workspace_paste: tutorialAnchorClinicalRef.current,
+      generate_prompt: tutorialAnchorGenerateRef.current,
+    };
+    const el = map[tutorialPhase];
+    const t = window.setTimeout(() => {
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 120);
+    return () => window.clearTimeout(t);
+  }, [tutorialPhase]);
+
+  function openMockOrderSheetPopup(opts?: { tutorialMode?: boolean }) {
+    const w = Math.min(1040, window.screen.availWidth - 40);
+    const h = Math.min(740, window.screen.availHeight - 80);
+    const left = Math.max(0, window.screenX + (window.outerWidth - w) / 2);
+    const top = Math.max(0, window.screenY + 48);
+    const features = [
+      `popup=yes`,
+      `width=${Math.floor(w)}`,
+      `height=${Math.floor(h)}`,
+      `left=${Math.floor(left)}`,
+      `top=${Math.floor(top)}`,
+      "resizable=yes",
+      "scrollbars=yes",
+    ].join(",");
+    const qs = opts?.tutorialMode ? "?tutorial=1" : "";
+    const win = window.open(
+      `/mock-hosxp-ipd-paperless.html${qs}`,
+      "dischargex_hosxp_order_mock",
+      features
+    );
+    if (!win) {
+      setMockPopupBlocked(true);
+      return;
+    }
+    mockOrderSheetPopupRef.current = win;
+    setMockPopupBlocked(false);
+    try {
+      win.focus();
+    } catch {
+      // ignore
+    }
+  }
+
+  function handleTutorialIntroStart() {
+    setTutorialPhase("mock_window");
+    openMockOrderSheetPopup({ tutorialMode: true });
+  }
+
+  function handleTutorialIntroSkip() {
+    setTutorialPhase("off");
+    try {
+      window.localStorage.setItem(WORKSPACE_TUTORIAL_DONE_KEY, "1");
+    } catch {
+      // ignore
+    }
+    setTutorialDonePersisted(true);
+  }
+
+  function handleTutorialCompleteClose() {
+    setTutorialPhase("off");
+    try {
+      window.localStorage.setItem(WORKSPACE_TUTORIAL_DONE_KEY, "1");
+    } catch {
+      // ignore
+    }
+    setTutorialDonePersisted(true);
+  }
 
   async function loadUsage() {
     try {
@@ -609,6 +696,10 @@ function PageContent() {
   }
 
   async function recalcFromBlocks(nextBlocks: NormalizedBlock[], silent = false) {
+    if (bypassWorkspaceApi) {
+      return;
+    }
+
     try {
       setRecalcLoading(true);
 
@@ -665,6 +756,22 @@ function PageContent() {
     setError("");
 
     try {
+      if (bypassWorkspaceApi) {
+        await new Promise((r) => setTimeout(r, 900));
+        const parsed = buildTutorialMockApiResponse() as ApiResponse;
+        const nextBlocks = normalizeBlocks(parsed.result.blocks);
+
+        setBlocks(nextBlocks);
+        setWarnings(parsed.result.warnings || []);
+        setMeta(parsed.result.meta);
+        setPreprocess(parsed.result.preprocess || emptyPreprocess());
+        setEngine(parsed.result.engine ?? null);
+        setDiagnosisItems(buildDiagnosisItemsFromBlocks(nextBlocks));
+        setCaseCount((c) => c + 1);
+        setTutorialPhase("finished_modal");
+        return;
+      }
+
       const res = await fetch("/api/summarize", {
         method: "POST",
         headers: {
@@ -738,11 +845,62 @@ function PageContent() {
     setWorkspaceSnapshot(null);
   }
 
-  function handleFillExampleCase() {
-    setOrderSheet(EXAMPLE_ORDER_SHEET);
+  function handleRetryWorkspaceTutorial() {
+    try {
+      mockOrderSheetPopupRef.current?.close();
+    } catch {
+      // ignore
+    }
+    mockOrderSheetPopupRef.current = null;
+    setMockPopupBlocked(false);
+    try {
+      window.localStorage.removeItem(WORKSPACE_TUTORIAL_DONE_KEY);
+    } catch {
+      // ignore
+    }
+    setTutorialDonePersisted(false);
+    setTutorialPhase("intro_modal");
+    setOrderSheet("");
     setOther("");
+    setBlocks(createEmptyBlocks());
+    setWarnings([]);
+    setMeta({
+      losDays: null,
+      adjrw: null,
+      diagnosis_confidence: "Low",
+      upgrade: null,
+    });
+    setPreprocess(emptyPreprocess());
+    setEngine(null);
+    setShowDiseaseGraph(false);
+    setShowWeakSupported(false);
+    setDiagnosisItems([]);
     setError("");
   }
+
+  function handleDismissWorkspaceTutorial() {
+    try {
+      window.localStorage.setItem(WORKSPACE_TUTORIAL_DONE_KEY, "1");
+    } catch {
+      // ignore
+    }
+    setTutorialDonePersisted(true);
+    setTutorialPhase("off");
+  }
+
+  useEffect(() => {
+    if (searchParams.get("replayTutorial") !== "1") {
+      replayTutorialConsumedRef.current = false;
+      return;
+    }
+    if (!tutorialInit) return;
+    if (replayTutorialConsumedRef.current) return;
+    replayTutorialConsumedRef.current = true;
+    handleRetryWorkspaceTutorial();
+    router.replace(pathname, { scroll: false });
+    // handleRetryWorkspaceTutorial ถูกเรียกครั้งเดียวจาก query — ไม่ใส่ใน deps เพื่อไม่ให้รันซ้ำ
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot จาก ?replayTutorial=1
+  }, [tutorialInit, searchParams, pathname, router]);
 
   function togglePanel(key: WorkspacePanelKey) {
     setCollapsedPanels((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -888,6 +1046,22 @@ function PageContent() {
       </div>
 
       <div className="relative mx-auto max-w-7xl space-y-6 px-4 py-6">
+        {isGuestWorkspace ? (
+          <div className="rounded-2xl border border-amber-500/35 bg-amber-950/25 px-4 py-3 text-sm leading-relaxed text-amber-100">
+            <span className="font-semibold text-amber-50">โหมดทดลอง (ไม่ต้องลงทะเบียน)</span>
+            — ผลลัพธ์จากปุ่ม &quot;สร้างสรุป&quot;เป็นข้อมูลจำลองสำหรับสาธิตเท่านั้น{" "}
+            <Link href="/signup" className="font-medium text-cyan-300 underline hover:text-cyan-200">
+              สมัครใช้งาน
+            </Link>
+            {" · "}
+            <Link href="/login" className="font-medium text-cyan-300 underline hover:text-cyan-200">
+              เข้าสู่ระบบ
+            </Link>
+            {" "}
+            เพื่อประมวลผลด้วย AI จริงและนับเครดิตตามแพ็กเกจ
+          </div>
+        ) : null}
+
         <section className="overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-slate-950 via-[#0c1728] to-[#111c32] shadow-2xl shadow-black/30">
           <div className="grid gap-6 px-6 py-7 lg:grid-cols-[1.2fr_0.8fr] lg:px-8">
             <div className="space-y-4">
@@ -935,7 +1109,7 @@ function PageContent() {
         </section>
 
         <section className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
-          <div className="space-y-4">
+          <div className={`space-y-4 ${showWorkspaceCoach ? "pb-40 max-sm:pb-52" : ""}`}>
             <CollapsibleCard
               title="เริ่มต้นใช้งาน (สำหรับผู้ใช้ใหม่)"
               subtitle="ทำตาม 3 ขั้นตอนนี้เพื่อเริ่มใช้งานได้ทันที"
@@ -959,32 +1133,176 @@ function PageContent() {
               <div className="mt-3 flex flex-wrap gap-2">
                 <button
                   type="button"
-                  onClick={handleFillExampleCase}
-                  className="rounded-xl border border-cyan-500/40 bg-cyan-500/10 px-3 py-2 text-xs font-medium text-cyan-200 hover:bg-cyan-500/20"
-                >
-                  วางตัวอย่างอัตโนมัติ
-                </button>
-                <button
-                  type="button"
                   onClick={handleNewPatient}
                   className="rounded-xl border border-slate-700 bg-slate-900/80 px-3 py-2 text-xs font-medium text-slate-200 hover:bg-slate-800"
                 >
                   ล้างข้อมูลทั้งหมด
                 </button>
+                <button
+                  type="button"
+                  onClick={handleRetryWorkspaceTutorial}
+                  className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-xs font-medium text-emerald-200 hover:bg-emerald-500/20"
+                >
+                  ลอง tutorial อีกครั้ง
+                </button>
+                {!isGuestWorkspace ? (
+                  <button
+                    type="button"
+                    onClick={handleDismissWorkspaceTutorial}
+                    className="rounded-xl border border-slate-600 bg-slate-900/80 px-3 py-2 text-xs font-medium text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+                  >
+                    ปิดการแนะนำ
+                  </button>
+                ) : null}
               </div>
+              {tutorialDonePersisted && tutorialPhase === "off" ? (
+                <p className="mt-3 text-xs leading-relaxed text-slate-500">
+                  ต้องการฝึก copy จากหน้าจอจำลอง?{" "}
+                  <button
+                    type="button"
+                    onClick={() => openMockOrderSheetPopup()}
+                    className="font-medium text-cyan-400 underline decoration-cyan-500/40 underline-offset-2 hover:text-cyan-300"
+                  >
+                    เปิดหน้าต่างตัวอย่าง Order Sheet
+                  </button>
+                </p>
+              ) : null}
             </CollapsibleCard>
 
-            <Card
-              title="Clinical Input Workspace"
-              subtitle="Paste หน้า order sheet — รวมผล lab / รังสีที่แสดงในหน้านั้นในช่องเดียวกัน (ระบบไม่แยกช่อง lab)"
+            {showMockLauncherCard ? (
+              <div ref={tutorialAnchorPopupRef}>
+                <Card
+                  title="ตัวอย่างระบบ IPD (HOSxP style)"
+                  subtitle="เปิดหน้าต่างตัวอย่างแยกจาก DischargeX — ใช้เมื่อต้องการลองเองหลังจบ tutorial"
+                >
+                  <div className="flex flex-col gap-3">
+                    <div className="rounded-2xl border border-slate-600/80 bg-slate-950/60 px-4 py-3 text-xs leading-relaxed text-slate-300">
+                      <p>
+                        กดปุ่มด้านล่างเพื่อเปิด <span className="font-medium text-cyan-200">หน้าต่างป๊อปอัป</span>{" "}
+                        แสดง Doctor&apos;s Order Sheet (ไฟล์{" "}
+                        <code className="rounded bg-slate-800 px-1 py-0.5 text-[11px] text-slate-200">
+                          mock-hosxp-ipd-paperless.html
+                        </code>
+                        )
+                      </p>
+                    </div>
+                    {mockPopupBlocked ? (
+                      <div className="rounded-xl border border-amber-600/50 bg-amber-950/40 px-3 py-2 text-xs text-amber-100">
+                        เบราว์เซอร์บล็อกป๊อปอัป — อนุญาตป๊อปอัปสำหรับไซต์นี้ แล้วลองกดอีกครั้ง
+                      </div>
+                    ) : null}
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => openMockOrderSheetPopup()}
+                        className="inline-flex items-center justify-center gap-2 rounded-2xl border border-cyan-500/50 bg-gradient-to-r from-cyan-600/30 to-blue-700/30 px-5 py-3 text-sm font-semibold text-cyan-50 shadow-lg shadow-cyan-950/30 transition hover:brightness-110"
+                      >
+                        <span className="text-lg leading-none" aria-hidden>
+                          ⧉
+                        </span>
+                        เปิดหน้าต่างตัวอย่าง Order Sheet
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => openMockOrderSheetPopup()}
+                        className="rounded-2xl border border-slate-600 bg-slate-900/90 px-4 py-3 text-xs font-medium text-slate-300 hover:bg-slate-800"
+                      >
+                        เปิดอีกครั้ง
+                      </button>
+                    </div>
+                  </div>
+                </Card>
+              </div>
+            ) : null}
+
+            {showWorkspaceCoach ? (
+              <div className="rounded-2xl border border-emerald-500/20 bg-emerald-950/10 px-3 py-2.5">
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-emerald-200/90">
+                  ความคืบหน้า (หลังปิดหน้าต่างตัวอย่าง)
+                </div>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  {(
+                    [
+                      { id: "workspace_click", label: "คลิกช่อง" },
+                      { id: "workspace_paste", label: "วาง" },
+                      { id: "generate_prompt", label: "สร้างสรุป" },
+                    ] as const
+                  ).map((row, idx) => {
+                    const order = ["workspace_click", "workspace_paste", "generate_prompt"] as const;
+                    const cur = order.indexOf(tutorialPhase as (typeof order)[number]);
+                    const my = order.indexOf(row.id);
+                    const active = tutorialPhase === row.id;
+                    const done = cur > my;
+                    return (
+                      <div
+                        key={row.id}
+                        className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium ${
+                          active
+                            ? "border-cyan-500/60 bg-cyan-950/50 text-cyan-100"
+                            : done
+                              ? "border-emerald-700/50 bg-emerald-950/30 text-emerald-300/90"
+                              : "border-slate-700/60 bg-slate-950/40 text-slate-500"
+                        }`}
+                      >
+                        <span
+                          className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold ${
+                            active
+                              ? "bg-cyan-500 text-white"
+                              : done
+                                ? "bg-emerald-600 text-white"
+                                : "bg-slate-700 text-slate-400"
+                          }`}
+                        >
+                          {done ? "✓" : idx + 1}
+                        </span>
+                        {row.label}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
+
+            <div
+              ref={tutorialAnchorClinicalRef}
+              className={
+                showWorkspaceCoach &&
+                (tutorialPhase === "workspace_click" || tutorialPhase === "workspace_paste")
+                  ? "relative rounded-[1.35rem] p-[2px] shadow-[0_0_0_2px_rgba(34,211,238,0.45)]"
+                  : ""
+              }
             >
-              <ScrollTextarea
-                value={orderSheet}
-                onChange={(e) => setOrderSheet(e.target.value)}
-                placeholder="Paste doctor order sheet..."
-                className="h-[340px] w-full rounded-2xl border border-slate-700/80 bg-slate-950/80 px-4 py-3 text-sm text-slate-100 outline-none transition focus:border-cyan-500"
-              />
-            </Card>
+              {tutorialPhase === "workspace_click" || tutorialPhase === "workspace_paste" ? (
+                <div
+                  className="pointer-events-none absolute -top-3 left-1/2 z-10 -translate-x-1/2 text-2xl text-cyan-300 drop-shadow-[0_0_8px_rgba(34,211,238,0.8)]"
+                  aria-hidden
+                >
+                  ↓
+                </div>
+              ) : null}
+              <Card
+                title="Clinical Input Workspace"
+                subtitle="Paste หน้า order sheet — รวมผล lab / รังสีที่แสดงในหน้านั้นในช่องเดียวกัน (ระบบไม่แยกช่อง lab)"
+              >
+                <ScrollTextarea
+                  ref={orderSheetInputRef}
+                  value={orderSheet}
+                  onChange={(e) => setOrderSheet(e.target.value)}
+                  onMouseDown={() => {
+                    if (tutorialPhase === "workspace_click") {
+                      setTutorialPhase("workspace_paste");
+                    }
+                  }}
+                  onPaste={() => {
+                    if (tutorialPhase === "workspace_paste") {
+                      setTutorialPhase("generate_prompt");
+                    }
+                  }}
+                  placeholder="Paste doctor order sheet..."
+                  className="h-[340px] w-full rounded-2xl border border-slate-700/80 bg-slate-950/80 px-4 py-3 text-sm text-slate-100 outline-none transition focus:border-cyan-500"
+                />
+              </Card>
+            </div>
 
             <Card title="Other / Extra Clinical Text" subtitle="Optional supporting note">
               <AutoResizeTextarea
@@ -995,6 +1313,22 @@ function PageContent() {
               />
             </Card>
 
+            <div
+              ref={tutorialAnchorGenerateRef}
+              className={
+                showWorkspaceCoach && tutorialPhase === "generate_prompt"
+                  ? "relative rounded-[1.35rem] p-[2px] shadow-[0_0_0_2px_rgba(52,211,153,0.45)]"
+                  : ""
+              }
+            >
+              {tutorialPhase === "generate_prompt" ? (
+                <div
+                  className="pointer-events-none absolute -top-3 left-8 z-10 text-2xl text-emerald-300 drop-shadow-[0_0_8px_rgba(52,211,153,0.8)]"
+                  aria-hidden
+                >
+                  ↓
+                </div>
+              ) : null}
             <div className="flex flex-wrap items-center gap-3">
               <button
                 type="button"
@@ -1053,6 +1387,7 @@ function PageContent() {
                   cases
                 </span>
               )}
+            </div>
             </div>
 
             {error ? (
@@ -1424,6 +1759,41 @@ function PageContent() {
 
         <ResultDisclaimer />
       </div>
+
+      <TutorialIntroModal
+        open={tutorialInit && tutorialPhase === "intro_modal"}
+        isGuest={isGuestWorkspace}
+        onStart={handleTutorialIntroStart}
+        onSkip={handleTutorialIntroSkip}
+      />
+
+      <TutorialCompleteModal
+        open={tutorialPhase === "finished_modal"}
+        isGuest={isGuestWorkspace}
+        onClose={handleTutorialCompleteClose}
+      />
+
+      {coachPhase ? (
+        <WorkspaceTutorialOverlay
+          active={showWorkspaceCoach}
+          targetRef={
+            coachPhase === "generate_prompt"
+              ? tutorialAnchorGenerateRef
+              : tutorialAnchorClinicalRef
+          }
+          phase={coachPhase}
+          onSkipToPaste={() => setTutorialPhase("workspace_paste")}
+          onSkipToGenerate={() => setTutorialPhase("generate_prompt")}
+          stepIndex={
+            coachPhase === "workspace_click"
+              ? 1
+              : coachPhase === "workspace_paste"
+                ? 2
+                : 3
+          }
+          stepTotal={3}
+        />
+      ) : null}
     </main>
   );
 }
@@ -1599,16 +1969,18 @@ function AutoResizeTextarea(
   );
 }
 
-function ScrollTextarea(
-  props: React.TextareaHTMLAttributes<HTMLTextAreaElement>
-) {
+const ScrollTextarea = forwardRef<
+  HTMLTextAreaElement,
+  React.TextareaHTMLAttributes<HTMLTextAreaElement>
+>(function ScrollTextarea(props, ref) {
   return (
     <textarea
       {...props}
+      ref={ref}
       style={{ resize: "vertical", overflowY: "auto" }}
     />
   );
-}
+});
 
 function EngineDxList({
   title,

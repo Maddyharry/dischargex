@@ -10,9 +10,14 @@ export const middleware = withAuth(
     },
     callbacks: {
       authorized: ({ token, req }) => {
-        if (!token) return false;
-
         const pathname = req.nextUrl.pathname;
+
+        /** Workspace แบบสาธิต — ไม่ต้องล็อกอิน (tutorial + mock API) */
+        if (pathname === "/app/guest" || pathname.startsWith("/app/guest/")) {
+          return true;
+        }
+
+        if (!token) return false;
 
         if (pathname.startsWith("/admin")) {
           return (token as { role?: string } | null)?.role === "admin";

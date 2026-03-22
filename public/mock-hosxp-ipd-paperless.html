@@ -1,0 +1,724 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IPD Paperless Mock - Order Sheet</title>
+  <style>
+    :root {
+      --line: #6786a6;
+      --top-blue: #0a3f86;
+      --menu-a: #7da6cf;
+      --menu-b: #4f7ead;
+      --panel-bg: #ffffff;
+      --head-blue: #0b80be;
+    }
+    * { box-sizing: border-box; }
+    body * { user-select: none; }
+    body {
+      margin: 0;
+      font-family: Tahoma, "Segoe UI", sans-serif;
+      background: #d4dfeb;
+      color: #10141a;
+      font-size: 12px;
+    }
+    .titlebar {
+      background: linear-gradient(#e9f0f8, #d1dded);
+      border-bottom: 1px solid #8ea9c4;
+      color: #46607f;
+      padding: 3px 8px;
+      font-size: 12px;
+    }
+    .top {
+      background: linear-gradient(#0d4f99, #093a73);
+      color: #ffe779;
+      font-weight: 700;
+      padding: 6px 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #0b2f59;
+    }
+    .log {
+      color: #0d4f86;
+      background: #def4ff;
+      border: 1px solid #8eb1d2;
+      padding: 1px 7px;
+      border-radius: 2px;
+      font-weight: 700;
+    }
+    .app {
+      display: grid;
+      grid-template-columns: 138px 1fr;
+      min-height: calc(100vh - 52px);
+    }
+    .menu {
+      background: #b7c8de;
+      border-right: 1px solid #6f89a8;
+      padding-top: 4px;
+    }
+    .menu-item {
+      background: linear-gradient(var(--menu-a), var(--menu-b));
+      border-top: 1px solid #c8def3;
+      border-bottom: 1px solid #557ea8;
+      color: #eaf4ff;
+      padding: 7px 8px;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .menu-item.active {
+      color: #fff;
+      background: linear-gradient(#86b3db, #5d90c2);
+      font-weight: 700;
+    }
+    .main {
+      padding: 5px;
+      background: #dce5ef;
+    }
+    .titlebar, .top, .menu, .toolbar {
+      user-select: none;
+    }
+    .toolbar {
+      display: flex;
+      gap: 4px;
+      border: 1px solid #8ca5be;
+      background: #d5e3f0;
+      padding: 4px;
+      margin-bottom: 4px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .tb-btn {
+      border: 1px solid #8eabc8;
+      background: linear-gradient(#ffffff, #d9e8f7);
+      border-radius: 2px;
+      padding: 2px 8px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #15436b;
+      cursor: pointer;
+    }
+    .copy-ok {
+      margin-left: auto;
+      color: #08662f;
+      font-weight: 700;
+      display: none;
+    }
+    .sheet {
+      border: 1px solid var(--line);
+      background: var(--panel-bg);
+      height: calc(100vh - 88px);
+      display: grid;
+      grid-template-rows: auto auto auto 1fr;
+      min-height: 0;
+    }
+    .sheet-title {
+      text-align: center;
+      padding: 7px 6px 5px;
+      color: #ffffff;
+      font-weight: 700;
+      border-bottom: 1px solid #3e5873;
+      background: #0b80be;
+    }
+    .sheet-title .name { font-size: 13px; display: none; }
+    .sheet-title .subtitle { font-size: 20px; }
+    .sheet-title .links {
+      color: #ffe957;
+      text-decoration: underline;
+      font-size: 14px;
+    }
+    .patient-line {
+      background: #ffffff;
+      border-bottom: 1px solid #3e5873;
+      padding: 4px 6px;
+      font-size: 12px;
+      font-weight: 700;
+      user-select: text;
+    }
+    .patient-line .warn { color: #af2c21; }
+    .order-head {
+      display: grid;
+      grid-template-columns: 82px 45% 1fr;
+      background: var(--head-blue);
+      color: #f0f9ff;
+      font-weight: 700;
+      border-bottom: 1px solid #2a4f74;
+      font-size: 12px;
+    }
+    .order-head div {
+      padding: 6px 5px;
+      border-right: 1px solid #2a4f74;
+    }
+    .order-head div:last-child { border-right: none; }
+    #orderSheet {
+      overflow: auto;
+      outline: none;
+      user-select: text;
+      font-size: 12px;
+      background: #ffffff;
+    }
+    #orderSheet, #orderSheet * {
+      user-select: text;
+    }
+    #copyScope, #copyScope * {
+      user-select: text;
+    }
+    .row {
+      display: grid;
+      grid-template-columns: 82px 45% 1fr;
+      border-bottom: 1px solid #4f6885;
+      min-height: 180px;
+    }
+    .cell {
+      border-right: 1px solid #4f6885;
+      padding: 4px 6px;
+      white-space: pre-wrap;
+      font-size: 12px;
+      line-height: 1.12;
+      background: #ffffff;
+    }
+    .cell:last-child { border-right: none; }
+    .date { font-weight: 700; }
+    .action {
+      color: #0b2a7d;
+      text-decoration: underline;
+      font-weight: 700;
+      margin-top: 8px;
+      display: block;
+    }
+    .section-title {
+      color: #7c0f7e;
+      font-weight: 700;
+      font-size: 13px;
+      margin: 1px 0 3px;
+    }
+    .line {
+      border-bottom: 1px solid #33495f;
+      padding-bottom: 2px;
+      margin-bottom: 2px;
+    }
+    .mock-link-summary {
+      color: #ffe957;
+      text-decoration: underline;
+      cursor: pointer;
+    }
+    .soap-row {
+      display: grid;
+      grid-template-columns: 82px 1fr;
+      border-bottom: 1px solid #4f6885;
+      background: #ffffff;
+    }
+    .soap-date {
+      border-right: 1px solid #4f6885;
+      padding: 4px 6px;
+      font-weight: 700;
+      white-space: pre-wrap;
+      font-size: 12px;
+      line-height: 1.1;
+    }
+    .soap-content {
+      padding: 4px 6px;
+      white-space: pre-wrap;
+      font-size: 12px;
+      line-height: 1.1;
+    }
+    #copyScope.ctrl-selected .patient-line,
+    #copyScope.ctrl-selected .order-head,
+    #copyScope.ctrl-selected .order-head div,
+    #copyScope.ctrl-selected #orderSheet {
+      background: #b1b9e1;
+    }
+    #copyScope.ctrl-selected .cell,
+    #copyScope.ctrl-selected .row,
+    #copyScope.ctrl-selected .soap-row,
+    #copyScope.ctrl-selected .soap-date,
+    #copyScope.ctrl-selected .soap-content {
+      background: #b1b9e1;
+    }
+    .tutorial-game-banner {
+      display: none;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 999999;
+      background: linear-gradient(180deg, #1e3a5f 0%, #0d1b2a 100%);
+      border-top: 3px solid #22d3ee;
+      padding: 14px 16px 18px;
+      text-align: center;
+      font-size: 14px;
+      font-weight: 700;
+      color: #ecfeff;
+      box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.45);
+      pointer-events: none;
+    }
+    .tutorial-game-banner .sub {
+      display: block;
+      margin-top: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #a5f3fc;
+      opacity: 0.95;
+    }
+    .tutorial-game-banner .tutorial-close-btn {
+      display: none;
+      pointer-events: auto;
+      margin-top: 10px;
+      padding: 8px 18px;
+      font-size: 13px;
+      font-weight: 700;
+      color: #0c1728;
+      background: linear-gradient(#fef08a, #facc15);
+      border: 1px solid #ca8a04;
+      border-radius: 6px;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+    }
+    .tutorial-game-banner .tutorial-close-btn:hover {
+      filter: brightness(1.05);
+    }
+  </style>
+</head>
+<body>
+  <div class="titlebar">IPDNurseWorkShiftPatientSummaryForm</div>
+  <div class="top">
+    <div>ข้อมูลการรักษาพยาบาลผู้ป่วย IPD &nbsp; HN : 470002640 AN : 690001256 ชื่อ : นายสมมติ คณาทา</div>
+    <span class="log">Log</span>
+  </div>
+
+  <div class="app">
+    <aside class="menu">
+      <div class="menu-item">▤ Admit Summary</div>
+      <div class="menu-item">◈ Visit EMR</div>
+      <div class="menu-item active">▦ Order Sheet</div>
+      <div class="menu-item">⚕ ฟอร์มปรอท</div>
+      <div class="menu-item">🧪 Lab History</div>
+      <div class="menu-item">◔ X-Ray</div>
+      <div class="menu-item">👩‍⚕️ Doctor Order</div>
+      <div class="menu-item">🗒 Order Summary</div>
+      <div class="menu-item">🗓 Order Plan</div>
+      <div class="menu-item">◀ Nurse Schedule</div>
+      <div class="menu-item">▶ Discharge Summary</div>
+      <div class="menu-item">🧾 Assessment</div>
+      <div class="menu-item">🖼 Scan Document</div>
+    </aside>
+
+    <main class="main">
+      <div class="toolbar">
+        <button class="tb-btn" id="btnAdd">+ Add Order</button>
+        <button class="tb-btn" id="btnRefresh">Refresh</button>
+        <button class="tb-btn" id="btnPrint">พิมพ์</button>
+        <button class="tb-btn">Review Mode (Active Continue)</button>
+        <button class="tb-btn">Review Treatment</button>
+        <button class="tb-btn" id="btnGotoSummary1">Summary 1</button>
+        <button class="tb-btn" id="btnGotoSummary2">Summary 2</button>
+        <button class="tb-btn" id="btnCopy">Copy</button>
+        <span id="copyOk" class="copy-ok">Copied</span>
+      </div>
+
+      <section class="sheet">
+        <div class="sheet-title">
+          <div class="subtitle">DOCTOR'S ORDER SHEET</div>
+          <div class="links">[Add Order] [Template Order] [Med. Reconciliation] [<a href="#" class="mock-link-summary">Summary 1</a>] [<a href="#" class="mock-link-summary">Summary 2</a>]</div>
+        </div>
+
+        <div id="copyScope">
+          <div class="patient-line" id="patientLine">
+            AN : 690001256 HN : 470002640 ชื่อ : นายสมมติ คณาทา อายุ : 74 ปี 2 เดือน CID : 3610600542024 แพทย์ : <span class="warn">ไม่มีประวัติการแพ้</span>
+          </div>
+
+          <div class="order-head">
+            <div>Date Time</div>
+            <div style="text-align:center;">ORDER FOR ONE DAY</div>
+            <div style="text-align:center;">CONTINUOUS ORDER</div>
+          </div>
+
+          <div id="orderSheet" tabindex="0">
+            <div class="row" style="min-height: 230px;">
+              <div class="cell date">19/02/69
+11:30
+
+[ Edit ]
+[ReOrder]</div>
+              <div class="cell">
+                <div class="section-title">Other</div>
+                <div class="line">- Discharge today if stable
+- นัดติดตามอายุรกรรม 1 สัปดาห์
+- ให้คำแนะนำสังเกตอาการ หอบ ไข้สูง ซึม รับประทานไม่ได้</div>
+                <div class="section-title">Home Medication</div>
+                <div class="line">- Amoxicillin/Clavulanate 875/125 mg
+รับประทาน 1 เม็ด วันละ 2 ครั้ง หลังอาหาร x 5 วัน</div>
+                <div class="line">- Metformin 500 mg
+รับประทาน 1 เม็ด วันละ 2 ครั้ง หลังอาหาร เช้า-เย็น</div>
+                <div class="line">- Amlodipine 5 mg
+รับประทาน 1 เม็ด วันละ 1 ครั้ง หลังอาหารเช้า</div>
+                <div class="line">- Paracetamol 500 mg PRN ไข้/ปวด
+ผู้รับคำสั่ง : น.ส.กมลชนก ตัวอย่าง 19/02/69 11:36
+ผู้สั่ง : นพ.วรภพ ตัวอย่าง [ว99001]</div>
+              </div>
+              <div class="cell"></div>
+            </div>
+            <div class="soap-row">
+              <div class="soap-date">19/02/69 11:30
+นพ.วรภพ ตัวอย่าง [ว99001]</div>
+              <div class="soap-content">S : อาการดีขึ้น ไม่มีเหนื่อย พูดคุยได้ รับประทานได้
+O : BT 37.0, PR 88, RR 18, BP 128/76, SpO2 97% RA
+A : CAP with hypoglycemia, improved
+P : discharge with home medication and follow-up</div>
+            </div>
+
+            <div class="row" style="min-height: 185px;">
+              <div class="cell date">19/02/69
+08:40
+
+[ Edit ]
+[ReOrder]</div>
+              <div class="cell">
+                <div class="section-title">Medication</div>
+                <div class="line">- Stop IV ceftriaxone
+- Start oral Amoxicillin/Clavulanate 875/125 mg bid</div>
+                <div class="section-title">Examination</div>
+                <div class="line">- FBS 108 mg/dL
+- CBC: WBC ลดลงจากเดิม
+- CXR follow-up: infiltration improved
+ผู้รับคำสั่ง : น.ส.รินรดา ตัวอย่าง 19/02/69 08:52</div>
+                <div class="section-title">One day order</div>
+                <div class="line">- DTX q6hr
+ผู้รับคำสั่ง : น.ส.รินรดา ตัวอย่าง 19/02/69 08:52</div>
+              </div>
+              <div class="cell">
+CONTINUOUS ORDER
+- Observe respiratory distress
+- Continue oral hydration
+- Encourage ambulation
+              </div>
+            </div>
+            <div class="soap-row">
+              <div class="soap-date">19/02/69 08:40
+นพ.วรภพ ตัวอย่าง [ว99001]</div>
+              <div class="soap-content">S : ไอน้อยลง หอบลดลง
+O : V/S stable, no accessory muscle use
+A : clinical response ดี
+P : เตรียม discharge ถ้า stable ทั้งวัน</div>
+            </div>
+
+            <div class="row" style="min-height: 230px;">
+              <div class="cell date">18/02/69
+09:00
+
+[ Edit ]
+[ReOrder]</div>
+              <div class="cell">
+                <div class="section-title">One day order</div>
+                <div class="line">- NSS 1000 ml IV rate 80 ml/hr
+- DTX stat + follow DTX q6hr</div>
+                <div class="section-title">Examination</div>
+                <div class="line">- CBC, BUN, Cr, Electrolytes
+- Blood culture x2
+- CXR (PA)
+ผู้รับคำสั่ง : น.ส.กมลชนก ตัวอย่าง 18/02/69 09:15</div>
+                <div class="section-title">Procedure</div>
+                <div class="line">- Nebulization in ward
+ผู้สั่ง : นพ.วรภพ ตัวอย่าง [ว99001]</div>
+              </div>
+              <div class="cell">
+CONTINUOUS ORDER
+- Ceftriaxone 2 g IV OD
+- Roxithromycin 150 mg PO bid
+- Berodual NB q6hr
+- Record V/S q4hr
+- Record I/O
+- Soft diet
+              </div>
+            </div>
+            <div class="soap-row">
+              <div class="soap-date">18/02/69 09:00
+นพ.วรภพ ตัวอย่าง [ว99001]</div>
+              <div class="soap-content">S : ยังมีไอ เสมหะ เหนื่อยเวลาเดิน
+O : RR 24, SpO2 93% with O2 cannula 3 LPM, crepitation RLL
+A : CAP moderate severity
+P : continue IV ATB + supportive care</div>
+            </div>
+
+            <div class="row" style="min-height: 220px;">
+              <div class="cell date">17/02/69
+07:30
+
+[ Edit ]
+[ReOrder]</div>
+              <div class="cell">
+                <div class="section-title">Medication</div>
+                <div class="line">- 50% glucose 50 ml IV push [STAT]
+- DTX q2hr x 3 ครั้ง แล้ว q4hr
+- Hold metformin 1 dose</div>
+                <div class="section-title">Other</div>
+                <div class="line">- Notify physician if DTX &lt; 80 mg/dL
+- Observe mental status
+ผู้รับคำสั่ง : น.ส.พลอยใส ตัวอย่าง 17/02/69 07:38
+ผู้สั่ง : นพ.วรภพ ตัวอย่าง [ว99001]</div>
+              </div>
+              <div class="cell">
+CONTINUOUS ORDER
+- O2 cannula 3 LPM
+- Keep warm and monitor
+              </div>
+            </div>
+            <div class="soap-row">
+              <div class="soap-date">17/02/69 07:30
+นพ.วรภพ ตัวอย่าง [ว99001]</div>
+              <div class="soap-content">S : เหงื่อออก มือสั่น ซึมลงช่วงเช้า
+O : DTX 56 mg/dL, RR 26, SpO2 92%
+A : hypoglycemia episode in CAP patient
+P : correct glucose and close monitoring</div>
+            </div>
+
+            <div class="row" style="min-height: 250px;">
+              <div class="cell date">16/02/69
+18:40
+
+[ Edit ]
+[ReOrder]</div>
+              <div class="cell">
+                <div class="section-title">One day order</div>
+                <div class="line">- NSS 1000 ml IV load
+- DTX stat</div>
+                <div class="section-title">Operation / Examination</div>
+                <div class="line">- CBC, Cr, Electrolytes, Blood lactate
+- CXR (PA)
+- ECG</div>
+                <div class="section-title">Procedure / Admit</div>
+                <div class="line">- Admit med ward
+- O2 cannula 3 LPM (start now)
+ผู้รับคำสั่ง : น.ส.สุภาวดี ตัวอย่าง 16/02/69 18:55
+ผู้สั่ง : นพ.วรภพ ตัวอย่าง [ว99001]</div>
+              </div>
+              <div class="cell">
+CONTINUOUS ORDER
+- Ceftriaxone 2 g IV OD
+- Roxithromycin 150 mg PO bid
+- Berodual NB q4hr
+- Paracetamol 500 mg PRN
+- Record V/S q4hr
+- Record I/O
+- Soft diet low salt
+              </div>
+            </div>
+            <div class="soap-row">
+              <div class="soap-date">16/02/69 18:40
+นพ.วรภพ ตัวอย่าง [ว99001]</div>
+              <div class="soap-content">S : ไข้ ไอเสมหะ เหนื่อยมากขึ้น 3 วัน
+O : BT 38.6, RR 28, SpO2 89% RA, CXR RLL infiltration
+A : community-acquired pneumonia
+P : admit for IV antibiotics and oxygen support</div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div id="tutorialGameBanner" class="tutorial-game-banner" aria-live="polite">
+    <span id="tutorialGameBannerText"></span>
+    <button type="button" id="tutorialCloseWindowBtn" class="tutorial-close-btn">
+      ปิดหน้าต่างนี้ (ไปวางใน DischargeX)
+    </button>
+    <span class="sub">DischargeX Tutorial — หน้าจำลองเท่านั้น</span>
+  </div>
+
+  <script>
+    const orderSheet = document.getElementById("orderSheet");
+    const copyOk = document.getElementById("copyOk");
+    const copyScope = document.getElementById("copyScope");
+    const patientLine = document.getElementById("patientLine");
+    let forceCopySelection = false;
+
+    const urlParams = new URLSearchParams(location.search);
+    const TUTORIAL_MODE = urlParams.get("tutorial") === "1";
+    let tStep = TUTORIAL_MODE ? 1 : 0; // 0 = ไม่บังคับขั้น
+
+    const tutorialGameBanner = document.getElementById("tutorialGameBanner");
+    const tutorialGameBannerText = document.getElementById("tutorialGameBannerText");
+
+    function setTutorialBanner(msg) {
+      if (!TUTORIAL_MODE || !tutorialGameBanner || !tutorialGameBannerText) return;
+      tutorialGameBanner.style.display = "block";
+      tutorialGameBannerText.textContent = msg;
+    }
+
+    if (TUTORIAL_MODE) {
+      setTutorialBanner("ขั้นที่ 1/3 — คลิกซ้ายที่พื้นที่ Order sheet (ในกรอบข้อความด้านล่าง)");
+    }
+
+    /** แจ้งหน้า DischargeX ( opener ) */
+    function notifyDischargeXParent(kind) {
+      try {
+        if (window.opener && !window.opener.closed) {
+          window.opener.postMessage({ type: "dischargex-tutorial", kind: kind }, "*");
+        }
+      } catch (_) {}
+    }
+
+    /** หลังคัดลอกสำเร็จ — แจ้ง parent ให้ไปขั้นวาง แต่ไม่ปิดหน้าต่างอัตโนมัติ (ให้ผู้ใช้ปิดเอง) */
+    function afterTutorialCopySuccess() {
+      notifyDischargeXParent("mock_complete");
+      setTutorialBanner(
+        "คัดลอกลงคลิปบอร์ดแล้ว — กดปุ่มสีเหลืองด้านล่างเพื่อปิดหน้าต่างนี้ แล้วกลับไปวางในช่อง Clinical ที่ DischargeX"
+      );
+      const closeBtn = document.getElementById("tutorialCloseWindowBtn");
+      if (closeBtn) {
+        closeBtn.style.display = "inline-block";
+        closeBtn.onclick = function () {
+          try {
+            window.close();
+          } catch (_) {}
+        };
+      }
+    }
+
+    function flashCopied() {
+      copyOk.style.display = "inline";
+      setTimeout(() => { copyOk.style.display = "none"; }, 1300);
+    }
+
+    function getFullCopyText() {
+      return `${patientLine.innerText}\n${orderSheet.innerText}`;
+    }
+
+    async function copyOrderOnly() {
+      const text = getFullCopyText();
+      try {
+        await navigator.clipboard.writeText(text);
+        flashCopied();
+        if (TUTORIAL_MODE && tStep === 3) {
+          afterTutorialCopySuccess();
+          return;
+        }
+        notifyDischargeXParent("copy");
+      } catch (_) {
+        const range = document.createRange();
+        range.setStartBefore(patientLine);
+        const lastNode = orderSheet.lastElementChild || orderSheet;
+        range.setEndAfter(lastNode);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+        flashCopied();
+        if (TUTORIAL_MODE && tStep === 3) {
+          afterTutorialCopySuccess();
+          return;
+        }
+        notifyDischargeXParent("copy");
+      }
+    }
+
+    function selectOrderOnly() {
+      orderSheet.focus();
+      const range = document.createRange();
+      range.setStartBefore(patientLine);
+      const lastNode = orderSheet.lastElementChild || orderSheet;
+      range.setEndAfter(lastNode);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+      copyScope.classList.add("ctrl-selected");
+      forceCopySelection = true;
+    }
+
+    async function handleCopyShortcuts(event) {
+      if (!(event.ctrlKey || event.metaKey)) return;
+      const key = event.key.toLowerCase();
+
+      if (TUTORIAL_MODE) {
+        if (tStep === 1 && (key === "a" || key === "c")) {
+          event.preventDefault();
+          event.stopPropagation();
+          setTutorialBanner("ยังไม่ครบ — คลิกซ้ายในพื้นที่ Order sheet ก่อน");
+          return;
+        }
+        if (tStep === 2 && key === "c") {
+          event.preventDefault();
+          event.stopPropagation();
+          setTutorialBanner("ขั้นที่ 2/3 — กด Ctrl+A ก่อน เพื่อเลือกทั้งหมด");
+          return;
+        }
+        if (tStep === 3 && key === "a") {
+          event.preventDefault();
+          event.stopPropagation();
+          return;
+        }
+      }
+
+      if (key === "a") {
+        event.preventDefault();
+        event.stopPropagation();
+        if (typeof event.stopImmediatePropagation === "function") event.stopImmediatePropagation();
+        selectOrderOnly();
+        if (TUTORIAL_MODE && tStep === 2) {
+          tStep = 3;
+          setTutorialBanner("ขั้นที่ 3/3 — กด Ctrl+C หรือปุ่ม Copy เพื่อคัดลอก แล้วปิดหน้าต่างเมื่อพร้อมวางใน DischargeX");
+        }
+        return;
+      }
+      if (key === "c") {
+        event.preventDefault();
+        event.stopPropagation();
+        if (typeof event.stopImmediatePropagation === "function") event.stopImmediatePropagation();
+        if (TUTORIAL_MODE && tStep !== 3) {
+          setTutorialBanner(tStep === 1 ? "คลิกซ้ายที่ Order sheet ก่อน" : "กด Ctrl+A ก่อน");
+          return;
+        }
+        await copyOrderOnly();
+        return;
+      }
+    }
+
+    orderSheet.addEventListener("keydown", handleCopyShortcuts, true);
+    window.addEventListener("keydown", handleCopyShortcuts, true);
+    document.addEventListener("keydown", handleCopyShortcuts, true);
+
+    orderSheet.addEventListener("mousedown", () => orderSheet.focus());
+    orderSheet.addEventListener("mousedown", () => {
+      copyScope.classList.remove("ctrl-selected");
+      forceCopySelection = false;
+    });
+    document.addEventListener("mousedown", (event) => {
+      if (!copyScope.contains(event.target)) {
+        copyScope.classList.remove("ctrl-selected");
+        forceCopySelection = false;
+      }
+    });
+
+    if (TUTORIAL_MODE && copyScope) {
+      copyScope.addEventListener(
+        "mousedown",
+        (e) => {
+          if (tStep !== 1) return;
+          if (e.button !== 0) return;
+          if (!copyScope.contains(e.target)) return;
+          tStep = 2;
+          setTutorialBanner("ขั้นที่ 2/3 — กด Ctrl+A เพื่อเลือกทั้งหมดใน Order sheet");
+        },
+        true
+      );
+    }
+    document.getElementById("btnCopy").addEventListener("click", copyOrderOnly);
+    document.getElementById("btnGotoSummary1").addEventListener("click", () => {
+      alert("ตัวอย่าง Summary 1 อยู่ในโฟลเดอร์วิดีโอ — ใน DischargeX ใช้หน้า Order Sheet นี้สำหรับสาธิต");
+    });
+    document.getElementById("btnGotoSummary2").addEventListener("click", () => {
+      alert("ตัวอย่าง Summary 2 อยู่ในโฟลเดอร์วิดีโอ — ใน DischargeX ใช้หน้า Order Sheet นี้สำหรับสาธิต");
+    });
+    document.querySelectorAll(".mock-link-summary").forEach((a) => {
+      a.addEventListener("click", (e) => {
+        e.preventDefault();
+        alert("ลิงก์จำลอง — ใช้ปุ่ม Copy หรือ Ctrl+A / Ctrl+C เพื่อคัดลอกข้อความไปวางใน DischargeX");
+      });
+    });
+    ["btnAdd", "btnRefresh", "btnPrint"].forEach((id) => {
+      document.getElementById(id).addEventListener("click", () => alert("ปุ่มจำลองสำหรับอัดวิดีโอ"));
+    });
+  </script>
+</body>
+</html>
