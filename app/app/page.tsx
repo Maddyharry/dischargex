@@ -1032,6 +1032,31 @@ function PageContent() {
     return "ลำดับความสำคัญทั่วไป";
   }
 
+  function humanizeMissingEvidence(text: string) {
+    const t = (text || "").trim();
+    if (!t) return t;
+    const lower = t.toLowerCase();
+    if (lower.includes("exact responsible drug")) {
+      return "ยังไม่ระบุชื่อยาที่เป็นสาเหตุโดยตรง";
+    }
+    if (lower.includes("adverse effect versus dosing error")) {
+      return "ยังไม่แยกว่าเป็นผลไม่พึงประสงค์จากยา หรือความคลาดเคลื่อนเรื่องขนาดยา";
+    }
+    if (lower.includes("reduced intake")) {
+      return "ยังไม่สรุปชัดว่าภาวะนี้เกี่ยวข้องกับการรับประทานอาหารลดลงเพียงอย่างเดียวหรือไม่";
+    }
+    if (lower.includes("order sheet lacks explicit statement")) {
+      return "ใน order sheet ยังไม่มีถ้อยคำยืนยันสาเหตุแบบตรงไปตรงมา";
+    }
+    if (lower.includes("medication reconciliation")) {
+      return "บันทึกทบทวนรายการยาปัจจุบัน (medication reconciliation)";
+    }
+    if (lower.includes("glucose trend")) {
+      return "แนวโน้มค่าน้ำตาลต่อเนื่อง (glucose trend)";
+    }
+    return t;
+  }
+
   const icd9Items = parseIcd9Items(getBlockValue("icd9"));
   const actionableChartHints = buildActionableChartHints(warnings);
 
@@ -1541,7 +1566,7 @@ function PageContent() {
                     ข้อเสนอการเพิ่มข้อความในเวชระเบียน
                   </div>
                   <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
-                    รูปแบบสรุป: เพิ่มข้อความอะไร → รองรับวินิจฉัยใด → ผลที่คาดว่าจะดีขึ้น
+                    เรียงลำดับให้อ่านง่าย: เป้าหมาย → ข้อความที่ควรเพิ่ม → สิ่งที่ยังขาด → ผลที่คาด
                   </p>
                   <div className="mt-2 rounded-xl border border-cyan-900/40 bg-cyan-950/15 px-3 py-2 text-xs leading-relaxed text-cyan-100/95">
                     <span className="font-semibold text-cyan-300">ผลต่อระดับความเชื่อมั่น (โดยประมาณ): </span>
@@ -1564,21 +1589,26 @@ function PageContent() {
                             {tierToPriorityLabel(h.tier)}
                           </span>
                         </div>
+                        <div className="mt-2 text-xs text-slate-400">
+                          <span className="text-slate-500">สรุปการดำเนินการ: </span>
+                          เพิ่มถ้อยคำวินิจฉัยให้ตรงและระบุหลักฐานสำคัญที่รองรับ
+                        </div>
                         {h.suggested_order_sheet_wording_th ? (
                           <div className="mt-2 rounded-lg border border-cyan-700/35 bg-cyan-950/30 px-3 py-2 text-xs leading-relaxed text-cyan-100/95">
-                            <span className="font-semibold text-cyan-300">ข้อความที่ควรเพิ่ม (เมื่อเป็นจริงตามเคส): </span>
+                            <span className="font-semibold text-cyan-300">ข้อความที่แนะนำให้เพิ่ม (เมื่อเป็นจริงตามเคส): </span>
                             {h.suggested_order_sheet_wording_th}
                           </div>
                         ) : null}
                         {h.missing_in_input?.length ? (
                           <div className="mt-2 text-xs text-slate-400">
                             <span className="text-slate-500">สิ่งที่ยังขาดในข้อความปัจจุบัน: </span>
-                            {h.missing_in_input.join(" · ")}
+                            {h.missing_in_input.map((item) => humanizeMissingEvidence(item)).join(" · ")}
                           </div>
                         ) : null}
                         {h.suggested_lab_or_imaging?.length ? (
                           <div className="mt-1 text-xs text-slate-400">
-                            Lab/Imaging ที่มักใช้ยืนยัน: {h.suggested_lab_or_imaging.join(", ")}
+                            Lab/Imaging ที่มักใช้ยืนยัน:{" "}
+                            {h.suggested_lab_or_imaging.map((item) => humanizeMissingEvidence(item)).join(", ")}
                           </div>
                         ) : null}
                         {h.approx_adjrw_note_th ? (
