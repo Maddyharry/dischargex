@@ -40,6 +40,16 @@ export function SiteFooter() {
                 </Link>
               </li>
               <li>
+                <Link href="/privacy-policy" className="text-cyan-400/90 hover:text-cyan-300 hover:underline">
+                  Privacy Policy
+                </Link>
+              </li>
+              <li>
+                <Link href="/terms-of-service" className="text-cyan-400/90 hover:text-cyan-300 hover:underline">
+                  Terms of Service
+                </Link>
+              </li>
+              <li>
                 <Link href="/guidelines" className="text-cyan-400/90 hover:text-cyan-300 hover:underline">
                   แนวทางใช้งาน
                 </Link>

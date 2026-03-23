@@ -442,6 +442,9 @@ function PricingPageContent() {
           <p className="mt-2 text-sm text-slate-400">
             เลือกแพ็กเกจหรือเครดิตเพิ่ม แล้วโอนตามยอดที่แสดง จากนั้นกรอกข้อมูลและแนบสลิปด้านล่าง
           </p>
+          <p className="mt-3 rounded-xl border border-cyan-500/25 bg-cyan-500/10 px-3 py-2 text-xs text-cyan-100">
+            นี่คือหน้าชำระเงินอย่างเป็นทางการของ DischargeX เท่านั้น ข้อมูลที่ส่งใช้เพื่อยืนยันคำขอเปิดแพ็กเกจ/เครดิตเพิ่ม
+          </p>
 
           {qrOpen && process.env.NEXT_PUBLIC_PROMPTPAY_QR_URL ? (
             <div
@@ -498,6 +501,7 @@ function PricingPageContent() {
           <form
             className="mt-6 grid gap-4 md:grid-cols-2"
             encType="multipart/form-data"
+            aria-label="DischargeX plan and payment verification form"
             onSubmit={async (e) => {
               e.preventDefault();
               setSubmitError(null);

@@ -35,8 +35,11 @@ function AdminLoginPageContent() {
       <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-slate-900/80 p-6 shadow-xl">
         <h1 className="text-lg font-semibold text-slate-200">ผู้ดูแลระบบ</h1>
         <p className="mt-1 text-xs text-slate-500">ใช้อีเมลและรหัสผ่านที่ตั้งไว้ในระบบ</p>
+        <p className="mt-2 rounded-xl border border-cyan-500/25 bg-cyan-500/10 px-3 py-2 text-xs text-cyan-100">
+          หน้านี้เป็น admin login ทางการของ DischargeX เท่านั้น
+        </p>
 
-        <form onSubmit={handleSubmit} className="mt-5 space-y-4">
+        <form onSubmit={handleSubmit} className="mt-5 space-y-4" aria-label="DischargeX admin secure login form">
           <div>
             <label className="block text-xs text-slate-400">อีเมล</label>
             <input

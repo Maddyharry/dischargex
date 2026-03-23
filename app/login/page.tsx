@@ -146,6 +146,9 @@ function LoginForm() {
         <p className="mt-2 text-sm text-slate-400">
           ทดลองใช้งานฟรี 10 เครดิต (ใช้ได้ 7 วัน) หลังจากนั้นสามารถอัปเกรดแพ็กเกจได้ตลอดเวลา
         </p>
+        <p className="mt-2 rounded-xl border border-cyan-500/25 bg-cyan-500/10 px-3 py-2 text-xs text-cyan-100">
+          นี่คือหน้าล็อกอินอย่างเป็นทางการของ DischargeX (secure login)
+        </p>
 
         {registered && (
           <div className="mt-4 space-y-3 rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-4 py-3 text-sm text-cyan-200">
@@ -199,8 +202,12 @@ function LoginForm() {
           </p>
         )}
 
-        <form onSubmit={handleEmailSubmit} className="mt-6 space-y-3">
+        <form onSubmit={handleEmailSubmit} className="mt-6 space-y-3" aria-label="DischargeX secure login form">
+          <label htmlFor="login-email" className="block text-xs text-slate-300">
+            อีเมลสำหรับเข้าสู่ระบบ
+          </label>
           <input
+            id="login-email"
             type="email"
             placeholder="อีเมล"
             value={email}
@@ -209,7 +216,11 @@ function LoginForm() {
             className="w-full rounded-xl border border-white/10 bg-slate-800/80 px-4 py-3 text-slate-100 placeholder-slate-500 focus:border-cyan-500 focus:outline-none"
             required
           />
+          <label htmlFor="login-password" className="block text-xs text-slate-300">
+            รหัสผ่าน
+          </label>
           <input
+            id="login-password"
             type="password"
             placeholder="รหัสผ่าน"
             value={password}
