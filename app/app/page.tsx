@@ -997,29 +997,39 @@ function PageContent() {
       const t = (w || "").toLowerCase();
       if (/no explicit respiratory failure/.test(t) || /oxygen use alone/.test(t)) {
         push(
-          "ถ้ามีจริงในเคส ให้มีคำที่แพทย์ระบุชัด เช่น \"acute respiratory failure\" พร้อมหลักฐานประกอบ (ABG/SpO2/ลักษณะการหายใจ/การให้ ventilatory support)"
+          "หากจะลง respiratory failure ให้แพทย์ระบุคำวินิจฉัยตรง เช่น \"acute respiratory failure\" และมีหลักฐานสนับสนุน"
         );
       }
       if (/no explicit sepsis/.test(t) || /insufficient for sepsis/.test(t)) {
         push(
-          "ถ้าจะลง sepsis ควรมี physician diagnosis ชัด + clinical criteria ในชาร์จ (เช่น source of infection, organ dysfunction, lactate/hemodynamic)"
+          "หากจะลง sepsis ควรมี physician diagnosis ชัดเจน พร้อมเกณฑ์ทางคลินิกในเวชระเบียน"
         );
       }
       if (/organism unspecified/.test(t) || /community acquired pneumonia organism is not identified/.test(t)) {
         push(
-          "ถ้ามีผลเชื้อ ให้เติมคำที่ระบุ organism/ผลเพาะเชื้อ เช่น sputum/blood culture result และความไวต่อยา"
+          "ถ้ามีผลเชื้อ ให้ระบุ organism และผลเพาะเชื้อ (รวมความไวต่อยา) ให้ชัด"
         );
       }
       if (/hypoglycemia/.test(t) && /cause is not clearly specified|without explicit linkage/.test(t)) {
         push(
-          "เติมบริบท hypoglycemia ให้ชัด: ค่าน้ำตาล, timing, ยาที่เกี่ยวข้อง, การแก้ไข และคำเชื่อมโยงกับโรคเดิมถ้าแพทย์ระบุจริง"
+          "ระบุบริบท hypoglycemia ให้ชัด: ค่าน้ำตาล ช่วงเวลา สาเหตุที่เป็นไปได้ และการรักษาที่ให้"
         );
       }
       if (/missing admit\/discharge date/.test(t) || /los/.test(t)) {
-        push("ระบุ Admit date และ Discharge date ให้ครบ เพื่อคำนวณ LOS และทบทวน coding ได้แม่นขึ้น");
+        push("ระบุ Admit date และ Discharge date ให้ครบ เพื่อคำนวณ LOS ได้ถูกต้อง");
       }
     }
     return out;
+  }
+
+  function tierToPriorityLabel(tier?: string) {
+    if (tier === "confirmed_from_chart" || tier === "likely_supported") {
+      return "ลำดับความสำคัญสูง";
+    }
+    if (tier === "suggest_if_documented") {
+      return "ลำดับความสำคัญปานกลาง";
+    }
+    return "ลำดับความสำคัญทั่วไป";
   }
 
   const icd9Items = parseIcd9Items(getBlockValue("icd9"));
@@ -1531,7 +1541,7 @@ function PageContent() {
                     ข้อเสนอการเพิ่มข้อความในเวชระเบียน
                   </div>
                   <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
-                    แสดงรูปแบบที่อ่านง่าย: เพิ่มข้อความอะไร → รองรับวินิจฉัยใด → ผลเชิงคุณภาพที่คาดว่าจะดีขึ้น
+                    รูปแบบสรุป: เพิ่มข้อความอะไร → รองรับวินิจฉัยใด → ผลที่คาดว่าจะดีขึ้น
                   </p>
                   <div className="mt-2 rounded-xl border border-cyan-900/40 bg-cyan-950/15 px-3 py-2 text-xs leading-relaxed text-cyan-100/95">
                     <span className="font-semibold text-cyan-300">ผลต่อระดับความเชื่อมั่น (โดยประมาณ): </span>
@@ -1550,19 +1560,19 @@ function PageContent() {
                               ICD-10 {h.target_icd10}
                             </span>
                           ) : null}
-                          {h.tier ? (
-                            <span className="text-[10px] uppercase text-slate-500">{h.tier}</span>
-                          ) : null}
+                          <span className="rounded-full border border-amber-700/50 bg-amber-900/25 px-2 py-0.5 text-[10px] font-medium text-amber-200">
+                            {tierToPriorityLabel(h.tier)}
+                          </span>
                         </div>
                         {h.suggested_order_sheet_wording_th ? (
                           <div className="mt-2 rounded-lg border border-cyan-700/35 bg-cyan-950/30 px-3 py-2 text-xs leading-relaxed text-cyan-100/95">
-                            <span className="font-semibold text-cyan-300">หากเพิ่มข้อความนี้ในชาร์จ (เมื่อเป็นจริงตามเคส): </span>
+                            <span className="font-semibold text-cyan-300">ข้อความที่ควรเพิ่ม (เมื่อเป็นจริงตามเคส): </span>
                             {h.suggested_order_sheet_wording_th}
                           </div>
                         ) : null}
                         {h.missing_in_input?.length ? (
                           <div className="mt-2 text-xs text-slate-400">
-                            <span className="text-slate-500">หลักฐานที่ยังไม่เพียงพอในข้อความปัจจุบัน: </span>
+                            <span className="text-slate-500">สิ่งที่ยังขาดในข้อความปัจจุบัน: </span>
                             {h.missing_in_input.join(" · ")}
                           </div>
                         ) : null}
@@ -1573,7 +1583,7 @@ function PageContent() {
                         ) : null}
                         {h.approx_adjrw_note_th ? (
                           <div className="mt-2 text-xs leading-relaxed text-amber-100/95">
-                            <span className="font-medium text-amber-300">ผลต่อ AdjRW ที่คาด (โดยประมาณ): </span>
+                            <span className="font-medium text-amber-300">ผลต่อ AdjRW ที่คาด: </span>
                             {h.approx_adjrw_note_th}
                           </div>
                         ) : null}
