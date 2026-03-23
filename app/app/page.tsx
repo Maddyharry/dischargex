@@ -967,7 +967,63 @@ function PageContent() {
     return unique(segments);
   }
 
+  const ICD9_FALLBACK_LABELS: Record<string, string> = {
+    "93.90": "Oxygen therapy",
+    "99.21": "Injection of antibiotic",
+    "99.29": "Injection or infusion of other therapeutic substance",
+    "93.94": "Respiratory medication administered by nebulizer",
+    "96.04": "Endotracheal intubation",
+  };
+
+  function withIcd9Description(line: string) {
+    const s = (line || "").trim();
+    if (!s) return s;
+    const code = s.match(/\b\d{2,3}(?:\.\d{1,2})?\b/)?.[0] || "";
+    if (!code) return s;
+    // ถ้ามีแต่รหัสล้วน ให้เติมคำอธิบาย fallback เพื่อให้อ่านเข้าใจทันที
+    if (new RegExp(`^${code}\\s*$`).test(s) && ICD9_FALLBACK_LABELS[code]) {
+      return `${code} — ${ICD9_FALLBACK_LABELS[code]}`;
+    }
+    return s;
+  }
+
+  function buildActionableChartHints(items: string[]) {
+    const out: string[] = [];
+    const push = (v: string) => {
+      if (!out.includes(v)) out.push(v);
+    };
+
+    for (const w of items) {
+      const t = (w || "").toLowerCase();
+      if (/no explicit respiratory failure/.test(t) || /oxygen use alone/.test(t)) {
+        push(
+          "ถ้ามีจริงในเคส ให้มีคำที่แพทย์ระบุชัด เช่น \"acute respiratory failure\" พร้อมหลักฐานประกอบ (ABG/SpO2/ลักษณะการหายใจ/การให้ ventilatory support)"
+        );
+      }
+      if (/no explicit sepsis/.test(t) || /insufficient for sepsis/.test(t)) {
+        push(
+          "ถ้าจะลง sepsis ควรมี physician diagnosis ชัด + clinical criteria ในชาร์จ (เช่น source of infection, organ dysfunction, lactate/hemodynamic)"
+        );
+      }
+      if (/organism unspecified/.test(t) || /community acquired pneumonia organism is not identified/.test(t)) {
+        push(
+          "ถ้ามีผลเชื้อ ให้เติมคำที่ระบุ organism/ผลเพาะเชื้อ เช่น sputum/blood culture result และความไวต่อยา"
+        );
+      }
+      if (/hypoglycemia/.test(t) && /cause is not clearly specified|without explicit linkage/.test(t)) {
+        push(
+          "เติมบริบท hypoglycemia ให้ชัด: ค่าน้ำตาล, timing, ยาที่เกี่ยวข้อง, การแก้ไข และคำเชื่อมโยงกับโรคเดิมถ้าแพทย์ระบุจริง"
+        );
+      }
+      if (/missing admit\/discharge date/.test(t) || /los/.test(t)) {
+        push("ระบุ Admit date และ Discharge date ให้ครบ เพื่อคำนวณ LOS และทบทวน coding ได้แม่นขึ้น");
+      }
+    }
+    return out;
+  }
+
   const icd9Items = parseIcd9Items(getBlockValue("icd9"));
+  const actionableChartHints = buildActionableChartHints(warnings);
 
   const userPlanId = (session?.user as { plan?: string })?.plan ?? "trial";
   const showChartCaptureHints =
@@ -986,6 +1042,13 @@ function PageContent() {
       : meta.diagnosis_confidence === "Medium"
       ? "มีข้อมูลพอสมควร แต่ยังอาจมี diagnosis, ICD-9, outcome หรือ follow-up ที่ต้องทวน chart เพิ่ม"
       : "ข้อมูลยังไม่ครบหรือมีความไม่แน่นอนสูง ต้องตรวจซ้ำกับ order sheet และเวชระเบียนอย่างรอบคอบ";
+
+  const confidenceUpgradeHint =
+    meta.diagnosis_confidence === "Low"
+      ? "หากเพิ่มหลักฐานตามข้อเสนอด้านล่างอย่างครบถ้วน ระดับความเชื่อมั่นอาจยกระดับจาก Low ไปสู่ Medium"
+      : meta.diagnosis_confidence === "Medium"
+      ? "หากเพิ่มหลักฐานสำคัญตามข้อเสนอด้านล่าง ระดับความเชื่อมั่นอาจยกระดับจาก Medium ไปสู่ High"
+      : "ข้อมูลอยู่ในระดับ High แล้ว ให้ตรวจความครบถ้วนของหลักฐานและถ้อยคำในเวชระเบียนก่อนสรุปใช้งานจริง";
 
   return (
     <main className={`min-h-screen bg-[#081120] text-slate-100 ${loading ? "cursor-wait" : ""}`}>
@@ -1465,19 +1528,23 @@ function PageContent() {
               {showChartCaptureHints && engine?.chart_capture_hints ? (
                 <div className="mt-4 border-t border-amber-700/30 pt-4">
                   <div className="text-xs font-semibold uppercase tracking-wide text-amber-200">
-                    แนะนำเติมข้อความใน order sheet
+                    ข้อเสนอการเพิ่มข้อความในเวชระเบียน
                   </div>
                   <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
-                    ช่วยระบุว่าในข้อความที่วางยังขาดอะไรบ้าง หากต้องการให้การลงรหัสรองรับ diagnosis นั้นได้ชัดขึ้น
+                    แสดงรูปแบบที่อ่านง่าย: เพิ่มข้อความอะไร → รองรับวินิจฉัยใด → ผลเชิงคุณภาพที่คาดว่าจะดีขึ้น
                   </p>
+                  <div className="mt-2 rounded-xl border border-cyan-900/40 bg-cyan-950/15 px-3 py-2 text-xs leading-relaxed text-cyan-100/95">
+                    <span className="font-semibold text-cyan-300">ผลต่อระดับความเชื่อมั่น (โดยประมาณ): </span>
+                    {confidenceUpgradeHint}
+                  </div>
                   <ul className="mt-3 space-y-4">
                     {engine.chart_capture_hints.map((h, i) => (
                       <li
                         key={i}
                         className="rounded-xl border border-amber-900/40 bg-amber-950/15 p-3 text-sm text-slate-200"
                       >
-                        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 font-medium text-amber-100/95">
-                          <span>{h.target_diagnosis_text}</span>
+                        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 font-semibold text-amber-100/95">
+                          <span>วินิจฉัยเป้าหมาย: {h.target_diagnosis_text}</span>
                           {h.target_icd10 ? (
                             <span className="text-xs font-normal text-slate-400">
                               ICD-10 {h.target_icd10}
@@ -1487,23 +1554,27 @@ function PageContent() {
                             <span className="text-[10px] uppercase text-slate-500">{h.tier}</span>
                           ) : null}
                         </div>
-                        {h.missing_in_input?.length ? (
-                          <div className="mt-2 text-xs text-slate-400">
-                            <span className="text-slate-500">ในข้อมูลที่วางยังไม่พอ: </span>
-                            {h.missing_in_input.join(" · ")}
+                        {h.suggested_order_sheet_wording_th ? (
+                          <div className="mt-2 rounded-lg border border-cyan-700/35 bg-cyan-950/30 px-3 py-2 text-xs leading-relaxed text-cyan-100/95">
+                            <span className="font-semibold text-cyan-300">หากเพิ่มข้อความนี้ในชาร์จ (เมื่อเป็นจริงตามเคส): </span>
+                            {h.suggested_order_sheet_wording_th}
                           </div>
                         ) : null}
-                        {h.suggested_order_sheet_wording_th ? (
-                          <div className="mt-2 text-xs leading-relaxed text-cyan-100/90">
-                            <span className="text-slate-500">
-                              ตัวอย่างคำที่อาจเพิ่มใน chart (ถ้าเป็นจริงตามเคส):{" "}
-                            </span>
-                            {h.suggested_order_sheet_wording_th}
+                        {h.missing_in_input?.length ? (
+                          <div className="mt-2 text-xs text-slate-400">
+                            <span className="text-slate-500">หลักฐานที่ยังไม่เพียงพอในข้อความปัจจุบัน: </span>
+                            {h.missing_in_input.join(" · ")}
                           </div>
                         ) : null}
                         {h.suggested_lab_or_imaging?.length ? (
                           <div className="mt-1 text-xs text-slate-400">
-                            Lab / imaging ที่มักช่วยสนับสนุน: {h.suggested_lab_or_imaging.join(", ")}
+                            Lab/Imaging ที่มักใช้ยืนยัน: {h.suggested_lab_or_imaging.join(", ")}
+                          </div>
+                        ) : null}
+                        {h.approx_adjrw_note_th ? (
+                          <div className="mt-2 text-xs leading-relaxed text-amber-100/95">
+                            <span className="font-medium text-amber-300">ผลต่อ AdjRW ที่คาด (โดยประมาณ): </span>
+                            {h.approx_adjrw_note_th}
                           </div>
                         ) : null}
                       </li>
@@ -1568,6 +1639,18 @@ function PageContent() {
                       {w}
                     </div>
                   ))}
+                  {actionableChartHints.length ? (
+                    <div className="mt-3 rounded-2xl border border-cyan-800/40 bg-cyan-950/20 px-4 py-3">
+                      <div className="text-xs font-semibold uppercase tracking-wide text-cyan-200">
+                        คำที่ควรเติมในชาร์จ (เพื่อเพิ่มความชัดของ diagnosis)
+                      </div>
+                      <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-cyan-100/95">
+                        {actionableChartHints.map((h, i) => (
+                          <li key={`${h}-${i}`}>{h}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
                 </div>
               ) : (
                 <div className="text-sm text-slate-500">No warnings</div>
@@ -1658,7 +1741,11 @@ function PageContent() {
                       <div className="text-xs text-slate-500">ICD-9-CM procedures</div>
                       <ul className="mt-1 list-inside list-disc text-slate-300">
                         {engine.procedures_icd9.map((p, i) => (
-                          <li key={i}>{p.text}</li>
+                          <li key={i}>
+                            {withIcd9Description(
+                              `${p.icd9_cm ? `${p.icd9_cm} ` : ""}${p.text || ""}`.trim()
+                            )}
+                          </li>
                         ))}
                       </ul>
                     </div>
@@ -1736,7 +1823,9 @@ function PageContent() {
                             key={`${item}-${index}`}
                             className="flex items-start justify-between gap-3 rounded-2xl border border-slate-700/70 bg-slate-950/80 p-3"
                           >
-                            <div className="text-sm leading-6 text-slate-200">{item}</div>
+                            <div className="text-sm leading-6 text-slate-200">
+                              {withIcd9Description(item)}
+                            </div>
                             <button
                               type="button"
                               onClick={() => copyText(`icd9-item-${index}`, item)}
