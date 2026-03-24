@@ -127,6 +127,60 @@ export default function GuidelinesPage() {
               {" "}(หลังล็อกอิน)
             </p>
           </section>
+
+          <section className="rounded-2xl border border-cyan-500/20 bg-cyan-950/10 p-6">
+            <h2 className="text-lg font-semibold text-cyan-200">
+              คำถามที่พบบ่อย (FAQ)
+            </h2>
+            <p className="mt-2 text-sm text-slate-400">
+              รวมคำถามที่ผู้ใช้มักค้นหาเกี่ยวกับ AI สรุปชาร์จ, discharge summary และการทบทวน ICD-10
+            </p>
+            <div className="mt-5 space-y-4">
+              <details className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+                <summary className="cursor-pointer text-sm font-medium text-slate-100">
+                  DischargeX ใช้แทนแพทย์หรือ coder ได้ไหม?
+                </summary>
+                <p className="mt-2 text-sm leading-6 text-slate-300">
+                  ไม่ได้ DischargeX เป็นเครื่องมือช่วยทบทวนเท่านั้น ไม่ใช่ผู้ตัดสินใจแทนแพทย์หรือผู้ตรวจรหัส
+                  ผลลัพธ์ทุกครั้งต้องทบทวนกับเวชระเบียนจริงก่อนใช้งานจริง
+                </p>
+              </details>
+              <details className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+                <summary className="cursor-pointer text-sm font-medium text-slate-100">
+                  ใช้กับงานสรุปชาร์จภาษาไทยได้ไหม?
+                </summary>
+                <p className="mt-2 text-sm leading-6 text-slate-300">
+                  ได้ ระบบออกแบบมาสำหรับ workflow โรงพยาบาลไทย โดยเน้นข้อความจากเวชระเบียน IPD
+                  และช่วยจัดโครง diagnosis/coding ให้ทบทวนได้ง่ายขึ้น
+                </p>
+              </details>
+              <details className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+                <summary className="cursor-pointer text-sm font-medium text-slate-100">
+                  ทำไมผลลัพธ์ ICD-10 หรือ diagnosis บางเคสยังต้องแก้เอง?
+                </summary>
+                <p className="mt-2 text-sm leading-6 text-slate-300">
+                  AI ประเมินจากข้อความที่ผู้ใช้วางเข้ามาเท่านั้น หากข้อมูลไม่ครบหรือถ้อยคำใน chart ไม่ชัด
+                  ระบบอาจเสนอ diagnosis ที่ต้องปรับเพิ่มโดยผู้ใช้งาน
+                </p>
+              </details>
+              <details className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+                <summary className="cursor-pointer text-sm font-medium text-slate-100">
+                  เริ่มต้นใช้งานต้องดูหน้าไหนก่อน?
+                </summary>
+                <p className="mt-2 text-sm leading-6 text-slate-300">
+                  แนะนำเริ่มจาก{" "}
+                  <Link href="/" className="text-cyan-300 underline hover:text-cyan-200">
+                    หน้าแรก DischargeX
+                  </Link>{" "}
+                  เพื่อดูภาพรวม และดู{" "}
+                  <Link href="/pricing" className="text-cyan-300 underline hover:text-cyan-200">
+                    ราคาและแพ็กเกจ DischargeX
+                  </Link>{" "}
+                  เพื่อเลือกแผนที่เหมาะกับปริมาณงาน
+                </p>
+              </details>
+            </div>
+          </section>
         </div>
 
         <p className="mt-10 text-center text-xs text-slate-500">

@@ -4,6 +4,11 @@ import Link from "next/link";
 export const metadata: Metadata = {
   title: "Privacy Policy — DischargeX",
   description: "Privacy policy for DischargeX.",
+  alternates: { canonical: "/privacy-policy" },
+  robots: {
+    index: false,
+    follow: true,
+  },
 };
 
 export default function PrivacyPolicyPage() {

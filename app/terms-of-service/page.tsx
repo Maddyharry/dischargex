@@ -4,6 +4,11 @@ import Link from "next/link";
 export const metadata: Metadata = {
   title: "Terms of Service — DischargeX",
   description: "Terms of service for DischargeX.",
+  alternates: { canonical: "/terms-of-service" },
+  robots: {
+    index: false,
+    follow: true,
+  },
 };
 
 export default function TermsOfServicePage() {

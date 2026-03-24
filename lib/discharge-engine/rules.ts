@@ -10,6 +10,14 @@ import dmPack from "@/config/discharge/pattern_packs/diabetes_infection_renal.js
 import strokePack from "@/config/discharge/pattern_packs/stroke_aspiration_pneumonia_uti.json";
 import cirrhosisPack from "@/config/discharge/pattern_packs/cirrhosis_ascites_sbp_encephalopathy.json";
 import malignancyPack from "@/config/discharge/pattern_packs/malignancy_infection_anemia_palliative.json";
+import {
+  evaluateF2CcExclusionsFromEntries,
+  parseF2AppendixText,
+  resolveF2Entries,
+  type F2ExclusionEntry,
+  type F2ExclusionHit,
+  type F2RawBundle,
+} from "@/lib/discharge-engine/f2";
 
 export const PATTERN_PACKS = [
   kidneyMetabolicFluid,
@@ -22,6 +30,33 @@ export const PATTERN_PACKS = [
   cirrhosisPack,
   malignancyPack,
 ] as const;
+
+export { parseF2AppendixText };
+
+let f2ExclusionEntriesCache: F2ExclusionEntry[] | null = null;
+
+/** Resolved F2 rows (same_as + exclusions). Cached — building from ~7k rows is not free. */
+export function getF2ExclusionEntries(): F2ExclusionEntry[] {
+  if (f2ExclusionEntriesCache) return f2ExclusionEntriesCache;
+  const raw = (exclusionRules as { f2_cc_exclusion?: F2RawBundle }).f2_cc_exclusion;
+  if (!raw?.entries?.length) {
+    f2ExclusionEntriesCache = [];
+    return f2ExclusionEntriesCache;
+  }
+  f2ExclusionEntriesCache = resolveF2Entries(raw);
+  return f2ExclusionEntriesCache;
+}
+
+export function evaluateF2CcExclusions(params: {
+  principalIcd10List: string[];
+  secondaryIcd10List: string[];
+}): F2ExclusionHit[] {
+  return evaluateF2CcExclusionsFromEntries({
+    principalIcd10List: params.principalIcd10List,
+    secondaryIcd10List: params.secondaryIcd10List,
+    entries: getF2ExclusionEntries(),
+  });
+}
 
 export function getRulesBundle() {
   return {
@@ -40,9 +75,16 @@ export function summarizeRulesForPrompt(maxChars = 12000): string {
     activation_hints: (p as { activation_hints?: string[] }).activation_hints,
     reasoning_notes: (p as { reasoning_notes?: string[] }).reasoning_notes,
   }));
+  const rawF2 = (exclusionRules as { f2_cc_exclusion?: F2RawBundle }).f2_cc_exclusion;
+  const f2PromptSample = (rawF2?.entries || []).slice(0, 20).map((e) => ({
+    cc_code: e.cc_code,
+    cc_label: e.cc_label,
+  }));
+
   const payload = {
     core: bundle.core,
     exclusion: bundle.exclusion,
+    f2_cc_exclusion_sample_codes: f2PromptSample,
     combination: bundle.combination,
     pattern_packs: packs,
   };

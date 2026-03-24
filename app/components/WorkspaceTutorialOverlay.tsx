@@ -98,7 +98,7 @@ export function WorkspaceTutorialOverlay({
   const rightW = Math.max(0, vw - rightLeft);
 
   const panelClass =
-    "fixed z-[90] bg-black/80 backdrop-blur-[2px] pointer-events-auto";
+    "pointer-events-none fixed z-[90] bg-black/80 backdrop-blur-[2px]";
 
   return (
     <div

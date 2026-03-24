@@ -1,0 +1,86 @@
+export type SeoVariant = "conversion" | "technical" | "thai_brand";
+export type SeoPage = "home" | "pricing" | "guidelines";
+
+type SeoCopy = {
+  title: string;
+  description: string;
+};
+
+type SeoCatalog = Record<SeoPage, SeoCopy>;
+
+const conversionCopy: SeoCatalog = {
+  home: {
+    title:
+      "DischargeX — AI สรุปชาร์จ discharge summary และช่วยทบทวน ICD-10 สำหรับงาน IPD",
+    description:
+      "เครื่องมือ AI สำหรับแพทย์และทีมเวชระเบียนไทย: ช่วยสรุป discharge summary, จัดกลุ่มวินิจฉัย, และช่วยทบทวน coding ICD-10 ตามแนวทาง Thai DRG (ไม่ใช่ระบบจัดกลุ่มอย่างเป็นทางการ)",
+  },
+  pricing: {
+    title:
+      "ราคา DischargeX — แพ็กเกจ AI สรุปชาร์จและช่วยทบทวน ICD-10 สำหรับงาน IPD",
+    description:
+      "ดูราคาและแพ็กเกจ DischargeX สำหรับทีมแพทย์และเวชระเบียน: ช่วยสรุป discharge summary, ทบทวนการจัดโครง diagnosis, และช่วยงาน coding review ตามแนวทาง Thai DRG",
+  },
+  guidelines: {
+    title:
+      "แนวทางใช้งาน DischargeX — วิธีใช้ AI สรุปชาร์จและข้อควรระวังก่อนใช้งานจริง",
+    description:
+      "อ่านวิธีใช้ DischargeX แบบเป็นขั้นตอน พร้อมข้อควรระวังด้านข้อมูลผู้ป่วย ข้อจำกัดของ AI และแนวทางตรวจทานผลลัพธ์ก่อนนำไปใช้จริงในงานเวชระเบียน",
+  },
+};
+
+const technicalCopy: SeoCatalog = {
+  home: {
+    title:
+      "DischargeX | AI Clinical Documentation Support สำหรับ Discharge Summary และ ICD-10 Review",
+    description:
+      "ระบบช่วยงานเอกสารคลินิกสำหรับโรงพยาบาลไทย: สร้าง draft discharge summary, จัดโครง diagnosis, และช่วยทบทวน ICD-10/Thai DRG ใน workflow เวชระเบียน",
+  },
+  pricing: {
+    title:
+      "DischargeX Pricing | แพ็กเกจเครดิตสำหรับ AI Discharge Summary และ Coding Review",
+    description:
+      "เปรียบเทียบแพ็กเกจ Trial, Basic, Standard, Pro ของ DischargeX ตามจำนวนเครดิตและระดับการช่วยทบทวน diagnosis/ICD-10 สำหรับงาน IPD",
+  },
+  guidelines: {
+    title:
+      "DischargeX Guidelines | ข้อกำหนดการใช้งาน, ความปลอดภัยข้อมูล, และการตรวจทานผล AI",
+    description:
+      "แนวทางใช้ DischargeX อย่างปลอดภัย: การปกปิดข้อมูลผู้ป่วย ข้อจำกัดของระบบ AI และขั้นตอนตรวจทานผลก่อนนำไปใช้ทางคลินิกหรือเอกสารเวชระเบียน",
+  },
+};
+
+const thaiBrandCopy: SeoCatalog = {
+  home: {
+    title:
+      "DischargeX — ผู้ช่วย AI สรุปชาร์จสำหรับแพทย์ไทยและทีมเวชระเบียน",
+    description:
+      "ช่วยสรุป discharge summary จัดโครงวินิจฉัย และช่วยทบทวน ICD-10 ในงาน IPD ของโรงพยาบาลไทย ใช้งานง่ายและตรวจทานต่อได้จริง",
+  },
+  pricing: {
+    title:
+      "แพ็กเกจ DischargeX — ราคา AI ช่วยสรุปชาร์จสำหรับโรงพยาบาลไทย",
+    description:
+      "ดูแพ็กเกจ Trial, Basic, Standard และ Pro ของ DischargeX เลือกแผนให้เหมาะกับปริมาณเคสและ workflow งานเวชระเบียนของทีมคุณ",
+  },
+  guidelines: {
+    title:
+      "วิธีใช้ DischargeX — แนวทางสรุปชาร์จด้วย AI ให้ปลอดภัยและใช้งานได้จริง",
+    description:
+      "รวมขั้นตอนใช้งาน DischargeX ข้อควรระวังข้อมูลผู้ป่วย และวิธีตรวจทานผลก่อนนำไปใช้จริงโดยแพทย์หรือผู้ตรวจรหัส",
+  },
+};
+
+export function getSeoVariant(): SeoVariant {
+  const variant = process.env.SEO_VARIANT?.toLowerCase();
+  if (variant === "technical") return "technical";
+  if (variant === "thai_brand") return "thai_brand";
+  return "conversion";
+}
+
+export function getSeoCopy(page: SeoPage): SeoCopy {
+  const variant = getSeoVariant();
+  if (variant === "technical") return technicalCopy[page];
+  if (variant === "thai_brand") return thaiBrandCopy[page];
+  return conversionCopy[page];
+}

@@ -7,9 +7,13 @@ import { FeedbackWidget } from "./components/FeedbackWidget";
 import { SiteFooter } from "./components/SiteFooter";
 
 export const metadata: Metadata = {
-  title: "DischargeX",
+  metadataBase: new URL("https://dischargex.net"),
+  title: {
+    default: "DischargeX",
+    template: "%s | DischargeX",
+  },
   description:
-    "ช่วยสรุป discharge summary และทบทวนการจัดโครง coding — อ้างอิงหลักการจากเอกสารที่เผยแพร่สาธารณะ ไม่ใช่ระบบจัดกลุ่มอย่างเป็นทางการ",
+    "เครื่องมือช่วยสรุป discharge summary และทบทวนการจัดโครง coding (ICD-10 / Thai DRG) สำหรับแพทย์และผู้รับผิดชอบเวชระเบียนโรงพยาบาลไทย — ไม่ใช่การจัดกลุ่มอย่างเป็นทางการ",
 };
 
 export default function RootLayout({

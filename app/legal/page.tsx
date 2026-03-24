@@ -4,6 +4,11 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Reference & Legal Notice — DischargeX",
   description: "Reference materials and legal notice for DischargeX.",
+  alternates: { canonical: "/legal" },
+  robots: {
+    index: false,
+    follow: true,
+  },
 };
 
 export default function LegalPage() {

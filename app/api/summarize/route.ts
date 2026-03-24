@@ -12,7 +12,10 @@ import {
   planRank,
 } from "@/lib/billing-rules";
 import { markReferralFirstUsage } from "@/lib/referral";
-import { summarizeRulesForPrompt } from "@/lib/discharge-engine/rules";
+import {
+  evaluateF2CcExclusions,
+  summarizeRulesForPrompt,
+} from "@/lib/discharge-engine/rules";
 import { REFERENCE_SET_NAME } from "@/lib/reference-info";
 import { detectLinkageInText } from "@/lib/discharge-engine/linkage";
 import {
@@ -291,6 +294,13 @@ function normalizeIcd10List(s: string) {
     .split(",")
     .map((x) => x.trim().toUpperCase())
     .filter(Boolean);
+}
+
+function mergeUniqueWarnings(base: string[], extras: string[]) {
+  for (const msg of extras) {
+    if (!msg) continue;
+    if (!base.includes(msg)) base.push(msg);
+  }
 }
 
 function overlapsIcd10(a: string, b: string) {
@@ -1535,6 +1545,26 @@ export async function POST(req: Request) {
         };
       }
     }
+
+    const principalIcd10List = normalizeIcd10List(
+      normalized.find((b) => b.key === "principal_dx")?.icd10 || ""
+    );
+    const secondaryIcd10List = [
+      ...normalizeIcd10List(normalized.find((b) => b.key === "comorbidity")?.icd10 || ""),
+      ...normalizeIcd10List(normalized.find((b) => b.key === "complication")?.icd10 || ""),
+      ...normalizeIcd10List(normalized.find((b) => b.key === "other_diag")?.icd10 || ""),
+    ];
+    const f2Hits = evaluateF2CcExclusions({
+      principalIcd10List,
+      secondaryIcd10List,
+    });
+    mergeUniqueWarnings(
+      warnings,
+      f2Hits.map(
+        (hit) =>
+          `F2 exclusion: SDx ${hit.sdxIcd10} (${hit.ccLabel}) may not increase complexity when PDx is ${hit.pdxIcd10}. Review principal-secondary pairing and supporting evidence.`
+      )
+    );
 
     if (!isBasicPlan && losDays === null) {
       warnings.push("Missing admit/discharge date for LOS (used as guidance only).");

@@ -2,8 +2,29 @@ import Link from "next/link";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "About — DischargeX",
-  description: "Discharge summary and coding review decision-support tool.",
+  title: "เกี่ยวกับ DischargeX — เครื่องมือ AI ช่วยสรุปชาร์จและทบทวน coding",
+  description:
+    "รู้จัก DischargeX: เครื่องมือช่วยสรุป discharge summary จัดโครง diagnosis และช่วยทบทวน coding สำหรับทีมแพทย์และเวชระเบียนในโรงพยาบาลไทย",
+  alternates: { canonical: "/about" },
+  openGraph: {
+    title: "เกี่ยวกับ DischargeX",
+    description:
+      "เครื่องมือ AI ช่วยสรุปชาร์จและทบทวนการจัดโครง coding สำหรับงานเวชระเบียนไทย",
+    url: "https://dischargex.net/about",
+    siteName: "DischargeX",
+    locale: "th_TH",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "เกี่ยวกับ DischargeX",
+    description:
+      "เครื่องมือ AI ช่วยสรุป discharge summary และช่วยทบทวน coding สำหรับโรงพยาบาลไทย",
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 export default function AboutPage() {
@@ -32,6 +53,17 @@ export default function AboutPage() {
           </p>
         </div>
         <p className="mt-10 text-sm text-slate-500">
+          แนวทางใช้งาน:{" "}
+          <Link href="/guidelines" className="text-cyan-400 hover:underline">
+            วิธีใช้ DischargeX สำหรับงานสรุปชาร์จและทบทวน ICD-10
+          </Link>
+          {" · "}
+          ราคาและแพ็กเกจ:{" "}
+          <Link href="/pricing" className="text-cyan-400 hover:underline">
+            ดูแพ็กเกจ DischargeX
+          </Link>
+        </p>
+        <p className="mt-3 text-sm text-slate-500">
           รายละเอียดทางกฎหมายและการอ้างอิง:{" "}
           <Link href="/legal" className="text-cyan-400 hover:underline">
             Reference &amp; Legal Notice

@@ -1,4 +1,70 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+import { getSeoCopy } from "@/lib/seo-variants";
+
+const SITE_URL = "https://dischargex.net";
+
+const homeSeo = getSeoCopy("home");
+const homeTitle = homeSeo.title;
+const homeDescription = homeSeo.description;
+
+export const metadata: Metadata = {
+  title: { absolute: homeTitle },
+  description: homeDescription,
+  alternates: { canonical: "/" },
+  openGraph: {
+    title: homeTitle,
+    description: homeDescription,
+    url: SITE_URL,
+    siteName: "DischargeX",
+    locale: "th_TH",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: homeTitle,
+    description: homeDescription,
+  },
+};
+
+function HomeJsonLd() {
+  const data = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebSite",
+        "@id": `${SITE_URL}/#website`,
+        name: "DischargeX",
+        url: SITE_URL,
+        inLanguage: "th",
+        description: homeDescription,
+        publisher: { "@id": `${SITE_URL}/#organization` },
+      },
+      {
+        "@type": "Organization",
+        "@id": `${SITE_URL}/#organization`,
+        name: "DischargeX",
+        url: SITE_URL,
+        description: homeDescription,
+        logo: `${SITE_URL}/icon`,
+      },
+      {
+        "@type": "WebApplication",
+        name: "DischargeX",
+        url: SITE_URL,
+        applicationCategory: "HealthApplication",
+        operatingSystem: "Web",
+        browserRequirements: "Requires JavaScript",
+      },
+    ],
+  };
+  return (
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }}
+    />
+  );
+}
 
 const heroFeatures = [
   "ลดเวลาการสรุปชาร์จต่อเคส",
@@ -10,6 +76,7 @@ const heroFeatures = [
 export default function Home() {
   return (
     <main className="min-h-screen bg-[#081120] text-slate-100">
+      <HomeJsonLd />
       <section className="relative overflow-hidden border-b border-white/5 bg-gradient-to-b from-slate-900/60 via-[#0a1628] to-[#081120]">
         <div className="pointer-events-none absolute -top-24 right-[-10%] h-[28rem] w-[28rem] rounded-full bg-cyan-500/[0.12] blur-3xl" />
         <div className="pointer-events-none absolute bottom-[-20%] left-[-5%] h-80 w-80 rounded-full bg-blue-600/[0.08] blur-3xl" />
@@ -17,7 +84,7 @@ export default function Home() {
         <div className="relative mx-auto max-w-6xl px-4 py-16 md:py-28">
           <div className="mx-auto max-w-4xl text-center">
             <p className="inline-flex rounded-full border border-cyan-500/35 bg-gradient-to-r from-cyan-500/15 to-emerald-500/10 px-4 py-1.5 text-xs font-semibold tracking-wide text-cyan-100/95 shadow-sm shadow-cyan-900/20">
-              AI-assisted discharge workflow
+              AI สำหรับสรุปชาร์จ · เวชระเบียน IPD · ทบทวน ICD-10
             </p>
 
             <h1 className="mt-8 sm:mt-10">
@@ -122,6 +189,17 @@ export default function Home() {
             </p>
             <p className="max-w-3xl text-sm leading-relaxed text-slate-400 md:text-base">
               ผลลัพธ์ทุกเคสควรถูกใช้เป็นเครื่องมือช่วยตัดสินใจ โดยแพทย์หรือผู้ตรวจรหัสควรทบทวนร่วมกับข้อมูลในเวชระเบียนก่อนเสมอ
+            </p>
+            <p className="max-w-3xl text-sm leading-relaxed text-slate-400 md:text-base">
+              เริ่มใช้งานได้จาก{" "}
+              <Link href="/guidelines" className="text-cyan-300 underline underline-offset-2 hover:text-cyan-200">
+                แนวทางใช้ AI สรุปชาร์จและทบทวน ICD-10
+              </Link>{" "}
+              และดู{" "}
+              <Link href="/pricing" className="text-cyan-300 underline underline-offset-2 hover:text-cyan-200">
+                ราคาแพ็กเกจ DischargeX สำหรับงาน IPD
+              </Link>{" "}
+              ก่อนเริ่มใช้งานจริง
             </p>
           </div>
         </div>

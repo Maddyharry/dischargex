@@ -18,6 +18,7 @@ import {
 import { WorkspaceTutorialOverlay } from "@/app/components/WorkspaceTutorialOverlay";
 import { type WorkspaceCoachPhase } from "@/app/components/WorkspaceTutorialFloating";
 import type { DiagnosisEngineItem, DischargeEnginePayload } from "@/lib/discharge-engine/types";
+import { createDxCoachData } from "@/lib/charge-mentor";
 
 type Block = {
   key: string;
@@ -82,6 +83,7 @@ type DiagnosisItem = {
 type WorkspacePanelKey =
   | "quickStart"
   | "clinicalSignal"
+  | "dxCoach"
   | "preprocessSummary"
   | "warnings";
 
@@ -139,6 +141,7 @@ const DEFAULT_TEMPLATE_RULES = [
 const WORKSPACE_PANEL_DEFAULTS: Record<WorkspacePanelKey, boolean> = {
   quickStart: true,
   clinicalSignal: true,
+  dxCoach: true,
   preprocessSummary: true,
   warnings: true,
 };
@@ -210,6 +213,7 @@ function PageContent() {
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
   const [collapsedPanels, setCollapsedPanels] =
     useState<Record<WorkspacePanelKey, boolean>>(WORKSPACE_PANEL_DEFAULTS);
+  const [dxCoachDetailed, setDxCoachDetailed] = useState(false);
 
   const [tutorialPhase, setTutorialPhase] = useState<TutorialPhase>("off");
   const [tutorialInit, setTutorialInit] = useState(false);
@@ -274,6 +278,10 @@ function PageContent() {
           typeof parsed.clinicalSignal === "boolean"
             ? parsed.clinicalSignal
             : WORKSPACE_PANEL_DEFAULTS.clinicalSignal,
+        dxCoach:
+          typeof parsed.dxCoach === "boolean"
+            ? parsed.dxCoach
+            : WORKSPACE_PANEL_DEFAULTS.dxCoach,
         preprocessSummary:
           typeof parsed.preprocessSummary === "boolean"
             ? parsed.preprocessSummary
@@ -499,6 +507,11 @@ function PageContent() {
 
   // ส่ง snapshot ปัจจุบันให้ Feedback widget สำหรับการแจ้งข้อผิดพลาด
   useEffect(() => {
+    const dxCoachSnapshot = createDxCoachData({
+      engine,
+      warnings,
+      orderSheet,
+    });
     setWorkspaceSnapshot({
       orderSheet,
       meta,
@@ -506,6 +519,8 @@ function PageContent() {
       blocks,
       warnings,
       engine,
+      dx_coach_summary: dxCoachSnapshot.dx_coach_summary,
+      dx_coach_items: dxCoachSnapshot.dx_coach_items,
     });
     return () => setWorkspaceSnapshot(null);
   }, [orderSheet, meta, preprocess, blocks, warnings, engine, setWorkspaceSnapshot]);
@@ -695,6 +710,16 @@ function PageContent() {
     return data as ApiResponse;
   }
 
+  function isUsageLimitMessage(message: string) {
+    return (
+      /Credit limit reached/i.test(message) ||
+      message.includes("ใช้เครดิตเดือนนี้ครบแล้ว") ||
+      message.includes("ใช้เครดิตในรอบนี้ครบแล้ว") ||
+      message.includes("หมดรอบการใช้งานแล้ว") ||
+      message.includes("เครดิตไม่พอสำหรับเคสนี้")
+    );
+  }
+
   async function recalcFromBlocks(nextBlocks: NormalizedBlock[], silent = false) {
     if (bypassWorkspaceApi) {
       return;
@@ -735,9 +760,12 @@ function PageContent() {
       setEngine(parsed.result.engine ?? null);
       setDiagnosisItems(buildDiagnosisItemsFromBlocks(refreshedBlocks));
     } catch (err) {
-      console.error(err);
+      const message = err instanceof Error ? err.message : "Recalc failed";
+      if (!isUsageLimitMessage(message)) {
+        console.error(err);
+      }
       if (!silent) {
-        setError(err instanceof Error ? err.message : "Recalc failed");
+        setError(message);
       }
     } finally {
       setRecalcLoading(false);
@@ -806,19 +834,15 @@ function PageContent() {
       void loadUsage();
       window.dispatchEvent(new Event("usage-updated"));
     } catch (err) {
-      console.error(err);
-      const isLimitReached =
-        err instanceof Error &&
-        (err.message.includes("Credit limit reached") ||
-          err.message.includes("ใช้เครดิตเดือนนี้ครบแล้ว") ||
-          err.message.includes("ใช้เครดิตในรอบนี้ครบแล้ว") ||
-          err.message.includes("หมดรอบการใช้งานแล้ว"));
+      const message = err instanceof Error ? err.message : "Unknown error";
+      const isLimitReached = isUsageLimitMessage(message);
+      if (!isLimitReached) {
+        console.error(err);
+      }
       if (isLimitReached) {
-        setError(
-          (err instanceof Error ? err.message : "") + " ไปที่หน้า pricing เพื่อดูแพ็กเกจที่เหมาะกับคุณ"
-        );
+        setError(`${message} ไปที่หน้า pricing เพื่อดูแพ็กเกจที่เหมาะกับคุณ`);
       } else {
-        setError(err instanceof Error ? err.message : "Unknown error");
+        setError(message);
       }
     } finally {
       setLoading(false);
@@ -1022,6 +1046,12 @@ function PageContent() {
     return out;
   }
 
+  function priorityBadgeLabel(priority: "high" | "medium" | "low") {
+    if (priority === "high") return "High";
+    if (priority === "medium") return "Medium";
+    return "Low";
+  }
+
   function tierToPriorityLabel(tier?: string) {
     if (tier === "confirmed_from_chart" || tier === "likely_supported") {
       return "ลำดับความสำคัญสูง";
@@ -1061,9 +1091,65 @@ function PageContent() {
   const actionableChartHints = buildActionableChartHints(warnings);
 
   const userPlanId = (session?.user as { plan?: string })?.plan ?? "trial";
+  const showDxCoach = userPlanId === "trial" || userPlanId.startsWith("pro");
   const showChartCaptureHints =
     (userPlanId === "trial" || userPlanId.startsWith("pro")) &&
     !!engine?.chart_capture_hints?.length;
+  const dxCoachData = showDxCoach
+    ? createDxCoachData({
+        engine,
+        warnings,
+        orderSheet,
+        suppressChartHintItems: showChartCaptureHints,
+      })
+    : {
+        dx_coach_summary: {
+          total_items: 0,
+          high_priority: 0,
+          medium_priority: 0,
+          low_priority: 0,
+          top_points: [],
+        },
+        dx_coach_items: [],
+      };
+  const priorityRank: Record<"high" | "medium" | "low", number> = { high: 0, medium: 1, low: 2 };
+  const warningHintsAreEnough = warnings.length >= 2 || actionableChartHints.length >= 2;
+  const dxCoachItems = dxCoachData.dx_coach_items
+    .filter((item) => !(warningHintsAreEnough && item.source === "warning"))
+    .sort((a, b) => {
+      const byPriority = (priorityRank[a.priority] ?? 9) - (priorityRank[b.priority] ?? 9);
+      if (byPriority !== 0) return byPriority;
+      return a.title.localeCompare(b.title);
+    });
+  const dxCoachItemsLimited = (() => {
+    const high = dxCoachItems.filter((x) => x.priority === "high").slice(0, 3);
+    const medium = dxCoachItems.filter((x) => x.priority === "medium").slice(0, 2);
+    const low = dxCoachItems.filter((x) => x.priority === "low").slice(0, 1);
+    return [...high, ...medium, ...low].slice(0, 6);
+  })();
+  const dxCoachSummary = {
+    total_items: dxCoachItemsLimited.length,
+    high_priority: dxCoachItemsLimited.filter((x) => x.priority === "high").length,
+    medium_priority: dxCoachItemsLimited.filter((x) => x.priority === "medium").length,
+    low_priority: dxCoachItemsLimited.filter((x) => x.priority === "low").length,
+    top_points: dxCoachItemsLimited.slice(0, 3).map((x) => x.title),
+  };
+  const broadCount = dxCoachItemsLimited.filter((x) => x.type === "broad_diagnosis").length;
+  const needEvidenceCount = dxCoachItemsLimited.filter((x) => x.type === "needs_evidence").length;
+  const guidelineCount = dxCoachItemsLimited.filter((x) => x.type === "guideline_review").length;
+  const dxCoachQuickLines = [
+    broadCount > 0
+      ? `${broadCount} diagnosis ยังกว้างเกินไป`
+      : null,
+    needEvidenceCount > 0
+      ? `${needEvidenceCount} diagnosis ต้องมีหลักฐานใน chart เพิ่ม`
+      : null,
+    guidelineCount > 0
+      ? `ควร review ภาวะร่วมตามแนวทาง ${guidelineCount} เรื่อง`
+      : null,
+  ]
+    .filter(Boolean)
+    .slice(0, 3) as string[];
 
   const copyAllText = blocks
     .slice()
@@ -1579,7 +1665,7 @@ function PageContent() {
                         className="rounded-xl border border-amber-900/40 bg-amber-950/15 p-3 text-sm text-slate-200"
                       >
                         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 font-semibold text-amber-100/95">
-                          <span>วินิจฉัยเป้าหมาย: {h.target_diagnosis_text}</span>
+                          <span>ประเด็นที่ควรทบทวน: {h.target_diagnosis_text}</span>
                           {h.target_icd10 ? (
                             <span className="text-xs font-normal text-slate-400">
                               ICD-10 {h.target_icd10}
@@ -1623,6 +1709,108 @@ function PageContent() {
                 </div>
               ) : null}
             </CollapsibleCard>
+
+            {showDxCoach && dxCoachDetailed ? (
+              <CollapsibleCard
+                title="DX Coach"
+                subtitle="ทบทวนความเหมาะสมของ diagnosis และข้อมูลที่ควรมีใน chart"
+                collapsed={collapsedPanels.dxCoach}
+                onToggle={() => togglePanel("dxCoach")}
+              >
+                <div className="mb-3 text-xs text-slate-500">Diagnosis &amp; Documentation Coach</div>
+                <div className="space-y-4">
+                  {(
+                    [
+                      { type: "broad_diagnosis", label: "Diagnosis ยังกว้างเกินไป" },
+                      { type: "needs_evidence", label: "Diagnosis นี้ต้องมีหลักฐานรองรับ" },
+                      { type: "more_specific_option", label: "มี diagnosis ที่จำเพาะกว่าได้" },
+                      { type: "guideline_review", label: "เคสนี้ควร review ภาวะร่วมตามแนวทาง" },
+                    ] as const
+                  )
+                    .map((group) => {
+                    const groupItems = dxCoachItemsLimited.filter((x) => x.type === group.type);
+                    return { ...group, groupItems };
+                    })
+                    .filter((group) => group.groupItems.length > 0)
+                    .map((group) => {
+                    const { groupItems } = group;
+                    return (
+                      <div key={group.type} className="rounded-2xl border border-slate-700/70 bg-slate-950/60 p-3">
+                        <div className="text-sm font-semibold text-cyan-200">{group.label}</div>
+                        <div className="mt-2 space-y-2">
+                          {groupItems.map((item) => (
+                            <details
+                              key={item.id}
+                              className="rounded-xl border border-cyan-900/30 bg-cyan-950/15 p-3 text-sm text-slate-200"
+                            >
+                              <summary className="cursor-pointer select-none font-medium text-cyan-100">
+                                {item.title}
+                              </summary>
+                              <div className="mt-2 space-y-1 text-xs leading-relaxed text-slate-300">
+                                <div>
+                                  <span className="font-medium text-slate-400">Priority: </span>
+                                  <span className="rounded-full border border-slate-600 px-2 py-0.5">
+                                    {priorityBadgeLabel(item.priority)}
+                                  </span>
+                                </div>
+                                <div>
+                                  <span className="font-medium text-slate-400">Why this matters: </span>
+                                  {item.whyThisMatters}
+                                </div>
+                                <div>
+                                  <span className="font-medium text-slate-400">What to review: </span>
+                                  {item.whatToReview.join(" · ")}
+                                </div>
+                                <div>
+                                  <span className="font-medium text-slate-400">Evidence needed: </span>
+                                  {item.evidenceNeeded.join(" · ")}
+                                </div>
+                                {item.exampleWording ? (
+                                  <div>
+                                    <span className="font-medium text-slate-400">Example wording: </span>
+                                    {item.exampleWording}
+                                  </div>
+                                ) : null}
+                                <div>
+                                  <span className="font-medium text-slate-400">ข้อควรระวัง: </span>
+                                  {item.caution}
+                                </div>
+                              </div>
+                            </details>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {!dxCoachItemsLimited.length ? (
+                    <div className="rounded-2xl border border-slate-700/70 bg-slate-950/60 px-4 py-3 text-sm text-slate-400">
+                      ไม่พบประเด็นสำคัญเพิ่มเติมที่ต้องเปิดอ่านในโหมดละเอียด
+                    </div>
+                  ) : null}
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        copyText(
+                          "dx-coach-copy",
+                          dxCoachItemsLimited.map((item) => `${item.title}\n- ${item.caution}`).join("\n\n")
+                        )
+                      }
+                      className="rounded-xl border border-slate-700 bg-slate-900/80 px-3 py-2 text-xs font-medium text-slate-100 transition hover:bg-slate-800"
+                    >
+                      {copiedKey === "dx-coach-copy" ? "คัดลอกแล้ว" : "คัดลอกประเด็นทบทวน"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDxCoachDetailed(false)}
+                      className="rounded-xl border border-slate-700 bg-slate-900/80 px-3 py-2 text-xs font-medium text-slate-300 transition hover:bg-slate-800"
+                    >
+                      เปิด Quick Mode
+                    </button>
+                  </div>
+                </div>
+              </CollapsibleCard>
+            ) : null}
 
             <CollapsibleCard
               title="Preprocess Summary"
@@ -1804,6 +1992,53 @@ function PageContent() {
                 </ul>
               </div>
             ) : null}
+          </section>
+        ) : null}
+
+        {showDxCoach && !dxCoachDetailed ? (
+          <section className="rounded-3xl border border-cyan-500/20 bg-cyan-950/10 p-5 backdrop-blur">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold text-white">DX Coach</h2>
+                <p className="text-sm text-slate-400">
+                  ทบทวนความเหมาะสมของ diagnosis และข้อมูลที่ควรมีใน chart
+                </p>
+                <p className="mt-1 text-xs text-slate-500">Diagnosis &amp; Documentation Coach</p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="rounded-full border border-cyan-700/40 bg-cyan-900/30 px-2.5 py-1 text-xs text-cyan-200">
+                  {dxCoachSummary.total_items} ประเด็นควรทบทวน
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setDxCoachDetailed(true)}
+                  className="rounded-xl border border-slate-600 bg-slate-900/70 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-800"
+                >
+                  ดูทั้งหมด
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-3 rounded-2xl border border-cyan-900/40 bg-slate-950/60 p-4">
+              {dxCoachSummary.total_items === 0 ? (
+                <div className="text-sm text-slate-300">
+                  DX Coach: ไม่พบประเด็นสำคัญที่ต้องทบทวนเพิ่มเติม
+                </div>
+              ) : (
+                <>
+                  <div className="text-sm font-medium text-cyan-100">
+                    มี {dxCoachSummary.total_items} ประเด็นที่ควรทบทวนก่อนใช้ผลลัพธ์
+                  </div>
+                  <ul className="mt-2 space-y-1 text-sm text-slate-300">
+                    {(dxCoachQuickLines.length ? dxCoachQuickLines : dxCoachSummary.top_points)
+                      .slice(0, 3)
+                      .map((line, idx) => (
+                        <li key={`${line}-${idx}`}>- {line}</li>
+                      ))}
+                  </ul>
+                </>
+              )}
+            </div>
           </section>
         ) : null}
 

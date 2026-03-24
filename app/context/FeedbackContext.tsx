@@ -9,6 +9,8 @@ export type WorkspaceSnapshot = {
   blocks?: unknown;
   warnings?: string[];
   engine?: unknown;
+  dx_coach_summary?: unknown;
+  dx_coach_items?: unknown;
 };
 
 export type FeedbackOpenTab = "chat" | "report" | null;
