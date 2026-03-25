@@ -1,6 +1,9 @@
 import Link from "next/link";
+import { isOpdAssistEnabled } from "@/lib/chartAssist/guards";
 
 export default function AdminPage() {
+  const showOpdAssist = isOpdAssistEnabled();
+
   return (
     <main className="min-h-screen bg-[#081120] text-slate-100">
       <div className="mx-auto max-w-2xl px-4 py-16 space-y-8">
@@ -33,6 +36,44 @@ export default function AdminPage() {
               ดูรายการแชทและรายงานข้อผิดพลาดที่ลูกค้าส่งมา
             </p>
           </Link>
+          {!showOpdAssist ? (
+            <section className="rounded-2xl border border-amber-500/25 bg-amber-500/5 p-5">
+              <h2 className="font-medium text-amber-100">OPD Assist (ปิดอยู่)</h2>
+              <p className="mt-2 text-sm text-amber-200/80">
+                ถ้าต้องการเปิด Lab / บันทึกการทดสอบ ให้ใส่ในไฟล์{" "}
+                <code className="rounded bg-black/20 px-1 text-xs">.env</code> แล้วรีสตาร์ทเซิร์ฟเวอร์:
+              </p>
+              <pre className="mt-3 overflow-x-auto rounded-lg border border-amber-500/20 bg-black/20 p-3 text-left text-xs text-amber-100/90">
+                EXPERIMENTAL_OPD_ASSIST=true
+              </pre>
+              <p className="mt-2 text-xs text-amber-200/60">
+                หรือ <code className="text-amber-100/90">EXPERIMENTAL_CHART_ASSIST=true</code> ก็ได้
+              </p>
+            </section>
+          ) : null}
+          {showOpdAssist ? (
+            <>
+              <Link
+                href="/admin/opd-assist-lab"
+                className="block rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-5 text-slate-100 transition hover:bg-emerald-500/10"
+              >
+                <span className="font-medium">OPD Assist Lab</span>
+                <p className="mt-1 text-sm text-slate-400">
+                  ทดลอง admin-only — structured rules + Thai-first references
+                </p>
+                <p className="mt-2 font-mono text-[11px] text-emerald-400/80">/admin/opd-assist-lab</p>
+              </Link>
+              <Link
+                href="/admin/opd-assist-logs"
+                className="block rounded-2xl border border-white/10 bg-white/[0.04] p-5 text-slate-100 transition hover:bg-white/[0.08]"
+              >
+                <span className="font-medium">บันทึกการทดสอบ OPD Assist</span>
+                <p className="mt-1 text-sm text-slate-400">
+                  ดูประวัติ Analyze / ข้อผิดพลาด เพื่อวิเคราะห์คุณภาพ
+                </p>
+              </Link>
+            </>
+          ) : null}
         </div>
 
         <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">

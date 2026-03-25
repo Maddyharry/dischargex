@@ -6,6 +6,11 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: "*",
         allow: "/",
+        disallow: [
+          "/admin",
+          "/app",
+          "/api/",
+        ],
       },
     ],
     sitemap: "https://dischargex.net/sitemap.xml",

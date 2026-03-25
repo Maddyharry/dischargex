@@ -86,6 +86,12 @@ export const authOptions: NextAuthOptions = {
           GoogleProvider({
             clientId: process.env.GOOGLE_CLIENT_ID,
             clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+            /**
+             * Links a Google login to an existing DB user with the same email.
+             * Reduces duplicate accounts but increases account-linking risk if email
+             * ownership is contested — keep Google OAuth client restricted to your
+             * production origins in Google Cloud Console (Authorized redirect URIs).
+             */
             allowDangerousEmailAccountLinking: true,
           }),
         ]

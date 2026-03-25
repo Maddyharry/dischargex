@@ -60,6 +60,30 @@ model User {
   receivedReferral Referral[] @relation("Referred")
   creditLedgers    CreditLedger[]
   notifications    Notification[]
+  opdAssistLabLogs OpdAssistLabLog[]
+}
+
+/// บันทึกการใช้งาน OPD Assist Lab (admin ทดสอบ) — ใช้วิเคราะห์คุณภาพ/ข้อผิดพลาด ไม่ใช่ข้อมูลคนไข้เชิงลึก
+model OpdAssistLabLog {
+  id             String   @id @default(cuid())
+  userId         String
+  createdAt      DateTime @default(now())
+  caseId         String?
+  source         String   @default("analyze") // analyze | demo
+  demoKey        String?
+  mode           String?
+  modeOverride   String?
+  textLength     Int
+  textPreview    String?  @db.Text
+  ok             Boolean
+  errorMessage   String?  @db.Text
+  cardIds        String?  // JSON string array
+  ruleVersion    String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([createdAt])
 }
 
 model Account {
