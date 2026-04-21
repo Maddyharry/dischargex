@@ -231,7 +231,7 @@ function PageContent() {
   const tutorialAnchorClinicalRef = useRef<HTMLDivElement | null>(null);
   const tutorialAnchorGenerateRef = useRef<HTMLDivElement | null>(null);
   const heroSectionRef = useRef<HTMLElement | null>(null);
-  const inputSectionRef = useRef<HTMLElement | null>(null);
+  const inputSectionRef = useRef<HTMLDivElement | null>(null);
   const actionSectionRef = useRef<HTMLDivElement | null>(null);
   const resultSectionRef = useRef<HTMLElement | null>(null);
 
