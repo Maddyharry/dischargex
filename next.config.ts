@@ -36,6 +36,7 @@ const securityHeaders = [
       isDev
         ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
         : "script-src 'self' 'unsafe-inline'",
+      "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com",
       "connect-src 'self' https:",
       "form-action 'self'",
       "upgrade-insecure-requests",
