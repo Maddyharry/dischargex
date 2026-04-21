@@ -4,22 +4,23 @@ import { getServerSession } from "next-auth";
 import { z } from "zod";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { insertOpdAssistLabLog } from "@/lib/opdAssistLabLogStore";
 import { isOpdAssistEnabled, isAdminSession } from "@/lib/chartAssist/guards";
 import { analyzeOpdCase } from "@/lib/chartAssist/analyzeCase";
+import { mergeOpdAssistAiPhase1 } from "@/lib/chartAssist/opdAssistAi";
 import type { AssistMode } from "@/lib/chartAssist/cardTypes";
 
 export const runtime = "nodejs";
 
 const bodySchema = z.object({
   rawText: z.string(),
-  modeOverride: z.enum(["OPD", "ER", "TRAUMA"]).nullable().optional(),
+  modeOverride: z.enum(["OPD", "ER", "TRAUMA", "PSYCH", "LABOR_ROOM", "GYNE"]).nullable().optional(),
   caseId: z.string().max(128).optional(),
   source: z.enum(["analyze", "demo"]).optional(),
   demoKey: z.string().max(64).optional(),
+  /** Client layer-2 order (ProblemBlock.id[]) — applied before AI */
+  orderedProblemIds: z.array(z.string().max(256)).max(32).optional(),
 });
-
-const PREVIEW_MAX = 500;
-const ERR_MSG_MAX = 2000;
 
 async function resolveUserId(session: Session | null): Promise<string | null> {
   const email = session?.user?.email;
@@ -42,24 +43,9 @@ async function logOpdAssistLab(data: {
   ruleVersion?: string | null;
 }) {
   try {
-    await prisma.opdAssistLabLog.create({
-      data: {
-        userId: data.userId,
-        caseId: data.caseId ?? null,
-        source: data.source,
-        demoKey: data.demoKey ?? null,
-        mode: data.mode,
-        modeOverride: data.modeOverride,
-        textLength: data.rawText.length,
-        textPreview: data.rawText.slice(0, PREVIEW_MAX) || null,
-        ok: data.ok,
-        errorMessage: data.errorMessage ? data.errorMessage.slice(0, ERR_MSG_MAX) : null,
-        cardIds: data.cardIdsJson ?? null,
-        ruleVersion: data.ruleVersion ?? null,
-      },
-    });
+    await insertOpdAssistLabLog(data);
   } catch (e) {
-    console.error("opdAssistLabLog create failed", e);
+    console.error("opdAssistLabLog insert failed", e);
   }
 }
 
@@ -89,7 +75,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: "Invalid body" }, { status: 400 });
     }
 
-    const { rawText, modeOverride, caseId, source, demoKey } = parsed.data;
+    const { rawText, modeOverride, caseId, source, demoKey, orderedProblemIds } = parsed.data;
     rawTextForLog = rawText;
     meta = {
       caseId: caseId ?? null,
@@ -99,7 +85,11 @@ export async function POST(req: Request) {
     };
 
     const override = meta.modeOverride;
-    const result = analyzeOpdCase(rawText, override);
+    // Hybrid pipeline: guardrail context first, then AI-first draft + post-check (see `opdAssistArchitecture.ts`).
+    const ruleResult = analyzeOpdCase(rawText, override, {
+      orderedProblemIds: orderedProblemIds?.length ? orderedProblemIds : undefined,
+    });
+    const result = await mergeOpdAssistAiPhase1(rawText, ruleResult);
 
     if (userId) {
       void logOpdAssistLab({

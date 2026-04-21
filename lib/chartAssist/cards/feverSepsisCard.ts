@@ -1,32 +1,81 @@
-import { AssistCardResult, ParsedCaseFact, hasAny, uniq } from "../cardTypes";
+import {
+  AssistCardResult,
+  ParsedCaseFact,
+  hasAny,
+  uniq,
+} from "../cardTypes";
+import {
+  computeSystemicRedFlags,
+  looksLikeUncomplicatedUriOpd,
+} from "../caseClinicalProfile";
 
-const TRIGGERS = [
-  "ไข้สูง",
-  "ไข้",
+const TOXICITY_TRIGGERS = [
   "ซึม",
   "ช็อก",
   "shock",
+  "sepsis",
+  "septic",
   "poor perfusion",
   "cap refill",
   "crt ",
   "crt:",
   "bp ต่ำ",
   "hypotension",
-  "sepsis",
-  "septic",
   "ไม่กิน",
   "ปัสสาวะน้อย",
   "tachycardia",
+  "หมดสติ",
+  "ชัก",
 ];
 
-export function shouldShowFeverSepsisCard(input: ParsedCaseFact) {
+/**
+ * แสดงเฉพาะเมื่อมีไข้/พิษระบบจริงหรือไข้ไม่มีโฟกัส — ไม่ใช่ทุกเคส URI ที่มีไข้
+ */
+export function shouldShowFeverSepsisCard(input: ParsedCaseFact): boolean {
   const text = input.normalizedText;
-  return (
-    hasAny(text, TRIGGERS) ||
+  const dominant = input.dominantTheme ?? "unclear";
+  const caseType = input.caseType ?? "general";
+  const red = input.hasSystemicRedFlags ?? computeSystemicRedFlags(text);
+
+  if (dominant === "skin_rash" && !red) return false;
+  if (caseType === "dermatology" && !red) return false;
+  if (looksLikeUncomplicatedUriOpd(text)) return false;
+
+  const febrile =
+    hasAny(text, ["ไข้", "ไข้สูง", "fever", "febrile"]) ||
     !!input.facts?.fever ||
-    !!input.facts?.drowsy ||
-    (input.mode !== "OPD" && !!input.facts?.poorIntake)
-  );
+    !!input.facts?.drowsy;
+
+  const strongToxicity = hasAny(text, TOXICITY_TRIGGERS) || red;
+
+  if (!febrile && !strongToxicity) return false;
+
+  if (strongToxicity) return true;
+
+  if (caseType === "fever_without_focus" && febrile) return true;
+
+  if (input.mode === "ER" && febrile && (strongToxicity || hasAny(text, ["ซึม", "ไม่กิน", "ปัสสาวะน้อย"]))) {
+    return true;
+  }
+
+  if (input.mode === "OPD" || input.mode === "PSYCH") {
+    return (
+      febrile &&
+      (strongToxicity ||
+        hasAny(text, [
+          "ซึม",
+          "ไม่กิน",
+          "ปัสสาวะน้อย",
+          "shock",
+          "sepsis",
+          "bp ต่ำ",
+          "cap refill",
+          "perfusion",
+        ]))
+    );
+  }
+
+  return false;
 }
 
 export function buildFeverSepsisCard(input: ParsedCaseFact): AssistCardResult {
@@ -41,6 +90,10 @@ export function buildFeverSepsisCard(input: ParsedCaseFact): AssistCardResult {
   const whyShown: string[] = [];
   const dispositionHints: string[] = [];
   const medicationClassSuggestions: string[] = [];
+
+  const systemicConcern =
+    (input.hasSystemicRedFlags ?? computeSystemicRedFlags(text)) ||
+    hasAny(text, TOXICITY_TRIGGERS);
 
   if (input.facts?.fever || hasAny(text, ["ไข้", "ไข้สูง"])) {
     documented.push("มีไข้/ไข้สูง");
@@ -72,31 +125,30 @@ export function buildFeverSepsisCard(input: ParsedCaseFact): AssistCardResult {
     "ถาม/ประเมิน urine output",
     "หา source ของ infection",
     "ดู perfusion / skin / pulse quality",
-    "ชั่งน้ำหนักถ้าต้องให้ fluid/ยา"
   );
 
-  diagnosis.push(
-    "Acute febrile illness",
-    "Sepsis concern if perfusion/mental status abnormal",
-    "Shock concern if hypotension/poor perfusion present"
-  );
+  if (systemicConcern) {
+    diagnosis.push("Acute febrile illness with systemic concern — ประเมินแหล่งและความรุนแรง");
+    diagnosis.push("พิจารณา sepsis/shock เมื่อมีภาวะ perfusion หรือ neuro ผิดปกติ (ตามหลักฐาน)");
+    checkNext.push("ชั่งน้ำหนัก / ให้ fluid ตามดุลยพินิจ");
+    actionNow.push("ประเมิน ABCD และ perfusion");
+    actionNow.push("หา source ของ infection");
+    actionNow.push("พิจารณา escalate / ER ถ้ามีข้อบ่งชี้");
+    medicationClassSuggestions.push(
+      "antipyretic PRN",
+      "fluid resuscitation if clinically indicated",
+      "antimicrobial only after syndrome/source assessment",
+    );
+  } else {
+    diagnosis.push("Febrile illness — ควรหา source และระดับความรุนแรงก่อนสรุปภาวะรุนแรง");
+    avoidRoutine.push("หลีกเลี่ยงการติดป้าย sepsis/shock หากยังไม่มีหลักฐาน perfusion หรือ toxicity");
+    actionNow.push("เก็บ vital และประวัติให้ครบ");
+    actionNow.push("ติดตามอาการตามความเหมาะสมใน OPD");
+    medicationClassSuggestions.push("antipyretic PRN ตามดุลยพินิจ");
+  }
 
   avoidRoutine.push(
-    "อย่าลดระดับความรุนแรงก่อนมี HR/BP/CRT/mental status",
-    "อย่าฟันธง viral fever ถ้ายังไม่ได้ประเมิน perfusion และ source"
-  );
-
-  actionNow.push(
-    "ประเมิน ABCD",
-    "หา source ของ infection",
-    "ประเมิน perfusion และ urine output",
-    "senior review / ER escalation ถ้ามี sepsis concern"
-  );
-
-  medicationClassSuggestions.push(
-    "antipyretic PRN",
-    "fluid resuscitation if clinically indicated",
-    "antimicrobial only after syndrome/source assessment"
+    "อย่าลดระดับความรุนแรงก่อนมี HR/BP/CRT/mental status เมื่อสงสัยพิษระบบ",
   );
 
   if ((input.facts?.crtSec ?? 0) > 2) redFlags.push("CRT prolonged");
@@ -106,14 +158,16 @@ export function buildFeverSepsisCard(input: ParsedCaseFact): AssistCardResult {
   if (hasAny(text, ["ปัสสาวะน้อย"])) redFlags.push("poor urine output");
 
   if (redFlags.length > 0) {
-    dispositionHints.push("urgent ER management / observe / admit according to severity");
+    dispositionHints.push("พิจารณา escalate / สังเกตอาการใกล้ชิดตามความรุนแรง");
   } else {
-    dispositionHints.push("close reassessment after vitals and focused exam");
+    dispositionHints.push("ติดตามใน OPD หากคงที่และไม่มี red flag");
   }
+
+  const label = systemicConcern ? "Fever / systemic concern" : "Fever — clarify source & severity";
 
   return {
     id: "fever-sepsis",
-    label: "Fever / Sepsis screen",
+    label,
     severity: redFlags.length > 0 ? "urgent" : "warn",
     whyShown: uniq(whyShown),
     documented: uniq(documented),

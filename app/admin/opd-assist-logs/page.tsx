@@ -4,7 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import OpdAssistFeatureDisabled from "@/components/chartAssist/OpdAssistFeatureDisabled";
 import { isOpdAssistEnabled, isAdminSession } from "@/lib/chartAssist/guards";
-import { prisma } from "@/lib/prisma";
+import { listOpdAssistLabLogs } from "@/lib/opdAssistLabLogStore";
 
 export default async function OpdAssistLogsPage() {
   const session = await getServerSession(authOptions);
@@ -13,13 +13,7 @@ export default async function OpdAssistLogsPage() {
     return <OpdAssistFeatureDisabled />;
   }
 
-  const logs = await prisma.opdAssistLabLog.findMany({
-    orderBy: { createdAt: "desc" },
-    take: 200,
-    include: {
-      user: { select: { email: true, name: true } },
-    },
-  });
+  const logs = await listOpdAssistLabLogs(200);
 
   return (
     <main className="min-h-screen bg-[#081120] text-slate-100">

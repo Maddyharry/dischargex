@@ -63,6 +63,8 @@ export function FeedbackWidget() {
   const chatEndRef = useRef<HTMLDivElement>(null);
   const [adminThreads, setAdminThreads] = useState<AdminThread[]>([]);
   const [activeThreadUserId, setActiveThreadUserId] = useState("");
+  const [chatNudgeVisible, setChatNudgeVisible] = useState(false);
+  const [chatNudgeText, setChatNudgeText] = useState("สอบถามเพิ่มเติมได้ที่ปุ่มแชต");
 
   const [reportDesc, setReportDesc] = useState("");
   const [reportIncludeWorkspace, setReportIncludeWorkspace] = useState(true);
@@ -175,6 +177,30 @@ export function FeedbackWidget() {
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatMessages]);
+
+  useEffect(() => {
+    if (open) {
+      setChatNudgeVisible(false);
+      return;
+    }
+    const nudgeMessages = [
+      "สอบถามเพิ่มเติมได้ที่ปุ่มแชต",
+      "ไม่แน่ใจวิธีใช้งาน? กดแชตได้เลย",
+      "มีข้อสงสัยหรือปัญหา แจ้งทีมงานผ่านแชตได้ทันที",
+    ];
+    const rotateMessage = () => {
+      const next = nudgeMessages[Math.floor(Math.random() * nudgeMessages.length)];
+      setChatNudgeText(next);
+      setChatNudgeVisible(true);
+      window.setTimeout(() => setChatNudgeVisible(false), 4500);
+    };
+    const firstDelay = window.setTimeout(rotateMessage, 7000);
+    const timer = window.setInterval(rotateMessage, 25000);
+    return () => {
+      window.clearTimeout(firstDelay);
+      window.clearInterval(timer);
+    };
+  }, [open]);
 
   async function sendReport() {
     const text = reportDesc.trim();
@@ -353,6 +379,18 @@ export function FeedbackWidget() {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
         </svg>
       </button>
+      {!open && chatNudgeVisible ? (
+        <button
+          type="button"
+          onClick={() => {
+            setFeedbackTab("chat");
+            setOpen(true);
+          }}
+          className="fixed bottom-24 right-6 z-[100] max-w-[min(260px,calc(100vw-2.5rem))] rounded-2xl border border-cyan-400/40 bg-slate-900/95 px-3 py-2 text-left text-xs text-cyan-100 shadow-lg shadow-cyan-950/40"
+        >
+          {chatNudgeText}
+        </button>
+      ) : null}
 
       {open && (
         <div

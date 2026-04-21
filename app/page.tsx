@@ -216,7 +216,7 @@ export default function Home() {
               </p>
             </div>
             <a
-              href="https://youtu.be/MQeL2-lcriA"
+              href="https://www.youtube.com/watch?v=_mIpiKuYrV4"
               target="_blank"
               rel="noreferrer"
               className="inline-flex shrink-0 items-center justify-center rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-4 py-2 text-sm font-medium text-cyan-200 transition hover:border-cyan-400/50 hover:bg-cyan-500/15"
@@ -227,7 +227,7 @@ export default function Home() {
           <div className="mt-6 overflow-hidden rounded-2xl border border-slate-700/60 bg-slate-950/80 shadow-[0_0_0_1px_rgba(255,255,255,0.04)]">
             <iframe
               className="aspect-video w-full"
-              src="https://www.youtube.com/embed/MQeL2-lcriA"
+              src="https://www.youtube.com/embed/_mIpiKuYrV4"
               title="DischargeX basic usage tutorial"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
               referrerPolicy="strict-origin-when-cross-origin"

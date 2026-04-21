@@ -97,6 +97,8 @@ type TutorialPhase =
   | "generate_prompt"
   | "finished_modal";
 
+type MobileSectionKey = "hero" | "input" | "actions" | "results";
+
 const DEFAULT_BLOCKS: Block[] = [
   { key: "principal_dx", title: "Principal Diagnosis", order: 1 },
   { key: "comorbidity", title: "Comorbidity", order: 2 },
@@ -214,6 +216,8 @@ function PageContent() {
   const [collapsedPanels, setCollapsedPanels] =
     useState<Record<WorkspacePanelKey, boolean>>(WORKSPACE_PANEL_DEFAULTS);
   const [dxCoachDetailed, setDxCoachDetailed] = useState(false);
+  const [mobileSectionIndex, setMobileSectionIndex] = useState(0);
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
 
   const [tutorialPhase, setTutorialPhase] = useState<TutorialPhase>("off");
   const [tutorialInit, setTutorialInit] = useState(false);
@@ -226,8 +230,13 @@ function PageContent() {
   const tutorialAnchorPopupRef = useRef<HTMLDivElement | null>(null);
   const tutorialAnchorClinicalRef = useRef<HTMLDivElement | null>(null);
   const tutorialAnchorGenerateRef = useRef<HTMLDivElement | null>(null);
+  const heroSectionRef = useRef<HTMLElement | null>(null);
+  const inputSectionRef = useRef<HTMLElement | null>(null);
+  const actionSectionRef = useRef<HTMLDivElement | null>(null);
+  const resultSectionRef = useRef<HTMLElement | null>(null);
 
   const recalcTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mobileSectionOrder: MobileSectionKey[] = ["hero", "input", "actions", "results"];
 
   const bypassWorkspaceApi =
     isGuestWorkspace ||
@@ -261,6 +270,14 @@ function PageContent() {
     return () => {
       if (recalcTimerRef.current) clearTimeout(recalcTimerRef.current);
     };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const updateViewport = () => setIsMobileViewport(window.innerWidth < 768);
+    updateViewport();
+    window.addEventListener("resize", updateViewport);
+    return () => window.removeEventListener("resize", updateViewport);
   }, []);
 
   useEffect(() => {
@@ -412,6 +429,10 @@ function PageContent() {
   }
 
   function handleTutorialIntroStart() {
+    if (isMobileViewport) {
+      setTutorialPhase("workspace_click");
+      return;
+    }
     setTutorialPhase("mock_window");
     openMockOrderSheetPopup({ tutorialMode: true });
   }
@@ -930,6 +951,22 @@ function PageContent() {
     setCollapsedPanels((prev) => ({ ...prev, [key]: !prev[key] }));
   }
 
+  function scrollToMobileSection(section: MobileSectionKey) {
+    const targetMap: Record<MobileSectionKey, HTMLElement | null> = {
+      hero: heroSectionRef.current,
+      input: inputSectionRef.current,
+      actions: actionSectionRef.current,
+      results: resultSectionRef.current,
+    };
+    targetMap[section]?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function handleMobileNextSection() {
+    const nextIndex = (mobileSectionIndex + 1) % mobileSectionOrder.length;
+    setMobileSectionIndex(nextIndex);
+    scrollToMobileSection(mobileSectionOrder[nextIndex]);
+  }
+
   async function copyText(key: string, text: string) {
     await navigator.clipboard.writeText(text || "");
     setCopiedKey(key);
@@ -1245,8 +1282,16 @@ function PageContent() {
             เพื่อประมวลผลด้วย AI จริงและนับเครดิตตามแพ็กเกจ
           </div>
         ) : null}
+        {isMobileViewport ? (
+          <div className="rounded-2xl border border-cyan-500/30 bg-cyan-950/20 px-4 py-3 text-xs leading-relaxed text-cyan-100">
+            โหมดมือถือ: Tutorial จะข้ามขั้นเปิดหน้าต่างตัวอย่างให้อัตโนมัติ เพื่อให้เริ่มวางข้อมูลและกดสร้างสรุปได้ทันที
+          </div>
+        ) : null}
 
-        <section className="overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-slate-950 via-[#0c1728] to-[#111c32] shadow-2xl shadow-black/30">
+        <section
+          ref={heroSectionRef}
+          className="overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-slate-950 via-[#0c1728] to-[#111c32] shadow-2xl shadow-black/30"
+        >
           <div className="grid gap-6 px-6 py-7 lg:grid-cols-[1.2fr_0.8fr] lg:px-8">
             <div className="space-y-4">
               <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-xs font-medium uppercase tracking-[0.18em] text-cyan-300">
@@ -1293,7 +1338,10 @@ function PageContent() {
         </section>
 
         <section className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
-          <div className={`space-y-4 ${showWorkspaceCoach ? "pb-40 max-sm:pb-52" : ""}`}>
+          <div
+            ref={inputSectionRef}
+            className={`space-y-4 ${showWorkspaceCoach ? "pb-40 max-sm:pb-52" : ""}`}
+          >
             <CollapsibleCard
               title="เริ่มต้นใช้งาน (สำหรับผู้ใช้ใหม่)"
               subtitle="ทำตาม 3 ขั้นตอนนี้เพื่อเริ่มใช้งานได้ทันที"
@@ -1498,7 +1546,10 @@ function PageContent() {
             </Card>
 
             <div
-              ref={tutorialAnchorGenerateRef}
+              ref={(node) => {
+                actionSectionRef.current = node;
+                tutorialAnchorGenerateRef.current = node;
+              }}
               className={
                 showWorkspaceCoach && tutorialPhase === "generate_prompt"
                   ? "relative rounded-[1.35rem] p-[2px] shadow-[0_0_0_2px_rgba(52,211,153,0.45)]"
@@ -2042,7 +2093,10 @@ function PageContent() {
           </section>
         ) : null}
 
-        <section className="grid gap-4 xl:grid-cols-2">
+        <section
+          ref={resultSectionRef}
+          className="grid gap-4 xl:grid-cols-2"
+        >
           {blocks
             .slice()
             .sort((a, b) => a.order - b.order)
@@ -2122,6 +2176,27 @@ function PageContent() {
         </section>
 
         <ResultDisclaimer />
+
+        <div className="rounded-2xl border border-amber-500/40 bg-amber-950/30 px-4 py-3 text-xs leading-relaxed text-amber-100">
+          หมายเหตุ: โปรแกรมเหมาะกับการใช้งานบนคอมพิวเตอร์มากที่สุด (จอใหญ่จะจัดการข้อมูลได้สะดวกกว่า) แต่รองรับการใช้งานบนมือถือเพื่อทบทวนและแก้ไขเบื้องต้นได้
+        </div>
+      </div>
+
+      <div className="fixed inset-x-3 bottom-3 z-40 flex items-center gap-2 rounded-2xl border border-cyan-500/40 bg-slate-950/95 p-2 shadow-2xl md:hidden">
+        <button
+          type="button"
+          onClick={() => scrollToMobileSection("hero")}
+          className="rounded-xl border border-slate-700 bg-slate-900/90 px-3 py-2 text-xs font-medium text-slate-100"
+        >
+          ด้านบน
+        </button>
+        <button
+          type="button"
+          onClick={handleMobileNextSection}
+          className="flex-1 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 px-3 py-2 text-xs font-semibold text-white"
+        >
+          ถัดไป (Next)
+        </button>
       </div>
 
       <TutorialIntroModal

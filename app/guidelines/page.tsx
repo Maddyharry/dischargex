@@ -24,7 +24,7 @@ export default function GuidelinesPage() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-lg font-semibold text-white">วิดีโอสอนใช้งานเบื้องต้น</h2>
             <a
-              href="https://youtu.be/MQeL2-lcriA"
+              href="https://www.youtube.com/watch?v=_mIpiKuYrV4"
               target="_blank"
               rel="noreferrer"
               className="text-sm text-cyan-300 hover:text-cyan-200 hover:underline"
@@ -38,7 +38,7 @@ export default function GuidelinesPage() {
           <div className="mt-3 overflow-hidden rounded-xl border border-slate-700/70 bg-slate-950/70">
             <iframe
               className="aspect-video w-full"
-              src="https://www.youtube.com/embed/MQeL2-lcriA"
+              src="https://www.youtube.com/embed/_mIpiKuYrV4"
               title="DischargeX basic usage tutorial"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
               referrerPolicy="strict-origin-when-cross-origin"

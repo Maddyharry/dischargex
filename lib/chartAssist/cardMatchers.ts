@@ -18,9 +18,6 @@ export function getActiveDiseaseCards(input: ParsedCaseFact): AssistCardResult[]
   if (shouldShowHeadInjuryCard(input)) {
     cards.push(buildHeadInjuryCard(input));
   }
-  if (shouldShowFeverSepsisCard(input)) {
-    cards.push(buildFeverSepsisCard(input));
-  }
   if (shouldShowBloodyDiarrheaCard(input)) {
     cards.push(buildBloodyDiarrheaCard(input));
   }
@@ -32,6 +29,10 @@ export function getActiveDiseaseCards(input: ParsedCaseFact): AssistCardResult[]
   }
   if (shouldShowUriWheezeCard(input)) {
     cards.push(buildUriWheezeCard(input));
+  }
+  /** Fever/sepsis — หลัง URI/ผิวหนัง เพื่อลด over-escalation */
+  if (shouldShowFeverSepsisCard(input)) {
+    cards.push(buildFeverSepsisCard(input));
   }
 
   return cards

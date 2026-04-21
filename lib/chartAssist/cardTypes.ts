@@ -1,10 +1,29 @@
-export type AssistMode = "OPD" | "ER" | "TRAUMA";
+export type AssistMode = "OPD" | "ER" | "TRAUMA" | "PSYCH" | "LABOR_ROOM" | "GYNE";
 export type CardSeverity = "info" | "warn" | "urgent";
+
+export type CaseType =
+  | "dermatology"
+  | "respiratory"
+  | "gi"
+  | "trauma"
+  | "fever_without_focus"
+  | "general";
+
+export type DominantTheme =
+  | "skin_rash"
+  | "respiratory"
+  | "gi"
+  | "trauma"
+  | "fever_systemic"
+  | "unclear";
 
 export type ParsedCaseFact = {
   rawText: string;
   normalizedText: string;
   mode: AssistMode;
+  caseType?: CaseType;
+  dominantTheme?: DominantTheme;
+  hasSystemicRedFlags?: boolean;
   facts?: {
     fever?: boolean;
     cough?: boolean;

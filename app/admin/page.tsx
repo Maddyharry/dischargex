@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { isOpdAssistEnabled } from "@/lib/chartAssist/guards";
+import { isChartAssistLabEnabled, isOpdAssistEnabled } from "@/lib/chartAssist/guards";
 
 export default function AdminPage() {
   const showOpdAssist = isOpdAssistEnabled();
+  const showChartAssistLab = isChartAssistLabEnabled();
 
   return (
     <main className="min-h-screen bg-[#081120] text-slate-100">
@@ -50,6 +51,20 @@ export default function AdminPage() {
                 หรือ <code className="text-amber-100/90">EXPERIMENTAL_CHART_ASSIST=true</code> ก็ได้
               </p>
             </section>
+          ) : null}
+          {showChartAssistLab ? (
+            <Link
+              href="/admin/chart-assist-lab"
+              className="block rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-5 text-slate-100 transition hover:bg-cyan-500/10"
+            >
+              <span className="font-medium">Chart Assist Lab (V1)</span>
+              <p className="mt-1 text-sm text-slate-400">
+                Admin experimental — case timeline + pure rule engine (no LLM)
+              </p>
+              <p className="mt-2 font-mono text-[11px] text-cyan-400/80">
+                EXPERIMENTAL_CHART_ASSIST=true · /admin/chart-assist-lab
+              </p>
+            </Link>
           ) : null}
           {showOpdAssist ? (
             <>

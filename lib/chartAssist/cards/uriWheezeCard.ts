@@ -21,6 +21,30 @@ const TRIGGERS = [
 
 export function shouldShowUriWheezeCard(input: ParsedCaseFact) {
   const text = input.normalizedText;
+  const dominant = input.dominantTheme ?? "unclear";
+  const caseType = input.caseType ?? "general";
+
+  /** ผื่น/ผิวหนังเป็นประเด็นหลัก — ไม่เปิดการ์ด URI เว้นแต่มี lower airway ชัด (ไม่ใช่แค่ไอ/น้ำมูกร่วม) */
+  if (dominant === "skin_rash" || caseType === "dermatology") {
+    const strongResp =
+      hasAny(text, [
+        "wheeze",
+        "wheezing",
+        "rhonchi",
+        "rhonchus",
+        "เสียงวี้ด",
+        "ventolin",
+        "salbutamol",
+        "neb",
+        "nebulization",
+        "พ่นยา",
+        "bronchiolitis",
+      ]) ||
+      !!input.facts?.wheeze ||
+      !!input.facts?.rhonchi;
+    if (!strongResp) return false;
+  }
+
   return (
     hasAny(text, TRIGGERS) ||
     !!input.facts?.cough ||

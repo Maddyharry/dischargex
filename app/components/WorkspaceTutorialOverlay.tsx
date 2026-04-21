@@ -49,14 +49,10 @@ export function WorkspaceTutorialOverlay({
   }, [active, targetRef]);
 
   useLayoutEffect(() => {
-    measure();
-  }, [measure, phase]);
-
-  useLayoutEffect(() => {
     if (!active) return;
     const id = requestAnimationFrame(measure);
     return () => cancelAnimationFrame(id);
-  }, [active, measure]);
+  }, [active, measure, phase]);
 
   useEffect(() => {
     if (!active) return;
