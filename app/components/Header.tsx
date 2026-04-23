@@ -140,6 +140,12 @@ export function Header() {
             AI Chat
           </Link>
           <Link
+            href="/knowledge"
+            className="shrink-0 rounded-lg border border-slate-600/80 bg-slate-800/40 px-2.5 py-2 text-xs text-slate-200 transition hover:border-slate-500 hover:bg-slate-700/40 hover:text-white md:hidden"
+          >
+            Know
+          </Link>
+          <Link
             href="/app"
             className="hidden shrink-0 rounded-lg border border-slate-600/80 bg-slate-800/40 px-3 py-2 text-sm text-slate-200 transition hover:border-slate-500 hover:bg-slate-700/40 hover:text-white sm:inline-flex"
           >
@@ -222,6 +228,13 @@ export function Header() {
                     )}
                   </div>
                   <div className="py-1">
+                    <Link
+                      href="/knowledge"
+                      className="block px-4 py-2.5 text-sm text-slate-200 hover:bg-slate-800 hover:text-white"
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      Knowledge
+                    </Link>
                     <Link
                       href="/app"
                       className="block px-4 py-2.5 text-sm text-slate-200 hover:bg-slate-800 hover:text-white"

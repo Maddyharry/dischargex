@@ -825,12 +825,19 @@ export default function ChartSummaryConsultChatPage() {
   }
 
   async function toggleMic() {
-    if (!isMicSupported) {
-      setComposerHint("เบราว์เซอร์นี้ยังไม่รองรับ SpeechRecognition");
+    const rec = speechRef.current;
+    if (!rec) {
+      try {
+        if (typeof navigator !== "undefined" && navigator.mediaDevices?.getUserMedia) {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          stream.getTracks().forEach((track) => track.stop());
+        }
+        setComposerHint("อนุญาตไมค์แล้ว แต่เบราว์เซอร์นี้ยังไม่รองรับถอดเสียงสด แนะนำใช้ปุ่มไมค์บนคีย์บอร์ดแทน");
+      } catch {
+        setComposerHint("ไม่ได้รับสิทธิ์ไมโครโฟน กรุณาอนุญาตไมค์ใน Chrome แล้วลองใหม่");
+      }
       return;
     }
-    const rec = speechRef.current;
-    if (!rec) return;
     if (isListening) {
       rec.stop();
       setComposerHint("หยุดฟังเสียงแล้ว");
@@ -1449,14 +1456,14 @@ export default function ChartSummaryConsultChatPage() {
                   <button
                     type="button"
                     onClick={toggleMic}
-                    disabled={!isMicSupported || loading}
+                    disabled={loading}
                     className={`inline-flex h-7 w-7 items-center justify-center rounded-lg border disabled:opacity-50 sm:h-8 sm:w-8 ${
                       isListening
                         ? "border-rose-500 bg-rose-600/20 text-rose-100"
                         : "border-slate-600 bg-slate-900/80 text-slate-200"
                     }`}
-                    title={isListening ? "หยุดไมค์" : "เริ่มไมค์"}
-                    aria-label={isListening ? "หยุดไมค์" : "เริ่มไมค์"}
+                    title={isListening ? "หยุดไมค์" : isMicSupported ? "เริ่มไมค์" : "อนุญาตไมค์"}
+                    aria-label={isListening ? "หยุดไมค์" : isMicSupported ? "เริ่มไมค์" : "อนุญาตไมค์"}
                   >
                     <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
                       <rect x="9" y="3" width="6" height="11" rx="3" />
