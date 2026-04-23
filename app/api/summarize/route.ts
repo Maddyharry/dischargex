@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import {
+  getDailyApproxLimit,
   getCreditCycleBounds,
   getCreditsRequiredForCase,
   getPeriodBounds,
@@ -35,8 +36,52 @@ import type {
   ExtractionLayer,
   LinkageEdge,
 } from "@/lib/discharge-engine/types";
+import { trackTelemetry } from "@/lib/telemetry";
+import {
+  estimateTokenBillingThb,
+  getPlanTokenBudgetThb,
+  readUsageSummary,
+  type TokenUsageSummary,
+  shouldEnforceLegacyCreditLimit,
+} from "@/lib/token-billing";
+import { deidentify } from "@/lib/deidentify";
+import { getMergedKnowledge, queuePendingKnowledgeEntry } from "@/lib/knowledge-store";
+import { retrieveExternalEvidence } from "@/lib/reference-retriever";
 
 export const runtime = "nodejs";
+
+function formatBangkokDateTime(date: Date) {
+  return new Intl.DateTimeFormat("th-TH", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "Asia/Bangkok",
+  }).format(date);
+}
+
+function compactKnowledgeForSummaryPrompt(
+  clinical: string,
+  items: Awaited<ReturnType<typeof getMergedKnowledge>>
+) {
+  const q = clinical.toLowerCase();
+  const scored = items
+    .map((d) => {
+      const tokens = [d.name, ...d.aliases, ...d.icd10].map((x) => x.toLowerCase());
+      const score = tokens.reduce((acc, token) => (q.includes(token) ? acc + 1 : acc), 0);
+      return { d, score };
+    })
+    .sort((a, b) => b.score - a.score);
+  const ranked = scored.slice(0, 12).map((x) => x.d);
+  return {
+    hasStrongMatch: (scored[0]?.score || 0) > 0,
+    items: ranked.map((d) => ({
+    name: d.name,
+    diagnosisToWrite: d.diagnosisToWrite.slice(0, 3),
+    investigations: d.investigations.slice(0, 3),
+    icd10: d.icd10.slice(0, 6),
+    refs: d.refs,
+    })),
+  };
+}
 
 type PrismaTx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
 
@@ -82,10 +127,19 @@ type ReqBody = {
   currentBlocks?: NormalizedBlock[];
   /** lab/radiology in body are ignored — evidence comes from order_sheet paste only */
   inputs: { order_sheet?: string; lab?: string; radiology?: string; other?: string };
+  imageInputs?: Array<{ name?: string; dataUrl: string }>;
   extraNote?: string;
   templateRules?: string;
-  settings?: { autoDeidentify?: boolean; model?: string; fast?: boolean };
+  settings?: {
+    autoDeidentify?: boolean;
+    model?: string;
+    fast?: boolean;
+    strategy?: "strict_audit_safe" | "what_if_optimize";
+    alternativeSearch?: boolean;
+  };
 };
+
+type UploadedImageInput = { name?: string; dataUrl: string };
 
 type PreprocessSummary = {
   originalChars: number;
@@ -134,7 +188,10 @@ type GenerateModelOutput = {
 };
 
 function json(data: unknown, status = 200) {
-  return NextResponse.json(data, { status });
+  return NextResponse.json(data, {
+    status,
+    headers: { "Content-Type": "application/json; charset=utf-8" },
+  });
 }
 
 function normalizeIncomingBlocks(blocks: NormalizedBlock[] | undefined) {
@@ -246,6 +303,52 @@ function extractJsonObject<T>(text: string) {
   return tryParseJson<T>(s.slice(start, end + 1));
 }
 
+function sanitizeImageInputs(raw: unknown): UploadedImageInput[] {
+  if (!Array.isArray(raw)) return [];
+  const out: UploadedImageInput[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const o = item as Record<string, unknown>;
+    const dataUrl = String(o.dataUrl || "").trim();
+    if (!/^data:image\/[a-zA-Z0-9.+-]+;base64,/.test(dataUrl)) continue;
+    if (dataUrl.length > 7_000_000) continue;
+    const name = String(o.name || "").trim();
+    out.push({ dataUrl, ...(name ? { name: name.slice(0, 120) } : {}) });
+    if (out.length >= 4) break;
+  }
+  return out;
+}
+
+async function extractClinicalTextFromImages(openai: OpenAI, images: UploadedImageInput[]) {
+  if (!images.length) return "";
+  const response = await openai.responses.create({
+    model: "gpt-4.1-mini",
+    max_output_tokens: 1400,
+    input: [
+      {
+        role: "system",
+        content:
+          "Extract visible clinical text from uploaded medical images/screenshots. Output plain text only. Preserve line breaks for key sections like diagnosis, orders, labs, medications, dates. If unreadable, say briefly which parts are unclear.",
+      },
+      {
+        role: "user",
+        content: [
+          {
+            type: "input_text" as const,
+            text: "อ่านข้อความทางการแพทย์จากรูปให้มากที่สุด (ไทย/อังกฤษ) แล้วสรุปเป็น plain text สำหรับนำไปทำ discharge summary",
+          },
+          ...images.map((img) => ({
+            type: "input_image" as const,
+            image_url: img.dataUrl,
+            detail: "auto" as const,
+          })),
+        ],
+      },
+    ],
+  });
+  return ("output_text" in response ? String(response.output_text || "") : "").trim();
+}
+
 async function callModelJSON<T>(
   openai: OpenAI,
   model: string,
@@ -253,6 +356,12 @@ async function callModelJSON<T>(
   user: string,
   options?: { max_output_tokens?: number }
 ) {
+  const usageTotal: TokenUsageSummary = { inputTokens: 0, outputTokens: 0, totalTokens: 0 };
+  const addUsage = (next: TokenUsageSummary) => {
+    usageTotal.inputTokens += next.inputTokens;
+    usageTotal.outputTokens += next.outputTokens;
+    usageTotal.totalTokens += next.totalTokens;
+  };
   const createParams = {
     model,
     ...(options?.max_output_tokens != null && { max_output_tokens: options.max_output_tokens }),
@@ -265,10 +374,12 @@ async function callModelJSON<T>(
   const resp = await openai.responses.create(
     createParams as unknown as Parameters<typeof openai.responses.create>[0]
   );
+  const respUsage = "usage" in resp ? resp.usage : undefined;
+  addUsage(readUsageSummary(respUsage));
 
   const text = "output_text" in resp ? resp.output_text || "" : "";
   const obj = extractJsonObject<T>(text);
-  if (obj) return obj;
+  if (obj) return { data: obj, usage: usageTotal };
 
   const repair = await openai.responses.create({
     ...createParams,
@@ -282,11 +393,13 @@ async function callModelJSON<T>(
       },
     ],
   });
+  const repairUsage = "usage" in repair ? repair.usage : undefined;
+  addUsage(readUsageSummary(repairUsage));
 
   const repairText = "output_text" in repair ? repair.output_text || "" : "";
   const obj2 = extractJsonObject<T>(repairText);
   if (!obj2) throw new Error("Model returned non-JSON");
-  return obj2;
+  return { data: obj2, usage: usageTotal };
 }
 
 function normalizeIcd10List(s: string) {
@@ -463,6 +576,13 @@ function mergeCommaLists(a: string, b: string) {
 function mergeDiagnosisText(a: string, b: string) {
   const items = [...splitCommaItems(a), ...splitCommaItems(b)];
   return Array.from(new Set(items)).join(", ");
+}
+
+function normalizeLegacyDiagnosisTerm(text: string) {
+  return (text || "")
+    .replace(/\bacute gastroenteritis\s*\(age\)\b/gi, "Acute infectious diarrhea")
+    .replace(/\bacute gastroenteritis\b/gi, "Acute infectious diarrhea")
+    .replace(/\bage\b/gi, "acute infectious diarrhea");
 }
 
 function blockMap(blocks: NormalizedBlock[]) {
@@ -690,6 +810,24 @@ function postProcessBlocks(blocks: NormalizedBlock[], warnings: string[]) {
   const outcome = m.get("outcome");
   const icd9Block = m.get("icd9");
   const externalCause = m.get("external_cause");
+
+  for (const b of blocks) {
+    if (
+      b.key === "principal_dx" ||
+      b.key === "comorbidity" ||
+      b.key === "complication" ||
+      b.key === "other_diag" ||
+      b.key === "final_diag"
+    ) {
+      const before = b.content;
+      b.content = normalizeLegacyDiagnosisTerm(b.content);
+      if (before !== b.content && !warnings.includes("Legacy term adjusted: replaced AGE/acute gastroenteritis with acute infectious diarrhea. Verify wording against chart.")) {
+        warnings.push(
+          "Legacy term adjusted: replaced AGE/acute gastroenteritis with acute infectious diarrhea. Verify wording against chart."
+        );
+      }
+    }
+  }
 
   if (principal?.content) principal.content = oneLineCommaSeparated(principal.content);
   if (finalDiag?.content) finalDiag.content = oneLineCommaSeparated(finalDiag.content);
@@ -991,6 +1129,20 @@ export async function POST(req: Request) {
     const baseUsedInCycle = usageInCycle._sum.baseCreditsUsed ?? 0;
     const baseRemaining = Math.max(0, planDefinition.creditsPerCycle - baseUsedInCycle);
     const isExpired = now.getTime() > periodEnd.getTime();
+    const dayStart = new Date(now);
+    dayStart.setHours(0, 0, 0, 0);
+    const todaySummaryCount =
+      userId != null
+        ? await prisma.usageLog.count({
+            where: {
+              userId,
+              reason: { in: ["generate", "long_case_generate", "token_generate"] },
+              createdAt: { gte: dayStart },
+            },
+          })
+        : 0;
+    const summaryApproxLimit = getDailyApproxLimit(plan).summaryPerDay;
+    const nextDailyResetAt = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
 
     // ตรวจ device limit
     if (userId) {
@@ -1043,9 +1195,12 @@ export async function POST(req: Request) {
     }
 
     const body = (await req.json()) as ReqBody;
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
     const mode = body.mode || "generate";
     const fast = body.settings?.fast ?? false;
     const model = body.settings?.model || (fast ? "gpt-5-mini" : "gpt-5.4");
+    const strategy = body.settings?.strategy === "what_if_optimize" ? "what_if_optimize" : "strict_audit_safe";
+    const alternativeSearch = body.settings?.alternativeSearch === true;
 
     const incomingBlocks = normalizeIncomingBlocks(body.currentBlocks);
     const templateBlocks = (body.template?.blocks || []).slice().sort((a, b) => a.order - b.order);
@@ -1061,20 +1216,47 @@ export async function POST(req: Request) {
             icd10: "",
           }));
 
+    const safeImageInputs = sanitizeImageInputs(body.imageInputs);
+    const imageExtractWarnings: string[] = [];
+    let imageExtractText = "";
+    if (safeImageInputs.length > 0) {
+      try {
+        imageExtractText = await extractClinicalTextFromImages(openai, safeImageInputs);
+        if (!imageExtractText) {
+          imageExtractWarnings.push("แนบรูปแล้ว แต่ยังสกัดข้อความจากรูปไม่สำเร็จ");
+        }
+      } catch {
+        imageExtractWarnings.push("สกัดข้อความจากรูปไม่สำเร็จ ระบบจึงใช้เฉพาะข้อความที่พิมพ์ไว้");
+      }
+    }
+
     const mergedRaw = [
       body.inputs?.order_sheet ? `=== ORDER_SHEET ===\n${body.inputs.order_sheet}` : "",
       body.inputs?.other ? `=== OTHER ===\n${body.inputs.other}` : "",
+      imageExtractText ? `=== IMAGE_EXTRACT ===\n${imageExtractText}` : "",
     ]
       .filter(Boolean)
       .join("\n\n");
     const requiredCreditsForCase = mode === "generate" ? getCreditsRequiredForCase(mergedRaw.length) : 0;
     const availableCredits = baseRemaining + extraCredits;
+    const enforceCreditLimit = shouldEnforceLegacyCreditLimit();
+
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const tokenSpendMonth = userId
+      ? await prisma.tokenUsageLedger.aggregate({
+          _sum: { estimatedCostThb: true },
+          where: { userId, createdAt: { gte: monthStart } },
+        })
+      : { _sum: { estimatedCostThb: 0 } };
+    const tokenSpendThb = Number(tokenSpendMonth._sum.estimatedCostThb || 0);
+    const tokenBudgetThb = getPlanTokenBudgetThb(plan);
 
     const preprocess = preprocessClinicalText(mergedRaw);
-    const clinical = preprocess.cleaned;
+    const clinical = deidentify(preprocess.cleaned);
     const { admit, discharge } = extractDates(clinical);
     const losDays = losDaysFromDDMMYY(admit, discharge);
     const warnings: string[] = [];
+    warnings.push(...imageExtractWarnings);
 
     if (!clinical || clinical.trim().length < 30) {
       return json({
@@ -1124,6 +1306,15 @@ export async function POST(req: Request) {
               : [
                   "Your main job is to update ICD-10 code mapping per block, keep or improve ICD-9 procedure content when supported, and warnings.",
                 ]),
+            ...(strategy === "strict_audit_safe"
+              ? [
+                  "STRATEGY: strict_audit_safe. Prefer documentation-safe principal diagnosis and conservative coding choice.",
+                  "If evidence is marginal, keep safer principal and put alternatives in analysis.principal_candidates.",
+                ]
+              : [
+                  "STRATEGY: what_if_optimize. You may propose a higher complexity alternative ONLY if chart-supported and must clearly flag missing evidence.",
+                  "When proposing an optimize option, keep audit_risk explicit and conservative.",
+                ]),
             "Never revise coding to maximize RW/AdjRW without chart evidence.",
             "Principal diagnosis must be ONE disease.",
             "Diagnosis fields must be full English terms. No abbreviations. No parentheses.",
@@ -1172,6 +1363,12 @@ export async function POST(req: Request) {
                   "suggested_order_sheet_wording_th = example phrasing clinicians might add IF true — never invent patient facts.",
                   "approx_adjrw_note_th = Thai, APPROXIMATE only: e.g. 'ถ้ามีหลักฐานครบ อาจช่วยให้การ capture diagnosis/complexity สอดคล้องแนวทางมากขึ้น (AdjRW ประมาณการ ไม่รับประกัน)'.",
                   "Never advise falsifying records. Empty chart_capture_hints if nothing reasonable.",
+                ]
+              : []),
+            ...(alternativeSearch
+              ? [
+                  "ALTERNATIVE SEARCH: expand analysis.principal_candidates with 3-5 plausible principal options when possible.",
+                  "Include both conservative and what-if options, but keep one best_principal_clinical only.",
                 ]
               : []),
           ].join("\n");
@@ -1299,6 +1496,25 @@ export async function POST(req: Request) {
   }`
         : "";
 
+    const mergedKnowledge = await getMergedKnowledge(false);
+    const knowledgeRanked = compactKnowledgeForSummaryPrompt(clinical, mergedKnowledge);
+    const knowledgeForPrompt = knowledgeRanked.items;
+    const externalEvidence = knowledgeRanked.hasStrongMatch
+      ? { evidences: [], whitelist: [] }
+      : await retrieveExternalEvidence(clinical.slice(0, 1200));
+    if (!knowledgeRanked.hasStrongMatch && mode === "generate") {
+      await queuePendingKnowledgeEntry(
+        clinical.slice(0, 600),
+        externalEvidence.evidences.map((e) => `${e.title}\n${e.snippet}`).join("\n\n").slice(0, 3000),
+        {
+          externalSources: externalEvidence.evidences.map((e) => ({
+            title: e.title,
+            url: e.sourceUrl,
+            sourceName: e.sourceName,
+          })),
+        }
+      );
+    }
     const user =
       mode === "recalc"
         ? [
@@ -1308,6 +1524,10 @@ export async function POST(req: Request) {
               ? "\nCONFIG_RULES_JSON (primary reference for coding rules + pattern packs; must conform when applicable — Thai coding > explicit doc > objective evidence > inference):\n" +
                 rulesEmbedded
               : "",
+            "\nKNOWLEDGE_UPDATES_JSON (approved knowledge updates + standard snippets, cite refs when used):\n" +
+              JSON.stringify(knowledgeForPrompt),
+            "\nEXTERNAL_REFERENCE_SOURCES_JSON (from whitelist sources; use when internal knowledge is insufficient):\n" +
+              JSON.stringify(externalEvidence.evidences),
             "\nCLINICAL TEXT:\n" + clinical,
             isBasicPlan || !includeAdjrwMeta
               ? "\nReturn same block keys/titles/orders. Keep block content aligned with CURRENT BLOCKS, update ICD-10 code mapping and warnings only. Do not include meta."
@@ -1337,6 +1557,10 @@ export async function POST(req: Request) {
               ? "\nCONFIG_RULES_JSON (primary reference for coding rules + pattern packs; must conform when applicable — Thai coding > explicit doc > objective evidence > inference):\n" +
                 rulesEmbedded
               : "",
+            "\nKNOWLEDGE_UPDATES_JSON (approved knowledge updates + standard snippets, cite refs when used):\n" +
+              JSON.stringify(knowledgeForPrompt),
+            "\nEXTERNAL_REFERENCE_SOURCES_JSON (from whitelist sources; use when internal knowledge is insufficient):\n" +
+              JSON.stringify(externalEvidence.evidences),
             "\nCLINICAL TEXT:\n" + clinical,
             "\nOUTPUT JSON SHAPE EXACTLY:",
             `{
@@ -1358,28 +1582,55 @@ export async function POST(req: Request) {
               : !includeAdjrwMeta
               ? "Fill all blocks from FIELDS. Use empty string if unknown. Do not include meta."
               : "Fill all blocks from FIELDS. Use empty string if unknown. Populate extraction/case_graph/concepts/linkage/classification/engine for non-basic plans as in OUTPUT JSON.",
+            "If both KNOWLEDGE_UPDATES_JSON and EXTERNAL_REFERENCE_SOURCES_JSON are empty/insufficient, avoid definitive principal diagnosis and explicitly state missing evidence in warnings.",
           ].join("\n\n");
 
-    if (mode === "generate" && (isExpired || availableCredits < requiredCreditsForCase)) {
+    if (mode === "generate" && tokenSpendThb >= tokenBudgetThb) {
+      const monthResetAt = new Date(monthStart);
+      monthResetAt.setMonth(monthResetAt.getMonth() + 1);
+      return json(
+        {
+          error: `โควตาการใช้งานเดือนนี้ครบแล้ว (${tokenSpendThb.toFixed(2)} / ${tokenBudgetThb.toFixed(
+            2
+          )} บาท) ระบบจะรีเซ็ตอีกครั้งประมาณ ${formatBangkokDateTime(monthResetAt)} หรือคุณสามารถซื้อแพ็กเพิ่มได้ที่หน้า /pricing`,
+        },
+        402
+      );
+    }
+
+    if (mode === "generate" && todaySummaryCount >= summaryApproxLimit) {
+      return json(
+        {
+          error: `วันนี้คุณสร้าง Discharge Summary ครบโควตาโดยประมาณแล้ว (${summaryApproxLimit} เคส/วัน) ระบบจะรีเซ็ตอีกครั้งประมาณ ${formatBangkokDateTime(nextDailyResetAt)} หรือคุณสามารถซื้อแพ็กเพิ่มได้ที่หน้า /pricing`,
+        },
+        429
+      );
+    }
+
+    if (enforceCreditLimit && mode === "generate" && (isExpired || availableCredits < requiredCreditsForCase)) {
       if (isExpired) {
         return json(
           {
-            error: `หมดรอบการใช้งานแล้ว. กรุณาต่ออายุหรือซื้อแพ็กเกจใหม่ก่อนใช้งาน`,
+            error: `หมดรอบการใช้งานแล้ว ระบบจะรีเซ็ตอีกครั้งประมาณ ${formatBangkokDateTime(nextDailyResetAt)} หรือคุณสามารถซื้อแพ็กเพิ่มได้ที่หน้า /pricing`,
           },
           402
         );
       }
       return json(
         {
-          error: `เครดิตไม่พอสำหรับเคสนี้ (ต้องใช้ ${requiredCreditsForCase} เครดิต, คงเหลือ ${availableCredits}). ต่ออายุหรือซื้อเครดิตเพิ่มที่หน้าแพ็กเกจ`,
+          error: `โควตารอบนี้ไม่พอสำหรับเคสนี้ ระบบจะรีเซ็ตอีกครั้งประมาณ ${formatBangkokDateTime(nextDailyResetAt)} หรือคุณสามารถซื้อแพ็กเพิ่มได้ที่หน้า /pricing`,
         },
         402
       );
     }
 
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
-
-    const draftOut = await callModelJSON<GenerateModelOutput>(openai, model, system, user);
+    const draftResponse = await callModelJSON<GenerateModelOutput>(openai, model, system, user);
+    const draftOut = draftResponse.data;
+    const aggregateUsage: TokenUsageSummary = {
+      inputTokens: draftResponse.usage.inputTokens,
+      outputTokens: draftResponse.usage.outputTokens,
+      totalTokens: draftResponse.usage.totalTokens,
+    };
 
     warnings.push(...(draftOut.warnings || []).slice(0, 40));
 
@@ -1414,7 +1665,7 @@ export async function POST(req: Request) {
     let upgradeMeta = includeAdjrwMeta ? (draftOut.meta?.upgrade || null) : null;
 
     if (mode === "generate" && !fast && includeAdjrwMeta) {
-      const recalcOut = await runRecalcPass({
+      const recalcResponse = await runRecalcPass({
         openai,
         model,
         clinical,
@@ -1423,6 +1674,10 @@ export async function POST(req: Request) {
         discharge,
         losDays,
       });
+      const recalcOut = recalcResponse.data;
+      aggregateUsage.inputTokens += recalcResponse.usage.inputTokens;
+      aggregateUsage.outputTokens += recalcResponse.usage.outputTokens;
+      aggregateUsage.totalTokens += recalcResponse.usage.totalTokens;
 
       warnings.push(...(recalcOut.warnings || []).slice(0, 20));
       normalized = mergeModelBlocksOntoBase(normalized, recalcOut.blocks, "recalc");
@@ -1437,6 +1692,37 @@ export async function POST(req: Request) {
         if (recalcOut.meta?.upgrade) {
           upgradeMeta = recalcOut.meta.upgrade;
         }
+      }
+    }
+
+    let upgrade: {
+      new_principal: string;
+      add_icd9: string[];
+      projected_adjrw: number;
+      increase: number;
+      audit_risk: string;
+      reason_th: string;
+    } | null = null;
+
+    if (includeAdjrwMeta && upgradeMeta && typeof upgradeMeta === "object") {
+      const inc = toNum(upgradeMeta.increase);
+      const proj = toNum(upgradeMeta.projected_adjrw);
+      const risk = String(upgradeMeta.audit_risk || "");
+      const newPri = String(upgradeMeta.new_principal || "");
+      const addIcd9 = Array.isArray(upgradeMeta.add_icd9)
+        ? upgradeMeta.add_icd9.map((x) => String(x)).filter(Boolean)
+        : [];
+      const reason_th = String(upgradeMeta.reason_th || "");
+
+      if (inc !== null && proj !== null && inc > 0.2) {
+        upgrade = {
+          new_principal: newPri,
+          add_icd9: addIcd9,
+          projected_adjrw: proj,
+          increase: inc,
+          audit_risk: risk,
+          reason_th,
+        };
       }
     }
 
@@ -1471,6 +1757,22 @@ export async function POST(req: Request) {
       }
       if (!enginePayload.linkage?.length) {
         enginePayload = { ...enginePayload, linkage: detectLinkageInText(clinical) };
+      }
+      if (upgrade && enginePayload.chart_capture_hints?.length) {
+        const target = String(upgrade.new_principal || "").toLowerCase();
+        const blockingHint = enginePayload.chart_capture_hints.find((h) => {
+          const hasMissing = Array.isArray(h.missing_in_input) && h.missing_in_input.length > 0;
+          if (!hasMissing) return false;
+          const hintTarget = String(h.target_diagnosis_text || "").toLowerCase();
+          if (!target) return true;
+          return hintTarget.includes(target) || target.includes(hintTarget);
+        });
+        if (blockingHint) {
+          warnings.push(
+            "Evidence gate: ยังมีข้อมูลหลักฐานไม่ครบสำหรับคำแนะนำปรับ diagnosis/complexity จึงไม่แสดงทางเลือกที่คาด AdjRW สูงขึ้นในรอบนี้"
+          );
+          upgrade = null;
+        }
       }
       enginePayload = alignPrincipalEngineToPrincipalBlock(enginePayload, normalized);
       const principalBlock = normalized.find((b) => b.key === "principal_dx");
@@ -1512,37 +1814,6 @@ export async function POST(req: Request) {
         if (recalcAdj !== null) {
           adjrwEstimate = recalcAdj;
         }
-      }
-    }
-
-    let upgrade: {
-      new_principal: string;
-      add_icd9: string[];
-      projected_adjrw: number;
-      increase: number;
-      audit_risk: string;
-      reason_th: string;
-    } | null = null;
-
-    if (includeAdjrwMeta && upgradeMeta && typeof upgradeMeta === "object") {
-      const inc = toNum(upgradeMeta.increase);
-      const proj = toNum(upgradeMeta.projected_adjrw);
-      const risk = String(upgradeMeta.audit_risk || "");
-      const newPri = String(upgradeMeta.new_principal || "");
-      const addIcd9 = Array.isArray(upgradeMeta.add_icd9)
-        ? upgradeMeta.add_icd9.map((x) => String(x)).filter(Boolean)
-        : [];
-      const reason_th = String(upgradeMeta.reason_th || "");
-
-      if (inc !== null && proj !== null && inc > 0.2) {
-        upgrade = {
-          new_principal: newPri,
-          add_icd9: addIcd9,
-          projected_adjrw: proj,
-          increase: inc,
-          audit_risk: risk,
-          reason_th,
-        };
       }
     }
 
@@ -1598,7 +1869,7 @@ export async function POST(req: Request) {
             update: { count: { increment: 1 } },
           });
 
-          if (addonToUse > 0) {
+          if (enforceCreditLimit && addonToUse > 0) {
             const updatedCount = await tx.user.updateMany({
               where: { id: userId, extraCredits: { gte: addonToUse } },
               data: {
@@ -1619,10 +1890,14 @@ export async function POST(req: Request) {
           await tx.usageLog.create({
             data: {
               userId,
-              creditsUsed: requiredCreditsForCase,
-              baseCreditsUsed: baseToUse,
-              addonCreditsUsed: addonToUse,
-              reason: requiredCreditsForCase > 1 ? "long_case_generate" : "generate",
+              creditsUsed: enforceCreditLimit ? requiredCreditsForCase : 0,
+              baseCreditsUsed: enforceCreditLimit ? baseToUse : 0,
+              addonCreditsUsed: enforceCreditLimit ? addonToUse : 0,
+              reason: enforceCreditLimit
+                ? requiredCreditsForCase > 1
+                  ? "long_case_generate"
+                  : "generate"
+                : "token_generate",
               ...(exportText != null && exportText !== "" ? { summarySnapshot: exportText } : {}),
             },
           });
@@ -1631,6 +1906,36 @@ export async function POST(req: Request) {
       );
       await markReferralFirstUsage(userId);
     }
+
+    const tokenBilling = estimateTokenBillingThb(aggregateUsage);
+
+    await prisma.tokenUsageLedger.create({
+      data: {
+        userId,
+        source: mode === "generate" ? "summary_generate" : "summary_recalc",
+        model,
+        inputTokens: aggregateUsage.inputTokens,
+        outputTokens: aggregateUsage.outputTokens,
+        totalTokens: aggregateUsage.totalTokens,
+        estimatedCostThb: tokenBilling.estimatedCostThb,
+        payload: JSON.stringify({ plan, diagnosisConfidence: diagnosis_confidence }),
+      },
+    });
+
+    await trackTelemetry({
+      userId,
+      source: "summary",
+      event: mode === "generate" ? "summary_generated" : "summary_recalc",
+      payload: {
+        plan,
+        warningsCount: warnings.length,
+        diagnosisConfidence: diagnosis_confidence,
+        creditsRequired: requiredCreditsForCase,
+        inputChars: mergedRaw.length,
+        tokenUsage: aggregateUsage,
+        tokenBilling,
+      },
+    });
 
     return json({
       result: {
@@ -1641,6 +1946,9 @@ export async function POST(req: Request) {
           adjrw: includeAdjrwMeta ? adjrwEstimate : null,
           diagnosis_confidence,
           upgrade: includeAdjrwMeta ? upgrade : null,
+          token_usage: aggregateUsage,
+          token_billing_estimate: tokenBilling,
+          privacy: { deidentifiedBeforeModel: true },
         },
         preprocess: preprocess.summary,
         engine: enginePayload,

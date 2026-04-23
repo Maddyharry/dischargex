@@ -23,7 +23,7 @@ describe("billing rules", () => {
     });
 
     expect(result.remainingValue).toBe(199);
-    expect(result.finalAmount).toBe(500);
+    expect(result.finalAmount).toBe(391);
   });
 
   it("stacks renewal time and credits for same plan", () => {

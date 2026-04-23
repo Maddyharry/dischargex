@@ -23,15 +23,33 @@ export type PlanDefinition = {
   isPaid: boolean;
 };
 
+export type PlanDailyApproxLimit = {
+  chatPerDay: number;
+  summaryPerDay: number;
+};
+
+function parsePositiveInt(raw: string | undefined, fallback: number) {
+  const n = Number(raw);
+  if (Number.isFinite(n) && n > 0) return Math.floor(n);
+  return fallback;
+}
+
+const TRIAL_DURATION_DAYS = parsePositiveInt(process.env.TRIAL_DURATION_DAYS, 14);
+const TRIAL_CREDITS_PER_CYCLE = parsePositiveInt(process.env.TRIAL_CREDITS_PER_CYCLE, 10000);
+const TRIAL_CREDIT_CYCLE_DAYS = parsePositiveInt(
+  process.env.TRIAL_CREDIT_CYCLE_DAYS,
+  TRIAL_DURATION_DAYS
+);
+
 export const PLAN_CONFIG: Record<PlanId, PlanDefinition> = {
   trial: {
     id: "trial",
     tier: "trial",
     billingCycle: "monthly",
     priceThb: 0,
-    durationDays: 7,
-    creditsPerCycle: 10,
-    creditCycleDays: 30,
+    durationDays: TRIAL_DURATION_DAYS,
+    creditsPerCycle: TRIAL_CREDITS_PER_CYCLE,
+    creditCycleDays: TRIAL_CREDIT_CYCLE_DAYS,
     isPaid: false,
   },
   basic_monthly: {
@@ -40,7 +58,7 @@ export const PLAN_CONFIG: Record<PlanId, PlanDefinition> = {
     billingCycle: "monthly",
     priceThb: 299,
     durationDays: 30,
-    creditsPerCycle: 50,
+    creditsPerCycle: 120,
     creditCycleDays: 30,
     isPaid: true,
   },
@@ -50,7 +68,7 @@ export const PLAN_CONFIG: Record<PlanId, PlanDefinition> = {
     billingCycle: "yearly",
     priceThb: 2990,
     durationDays: 365,
-    creditsPerCycle: 50,
+    creditsPerCycle: 120,
     creditCycleDays: 30,
     isPaid: true,
   },
@@ -58,9 +76,9 @@ export const PLAN_CONFIG: Record<PlanId, PlanDefinition> = {
     id: "standard_monthly",
     tier: "standard",
     billingCycle: "monthly",
-    priceThb: 699,
+    priceThb: 590,
     durationDays: 30,
-    creditsPerCycle: 120,
+    creditsPerCycle: 420,
     creditCycleDays: 30,
     isPaid: true,
   },
@@ -68,9 +86,9 @@ export const PLAN_CONFIG: Record<PlanId, PlanDefinition> = {
     id: "standard_yearly",
     tier: "standard",
     billingCycle: "yearly",
-    priceThb: 6990,
+    priceThb: 5990,
     durationDays: 365,
-    creditsPerCycle: 120,
+    creditsPerCycle: 420,
     creditCycleDays: 30,
     isPaid: true,
   },
@@ -78,9 +96,9 @@ export const PLAN_CONFIG: Record<PlanId, PlanDefinition> = {
     id: "pro_monthly",
     tier: "pro",
     billingCycle: "monthly",
-    priceThb: 1490,
+    priceThb: 1090,
     durationDays: 30,
-    creditsPerCycle: 250,
+    creditsPerCycle: 1260,
     creditCycleDays: 30,
     isPaid: true,
   },
@@ -88,9 +106,9 @@ export const PLAN_CONFIG: Record<PlanId, PlanDefinition> = {
     id: "pro_yearly",
     tier: "pro",
     billingCycle: "yearly",
-    priceThb: 14900,
+    priceThb: 10990,
     durationDays: 365,
-    creditsPerCycle: 250,
+    creditsPerCycle: 1260,
     creditCycleDays: 30,
     isPaid: true,
   },
@@ -102,9 +120,19 @@ export type AddonCreditOption = {
 };
 
 export const ADDON_OPTIONS: AddonCreditOption[] = [
-  { credits: 50, priceThb: 200 },
-  { credits: 100, priceThb: 350 },
+  { credits: 40, priceThb: 89 },
+  { credits: 120, priceThb: 199 },
 ];
+
+const PLAN_DAILY_APPROX_LIMITS: Record<PlanId, PlanDailyApproxLimit> = {
+  trial: { chatPerDay: 20, summaryPerDay: 2 },
+  basic_monthly: { chatPerDay: 40, summaryPerDay: 4 },
+  basic_yearly: { chatPerDay: 40, summaryPerDay: 4 },
+  standard_monthly: { chatPerDay: 140, summaryPerDay: 14 },
+  standard_yearly: { chatPerDay: 140, summaryPerDay: 14 },
+  pro_monthly: { chatPerDay: 420, summaryPerDay: 42 },
+  pro_yearly: { chatPerDay: 420, summaryPerDay: 42 },
+};
 
 const PLAN_ALIAS: Record<string, PlanId> = {
   trial: "trial",
@@ -243,6 +271,11 @@ export function calculateRenewalStack(params: {
 export function getAddonPrice(credits: number): number | null {
   const option = ADDON_OPTIONS.find((entry) => entry.credits === credits);
   return option ? option.priceThb : null;
+}
+
+export function getDailyApproxLimit(rawPlan: string | null | undefined): PlanDailyApproxLimit {
+  const plan = normalizePlanId(rawPlan);
+  return PLAN_DAILY_APPROX_LIMITS[plan];
 }
 
 export function getLongCaseThresholdChars(): number {

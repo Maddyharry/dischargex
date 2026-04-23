@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useFeedbackContext } from "@/app/context/FeedbackContext";
 import { useSession } from "next-auth/react";
+import { usePathname } from "next/navigation";
 
 type ChatMessage = {
   id: string;
@@ -50,6 +51,8 @@ type Tab = "chat" | "report";
 export function FeedbackWidget() {
   const { workspaceSnapshot, feedbackOpen, feedbackTab, setFeedbackOpen, setFeedbackTab } = useFeedbackContext();
   const { data: session } = useSession();
+  const pathname = usePathname();
+  const isChatPage = pathname === "/chat";
   const isAdmin = (session?.user as { role?: string } | undefined)?.role === "admin";
   const open = feedbackOpen;
   const setOpen = setFeedbackOpen;
@@ -144,6 +147,12 @@ export function FeedbackWidget() {
     []
   );
 
+
+  useEffect(() => {
+    if (isChatPage && open) {
+      setOpen(false);
+    }
+  }, [isChatPage, open, setOpen]);
 
   useEffect(() => {
     if (!(open && tab === "chat")) return;
@@ -363,6 +372,8 @@ export function FeedbackWidget() {
     }
   }
 
+  if (isChatPage) return null;
+
   return (
     <>
       <button
@@ -386,7 +397,7 @@ export function FeedbackWidget() {
             setFeedbackTab("chat");
             setOpen(true);
           }}
-          className="fixed bottom-24 right-6 z-[100] max-w-[min(260px,calc(100vw-2.5rem))] rounded-2xl border border-cyan-400/40 bg-slate-900/95 px-3 py-2 text-left text-xs text-cyan-100 shadow-lg shadow-cyan-950/40"
+          className="fixed bottom-24 right-6 z-[100] max-w-[min(320px,calc(100vw-2.5rem))] rounded-2xl border border-cyan-400/40 bg-slate-900/95 px-3 py-2 text-left text-xs text-cyan-100 shadow-lg shadow-cyan-950/40"
         >
           {chatNudgeText}
         </button>
@@ -394,8 +405,8 @@ export function FeedbackWidget() {
 
       {open && (
         <div
-          className={`fixed bottom-24 right-6 z-[100] flex max-w-[calc(100vw-3rem)] flex-col overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-xl ${
-            isAdmin ? "h-[560px] w-[760px]" : "w-[380px]"
+          className={`fixed bottom-24 right-6 z-[100] flex max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-xl ${
+            isAdmin ? "h-[560px] w-[760px]" : "h-[560px] w-[460px]"
           }`}
         >
           {isAdmin ? (
@@ -421,7 +432,7 @@ export function FeedbackWidget() {
             </div>
           )}
 
-          <div className={`flex flex-1 flex-col overflow-hidden ${isAdmin ? "" : "max-h-[420px]"}`}>
+          <div className={`flex flex-1 flex-col overflow-hidden ${isAdmin ? "" : ""}`}>
             {isAdmin ? (
               <div className="grid h-full min-h-0 grid-cols-[240px_1fr]">
                   <div className="border-r border-slate-700 bg-slate-900/70 p-2">

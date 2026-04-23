@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { openai } from "@/lib/openai";
+import { deidentify } from "@/lib/deidentify";
 
 function isAdmin(session: unknown) {
   return (session as { user?: { role?: string } } | null)?.user?.role === "admin";
@@ -46,20 +47,34 @@ export async function GET() {
     where: { createdAt: { gte: since } },
     orderBy: { createdAt: "desc" },
     take: 300,
-    select: { type: true, message: true, createdAt: true },
+    select: { type: true, message: true, payload: true, createdAt: true },
   });
 
-  const chatMessages = rows.filter((r) => r.type === "chat").map((r) => r.message);
+  const chatRows = rows.filter((r) => r.type === "chat");
+  const specialistMessages = chatRows
+    .filter((r) => {
+      try {
+        const payload = JSON.parse(r.payload || "{}") as { source?: string; role?: string };
+        return payload.source === "specialist_chat" && payload.role === "user";
+      } catch {
+        return false;
+      }
+    })
+    .map((r) => r.message);
+  const chatMessages = chatRows.map((r) => r.message);
   const errorMessages = rows.filter((r) => r.type === "error_report").map((r) => r.message);
+  const telemetryEvents = rows.filter((r) => r.type === "telemetry").map((r) => r.message);
   const chatTopics = topReadableTopics(chatMessages);
+  const specialistTopics = topReadableTopics(specialistMessages);
   const errorTopics = topReadableTopics(errorMessages);
+  const telemetryTopics = topReadableTopics(telemetryEvents);
 
   let aiSummary: string | null = null;
   if (process.env.OPENAI_API_KEY && rows.length > 0) {
     try {
       const sample = rows
         .slice(0, 80)
-        .map((r) => `[${r.type}] ${r.message}`)
+        .map((r) => `[${r.type}] ${deidentify(r.message)}`)
         .join("\n");
       const resp = await openai.responses.create({
         model: process.env.OPENAI_CHAT_MODEL || "gpt-5-mini",
@@ -80,8 +95,11 @@ export async function GET() {
     total: rows.length,
     chats: chatMessages.length,
     errors: errorMessages.length,
+    telemetry: telemetryEvents.length,
     topChatTopics: chatTopics,
+    topSpecialistTopics: specialistTopics,
     topErrorTopics: errorTopics,
+    topTelemetryEvents: telemetryTopics,
     aiSummary,
   });
 }

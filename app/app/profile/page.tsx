@@ -23,6 +23,7 @@ type UsageInfo = {
   total: number;
   used: number;
   remaining: number;
+  nextCreditRefreshAt?: string | null;
   daysLeftInMonth?: number;
   subscriptionStatus?: string;
   nextPlanId?: string | null;
@@ -186,6 +187,8 @@ export default function ProfilePage() {
             remaining: usageData.remaining ?? 0,
             daysLeftInMonth:
               typeof usageData.daysLeftInMonth === "number" ? usageData.daysLeftInMonth : undefined,
+            nextCreditRefreshAt:
+              typeof usageData.nextCreditRefreshAt === "string" ? usageData.nextCreditRefreshAt : null,
             subscriptionStatus: usageData.subscriptionStatus,
             nextPlanId: usageData.nextPlanId ?? null,
             nextPlanEffectiveDate: usageData.nextPlanEffectiveDate ?? null,
@@ -485,12 +488,21 @@ export default function ProfilePage() {
                     </p>
                   </div>
                   <div>
-                    <label className="text-xs text-slate-400">เครดิต (รอบปัจจุบัน)</label>
+                    <label className="text-xs text-slate-400">สถานะการใช้งาน (รอบปัจจุบัน)</label>
                     <p className="mt-1 text-sm font-medium text-emerald-300">
                       {usage != null
-                        ? `รอบนี้ใช้ไป ${usage.used} / ${usage.total} เคส (คงเหลือ ${usage.remaining})`
+                        ? `รอบนี้ใช้งานไปประมาณ ${usage.used} เคส`
                         : "-"}
                     </p>
+                    {usage?.nextCreditRefreshAt ? (
+                      <p className="mt-0.5 text-xs text-slate-500">
+                        ระบบจะรีเซ็ตโควตาประมาณ{" "}
+                        {new Date(usage.nextCreditRefreshAt).toLocaleString("th-TH", {
+                          dateStyle: "short",
+                          timeStyle: "short",
+                        })}
+                      </p>
+                    ) : null}
                     {usage?.daysLeftInMonth !== undefined && (
                       <p className="mt-0.5 text-xs text-slate-500">
                         เหลืออีก {usage.daysLeftInMonth} วันในรอบนี้
@@ -514,28 +526,28 @@ export default function ProfilePage() {
             </section>
 
             <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
-              <h2 className="text-lg font-semibold text-white">เครดิตโบนัสของฉัน</h2>
+              <h2 className="text-lg font-semibold text-white">สิทธิ์โบนัสของฉัน</h2>
               <div className="mt-2 rounded-2xl border border-cyan-500/25 bg-cyan-950/20 px-4 py-3 text-xs text-cyan-100">
                 กติกาแนะนำเพื่อน:
-                <span className="block mt-1">- เพื่อนสมัคร/ผูกรหัสแนะนำ: ยังไม่เพิ่มเครดิตทันที</span>
-                <span className="block">- เพื่อนเริ่มใช้งานครั้งแรก (เริ่มทดลองใช้ฟรี): โบนัส +5 เครดิต</span>
-                <span className="block">- เพื่อนซื้อแพ็กเกจครั้งแรก: โบนัส +10 เครดิต</span>
+                <span className="block mt-1">- เพื่อนสมัคร/ผูกรหัสแนะนำ: ยังไม่เพิ่มสิทธิ์ทันที</span>
+                <span className="block">- เพื่อนเริ่มใช้งานครั้งแรก (เริ่มทดลองใช้ฟรี): โบนัส +5 หน่วย</span>
+                <span className="block">- เพื่อนซื้อแพ็กเกจครั้งแรก: โบนัส +10 หน่วย</span>
               </div>
               <div className="mt-4 grid gap-3 sm:grid-cols-4">
                 <div className="rounded-xl border border-slate-700 bg-slate-950/50 p-3">
-                  <div className="text-xs text-slate-500">สมัคร/ผูกรหัสแล้ว (ยังไม่รับเครดิตทันที)</div>
+                  <div className="text-xs text-slate-500">สมัคร/ผูกรหัสแล้ว (ยังไม่รับสิทธิ์ทันที)</div>
                   <div className="mt-1 text-sm font-semibold text-slate-100">{referral?.stats.signups ?? 0}</div>
                 </div>
                 <div className="rounded-xl border border-slate-700 bg-slate-950/50 p-3">
-                  <div className="text-xs text-slate-500">เริ่มทดลองใช้ฟรีครั้งแรก (+5 เครดิต/คน)</div>
+                  <div className="text-xs text-slate-500">เริ่มทดลองใช้ฟรีครั้งแรก (+5 หน่วย/คน)</div>
                   <div className="mt-1 text-sm font-semibold text-slate-100">{referral?.stats.firstUsages ?? 0}</div>
                 </div>
                 <div className="rounded-xl border border-slate-700 bg-slate-950/50 p-3">
-                  <div className="text-xs text-slate-500">ซื้อแพ็กเกจครั้งแรก (+10 เครดิต/คน)</div>
+                  <div className="text-xs text-slate-500">ซื้อแพ็กเกจครั้งแรก (+10 หน่วย/คน)</div>
                   <div className="mt-1 text-sm font-semibold text-slate-100">{referral?.stats.firstPurchases ?? 0}</div>
                 </div>
                 <div className="rounded-xl border border-slate-700 bg-slate-950/50 p-3">
-                  <div className="text-xs text-slate-500">เครดิตจาก referral</div>
+                  <div className="text-xs text-slate-500">โบนัสจาก referral</div>
                   <div className="mt-1 text-sm font-semibold text-emerald-300">{referral?.stats.credits ?? 0}</div>
                 </div>
               </div>
@@ -599,7 +611,7 @@ export default function ProfilePage() {
               </div>
 
               <div className="mt-4">
-                <h3 className="text-sm font-medium text-slate-200">ประวัติเครดิตโบนัสล่าสุด</h3>
+                <h3 className="text-sm font-medium text-slate-200">ประวัติโบนัสล่าสุด</h3>
                 {ledger.length === 0 ? (
                   <div className="mt-2 text-xs text-slate-500">ยังไม่มีรายการ</div>
                 ) : (
@@ -696,7 +708,7 @@ export default function ProfilePage() {
                           <td className="px-4 py-3 text-slate-300">{r.type || "-"}</td>
                           <td className="px-4 py-3 font-medium text-slate-200">
                             {r.type === "addon" ? (
-                              <>ซื้อเครดิตเพิ่ม {r.addCredits ?? 0} เครดิต</>
+                              <>ซื้อ Boost เพิ่ม {r.addCredits ?? 0} หน่วย</>
                             ) : (
                               <>
                                 {r.fromPlanId ? `${formatPlanName(r.fromPlanId)} -> ` : ""}

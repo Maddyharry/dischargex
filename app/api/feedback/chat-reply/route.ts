@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { openai } from "@/lib/openai";
 import { getChatbotKnowledge } from "@/lib/chatbot-settings";
 import { prisma } from "@/lib/prisma";
+import { deidentify } from "@/lib/deidentify";
 
 export const runtime = "nodejs";
 
@@ -65,11 +66,12 @@ export async function POST(req: NextRequest) {
     }
 
     const trimmedMessage = message.trim();
+    const deidentifiedMessage = deidentify(trimmedMessage);
     const validHistory = Array.isArray(history)
       ? (history as HistoryItem[])
           .filter((h) => h && (h.role === "user" || h.role === "assistant") && typeof h.content === "string")
           .slice(-10)
-          .map((h) => ({ role: h.role, content: String(h.content).slice(0, 2000) }))
+          .map((h) => ({ role: h.role, content: deidentify(String(h.content).slice(0, 2000)) }))
       : [];
 
     const model = process.env.OPENAI_CHAT_MODEL || "gpt-5-mini";
@@ -85,7 +87,7 @@ export async function POST(req: NextRequest) {
     }
     prompt +=
       "[ข้อความล่าสุดจากลูกค้า]\nลูกค้า: " +
-      trimmedMessage +
+      deidentifiedMessage +
       "\n\nบอทตอบ (ภาษาไทย สุภาพ อ่านง่าย มีเว้นบรรทัดระหว่างประเด็นสำคัญ 1 บรรทัด; ไม่ต้องขึ้นต้นด้วยคำว่า 'สั้นๆนะ'; ถ้าไม่เกี่ยวกับการใช้งาน/แพ็กเกจ/แจ้งข้อผิดพลาด ให้ปฏิเสธแบบสุภาพแล้วชวนกลับมาหัวข้อที่รับเท่านั้น):";
 
     const resp = await openai.responses.create({

@@ -15,6 +15,7 @@ import {
 } from "@/lib/billing-rules";
 import { THAI_PROVINCES, validateBirthDateBE, validateThaiPhone } from "@/lib/thai-input";
 import { notifyUser } from "@/lib/notifications";
+import { sendAdminAlertEmail } from "@/lib/admin-alert";
 
 export const runtime = "nodejs";
 
@@ -179,6 +180,18 @@ export async function POST(req: Request) {
       toPlanId,
       quotedAmount,
       finalAmount,
+    });
+
+    await sendAdminAlertEmail({
+      subject: "DischargeX: New payment request",
+      lines: [
+        `Email: ${contactEmail}`,
+        `Request type: ${paymentType}`,
+        `Plan requested: ${planRequestedRaw}`,
+        `Amount: ${finalAmount != null ? finalAmount.toLocaleString("th-TH") : "-"} THB`,
+        `Add credits: ${isAddCredits ? String(addCredits) : "-"}`,
+        `Request ID: ${id}`,
+      ],
     });
 
     await prisma.user.updateMany({

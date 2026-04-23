@@ -19,10 +19,10 @@ export async function GET(req: NextRequest) {
 
   try {
     const { searchParams } = new URL(req.url);
-    const type = searchParams.get("type"); // "" | "chat" | "error_report"
+    const type = searchParams.get("type"); // "" | "chat" | "error_report" | "telemetry"
     const limit = Math.min(Number(searchParams.get("limit")) || 100, 200);
 
-    const where = type && ["chat", "error_report"].includes(type) ? { type } : {};
+    const where = type && ["chat", "error_report", "telemetry"].includes(type) ? { type } : {};
 
     const list = await prisma.feedback.findMany({
       where,

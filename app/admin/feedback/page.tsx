@@ -26,7 +26,7 @@ export default function AdminFeedbackPage() {
   const [feedback, setFeedback] = useState<FeedbackItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [typeFilter, setTypeFilter] = useState<string>(""); // "" | "chat" | "error_report"
+  const [typeFilter, setTypeFilter] = useState<string>(""); // "" | "chat" | "error_report" | "telemetry"
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [refundingUserId, setRefundingUserId] = useState<string | null>(null);
   const [reviewingId, setReviewingId] = useState<string | null>(null);
@@ -37,8 +37,10 @@ export default function AdminFeedbackPage() {
     total: number;
     chats: number;
     errors: number;
+    telemetry?: number;
     topChatTopics: Array<{ text: string; count: number }>;
     topErrorTopics: Array<{ text: string; count: number }>;
+    topTelemetryEvents?: Array<{ text: string; count: number }>;
     aiSummary: string | null;
   }>(null);
   const [insightsLoading, setInsightsLoading] = useState(false);
@@ -254,6 +256,13 @@ export default function AdminFeedbackPage() {
           </button>
           <button
             type="button"
+            onClick={() => setTypeFilter("telemetry")}
+            className={`rounded-xl px-4 py-2 text-sm font-medium transition ${typeFilter === "telemetry" ? "bg-indigo-500/80 text-white" : "border border-slate-600 bg-slate-900/80 text-slate-300 hover:bg-slate-800"}`}
+          >
+            Telemetry
+          </button>
+          <button
+            type="button"
             onClick={() => setOnlySuggested((prev) => !prev)}
             className={`rounded-xl px-4 py-2 text-sm font-medium transition ${
               onlySuggested
@@ -293,7 +302,10 @@ export default function AdminFeedbackPage() {
           </div>
           {insights ? (
             <div className="rounded-xl border border-slate-700 bg-slate-900/70 p-3 text-xs text-slate-200 space-y-2">
-              <div>30 วันล่าสุด: ทั้งหมด {insights.total} รายการ · แชท {insights.chats} · error {insights.errors}</div>
+              <div>
+                30 วันล่าสุด: ทั้งหมด {insights.total} รายการ · แชท {insights.chats} · error {insights.errors}
+                {typeof insights.telemetry === "number" ? ` · telemetry ${insights.telemetry}` : ""}
+              </div>
               <div>
                 <div className="font-medium text-slate-100">คำถามที่พบบ่อย</div>
                 {insights.topChatTopics.length > 0 ? (
@@ -322,6 +334,18 @@ export default function AdminFeedbackPage() {
                   <div className="text-slate-400">-</div>
                 )}
               </div>
+              {insights.topTelemetryEvents?.length ? (
+                <div>
+                  <div className="font-medium text-slate-100">Telemetry events ที่พบบ่อย</div>
+                  <ul className="mt-1 list-disc space-y-1 pl-5">
+                    {insights.topTelemetryEvents.map((t, idx) => (
+                      <li key={`${t.text}-${idx}`}>
+                        {t.text} <span className="text-slate-400">({t.count} ครั้ง)</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
               {insights.aiSummary ? <pre className="whitespace-pre-wrap text-xs text-slate-300">{insights.aiSummary}</pre> : null}
             </div>
           ) : null}

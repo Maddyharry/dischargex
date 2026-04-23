@@ -31,7 +31,8 @@ export default function PrivacyPolicyPage() {
           </p>
           <p>
             Clinical text entered into the workspace is processed to generate draft summaries and coding
-            support. Users are responsible for de-identification and institutional compliance before use.
+            support. The system automatically redacts common identifiers (for example name, CID, HN/AN)
+            before sending text to AI models, and users remain responsible for institutional compliance.
           </p>
           <p>
             We use reasonable security controls such as authenticated access and transport security.

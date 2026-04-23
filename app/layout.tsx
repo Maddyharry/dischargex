@@ -5,6 +5,7 @@ import { Header } from "./components/Header";
 import { FeedbackProvider } from "./context/FeedbackContext";
 import { FeedbackWidget } from "./components/FeedbackWidget";
 import { SiteFooter } from "./components/SiteFooter";
+import { WebAnalyticsTracker } from "./components/WebAnalyticsTracker";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://dischargex.net"),
@@ -14,6 +15,34 @@ export const metadata: Metadata = {
   },
   description:
     "เครื่องมือช่วยสรุป discharge summary และทบทวนการจัดโครง coding (ICD-10 / Thai DRG) สำหรับแพทย์และผู้รับผิดชอบเวชระเบียนโรงพยาบาลไทย — ไม่ใช่การจัดกลุ่มอย่างเป็นทางการ",
+  keywords: [
+    "Discharge summary",
+    "ICD-10",
+    "Thai DRG",
+    "เวชระเบียน",
+    "สรุปชาร์จ",
+    "medical coding",
+    "coding review",
+  ],
+  openGraph: {
+    siteName: "DischargeX",
+    locale: "th_TH",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
+  },
 };
 
 export default function RootLayout({
@@ -24,6 +53,7 @@ export default function RootLayout({
       <body className="bg-slate-50 text-slate-900 antialiased dark:bg-slate-950 dark:text-slate-50">
         <Providers>
           <FeedbackProvider>
+            <WebAnalyticsTracker />
             <Header />
             {children}
             <SiteFooter />

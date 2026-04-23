@@ -2,9 +2,14 @@ const patterns: RegExp[] = [
   /\bHN\s*:\s*\w+\b/gi,
   /\bAN\s*:\s*\w+\b/gi,
   /\bCID\s*:\s*\d{10,13}\b/gi,
+  /\bPID\s*:\s*\d{10,13}\b/gi,
+  /\bMRN\s*:\s*[A-Z0-9-]+\b/gi,
   /\b\d{13}\b/g,
+  /\b[0-9]{9,12}\b/g,
   /(นาย|นาง|น\.ส\.|ด\.ช\.|ด\.ญ\.)\s*[ก-๙]+\s*[ก-๙]+/g,
+  /\b(Mr|Mrs|Miss|Ms)\.?\s+[A-Za-z]+\s+[A-Za-z]+\b/g,
   /\b0\d{1,2}-?\d{3}-?\d{4}\b/g,
+  /\b\d{1,3}\/\d+\s*[A-Za-zก-๙.\s]+(Road|Rd\.|Street|St\.|Soi|หมู่|ต\.|อ\.|จ\.)/gi,
 ];
 
 export function deidentify(text: string) {

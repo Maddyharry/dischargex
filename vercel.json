@@ -1,3 +1,9 @@
 {
-  "buildCommand": "npm run build"
+  "buildCommand": "npm run build",
+  "crons": [
+    {
+      "path": "/api/admin/telemetry-digest/auto-improve",
+      "schedule": "0 2 * * 1"
+    }
+  ]
 }

@@ -3,8 +3,42 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { feedbackFingerprint, similarityScore } from "@/lib/text-similarity";
+import { sendAdminAlertEmail } from "@/lib/admin-alert";
 
 export const runtime = "nodejs";
+
+async function alertIfRejectSpike() {
+  const windowHours = Number(process.env.REJECT_SPIKE_WINDOW_HOURS || "24");
+  const minCount = Number(process.env.REJECT_SPIKE_MIN_COUNT || "20");
+  const ratioThreshold = Number(process.env.REJECT_SPIKE_RATIO || "0.35");
+  if (!Number.isFinite(windowHours) || !Number.isFinite(minCount) || !Number.isFinite(ratioThreshold)) return;
+
+  const since = new Date(Date.now() - Math.max(1, windowHours) * 60 * 60 * 1000);
+  const rows = await prisma.feedback.findMany({
+    where: {
+      type: "telemetry",
+      message: { in: ["specialist_chat_feedback:helpful", "specialist_chat_feedback:not_helpful"] },
+      createdAt: { gte: since },
+    },
+    select: { message: true },
+  });
+  const total = rows.length;
+  if (total < Math.max(1, Math.floor(minCount))) return;
+  const rejected = rows.filter((r) => r.message === "specialist_chat_feedback:not_helpful").length;
+  const ratio = rejected / total;
+  if (ratio < ratioThreshold) return;
+
+  await sendAdminAlertEmail({
+    subject: "DischargeX Alert: Chat reject spike",
+    lines: [
+      `Window: last ${windowHours} hours`,
+      `Total feedback: ${total}`,
+      `Not helpful: ${rejected}`,
+      `Reject ratio: ${(ratio * 100).toFixed(1)}%`,
+      "ตรวจ prompt variant, knowledge quality, และ intent drift ใน admin insights",
+    ],
+  });
+}
 
 function scoreFeedback(message: string, payloadStr: string | null): { score: number; suggestedCredit: number } {
   const text = message.trim();
@@ -34,8 +68,8 @@ export async function POST(req: NextRequest) {
     if (!type || !message || typeof message !== "string") {
       return NextResponse.json({ ok: false, error: "ต้องระบุ type และ message" }, { status: 400 });
     }
-    if (!["chat", "error_report"].includes(type)) {
-      return NextResponse.json({ ok: false, error: "type ต้องเป็น chat หรือ error_report" }, { status: 400 });
+    if (!["chat", "error_report", "telemetry"].includes(type)) {
+      return NextResponse.json({ ok: false, error: "type ต้องเป็น chat, error_report หรือ telemetry" }, { status: 400 });
     }
     if (message.trim().length === 0) {
       return NextResponse.json({ ok: false, error: "กรุณาใส่ข้อความ" }, { status: 400 });
@@ -114,6 +148,23 @@ export async function POST(req: NextRequest) {
         clientUserAgent: clientUserAgent ?? undefined,
       },
     });
+
+    if (type === "error_report") {
+      await sendAdminAlertEmail({
+        subject: "DischargeX: New error report",
+        lines: [
+          `Feedback ID: ${feedback.id}`,
+          `User ID: ${userId ?? "-"}`,
+          `Score: ${score}/10`,
+          `Suggested credit: ${suggestedCredit}`,
+          `Status: ${status}`,
+          `Message: ${message.trim().slice(0, 500)}`,
+        ],
+      });
+    }
+    if (type === "telemetry" && message.trim() === "specialist_chat_feedback:not_helpful") {
+      await alertIfRejectSpike();
+    }
 
     return NextResponse.json({ ok: true, id: feedback.id });
   } catch (e) {

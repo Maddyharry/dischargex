@@ -81,7 +81,7 @@ export default function HistoryPage() {
           <div>
             <h1 className="text-2xl font-semibold text-white">ประวัติการใช้งาน</h1>
             <p className="mt-1 text-sm text-slate-300">
-              รายการ Generate Summary ที่ใช้เครดิต (เรียงจากล่าสุด)
+              รายการ Generate Summary ย้อนหลัง (เรียงจากล่าสุด)
               {isPro && " — แผน Pro สามารถดูและ export ข้อความสรุปย้อนหลังได้"}
             </p>
           </div>
@@ -130,7 +130,7 @@ export default function HistoryPage() {
                       })}
                     </td>
                     <td className="px-4 py-3 text-slate-300">
-                      ใช้เครดิต {entry.creditsUsed ?? 1} เคส
+                      สร้างสรุปประมาณ {entry.creditsUsed ?? 1} เคส
                     </td>
                     {isPro ? (
                       <td className="px-4 py-3">

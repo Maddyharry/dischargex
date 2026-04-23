@@ -3,6 +3,7 @@ import { hash } from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import crypto from "crypto";
+import { sendAdminAlertEmail } from "@/lib/admin-alert";
 
 const emailSchema = z.string().trim().toLowerCase().email();
 
@@ -88,6 +89,16 @@ export async function POST(req: Request) {
 
     const appOrigin = resolveAppOrigin(req);
     const verifyUrl = `${appOrigin}/api/auth/verify-email?token=${verifyToken}`;
+
+    await sendAdminAlertEmail({
+      subject: "DischargeX: New user signup",
+      lines: [
+        `Email: ${email}`,
+        `Name: ${name || "-"}`,
+        `User ID: ${user.id}`,
+        `Plan: trial`,
+      ],
+    });
 
     const emailFrom = process.env.EMAIL_FROM?.trim();
     if (process.env.RESEND_API_KEY) {

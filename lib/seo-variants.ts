@@ -11,15 +11,15 @@ type SeoCatalog = Record<SeoPage, SeoCopy>;
 const conversionCopy: SeoCatalog = {
   home: {
     title:
-      "DischargeX — AI สรุปชาร์จ discharge summary และช่วยทบทวน ICD-10 สำหรับงาน IPD",
+      "DischargeX — ผู้ช่วยสรุปชาร์จตามแนวทาง สปสช พร้อม ICD-10 review สำหรับงาน IPD",
     description:
-      "เครื่องมือ AI สำหรับแพทย์และทีมเวชระเบียนไทย: ช่วยสรุป discharge summary, จัดกลุ่มวินิจฉัย, และช่วยทบทวน coding ICD-10 ตามแนวทาง Thai DRG (ไม่ใช่ระบบจัดกลุ่มอย่างเป็นทางการ)",
+      "เครื่องมือ AI สำหรับแพทย์และทีมเวชระเบียนไทย: ช่วยสรุป discharge summary, แนะนำหลักฐานที่ควรประเมินก่อนลงวินิจฉัย, และทบทวน coding ICD-10/Thai DRG โดยปกปิดข้อมูลระบุตัวก่อนส่ง AI",
   },
   pricing: {
     title:
       "ราคา DischargeX — แพ็กเกจ AI สรุปชาร์จและช่วยทบทวน ICD-10 สำหรับงาน IPD",
     description:
-      "ดูราคาและแพ็กเกจ DischargeX สำหรับทีมแพทย์และเวชระเบียน: ช่วยสรุป discharge summary, ทบทวนการจัดโครง diagnosis, และช่วยงาน coding review ตามแนวทาง Thai DRG",
+      "ดูราคาและแพ็กเกจ DischargeX สำหรับทีมแพทย์และเวชระเบียน: โควตาการใช้งานโดยประมาณต่อวันตาม Fair Use, รองรับ Stripe และ PromptPay, และช่วยทบทวนการจัดโครง diagnosis ตามแนวทาง สปสช/Thai DRG",
   },
   guidelines: {
     title:
@@ -34,7 +34,7 @@ const technicalCopy: SeoCatalog = {
     title:
       "DischargeX | AI Clinical Documentation Support สำหรับ Discharge Summary และ ICD-10 Review",
     description:
-      "ระบบช่วยงานเอกสารคลินิกสำหรับโรงพยาบาลไทย: สร้าง draft discharge summary, จัดโครง diagnosis, และช่วยทบทวน ICD-10/Thai DRG ใน workflow เวชระเบียน",
+      "ระบบช่วยงานเอกสารคลินิกสำหรับโรงพยาบาลไทย: สร้าง draft discharge summary, แนะนำ criteria ของ diagnosis เชิงหลักฐาน และช่วยทบทวน ICD-10/Thai DRG ใน workflow เวชระเบียน",
   },
   pricing: {
     title:
@@ -53,7 +53,7 @@ const technicalCopy: SeoCatalog = {
 const thaiBrandCopy: SeoCatalog = {
   home: {
     title:
-      "DischargeX — ผู้ช่วย AI สรุปชาร์จสำหรับแพทย์ไทยและทีมเวชระเบียน",
+      "DischargeX — AI สำหรับสรุปชาร์จของแพทย์ไทยและทีมเวชระเบียน",
     description:
       "ช่วยสรุป discharge summary จัดโครงวินิจฉัย และช่วยทบทวน ICD-10 ในงาน IPD ของโรงพยาบาลไทย ใช้งานง่ายและตรวจทานต่อได้จริง",
   },
