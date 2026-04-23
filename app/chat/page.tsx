@@ -1067,7 +1067,7 @@ export default function ChartSummaryConsultChatPage() {
                 </span>
               ) : null}
             </div>
-            <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-300">
+            <div className="mt-2 hidden flex-wrap items-center gap-2 text-[11px] text-slate-300 sm:flex">
               <span className="text-slate-500">สไตล์ตอบ:</span>
               <select
                 value={chatStyle.responseLength}
@@ -1113,15 +1113,15 @@ export default function ChartSummaryConsultChatPage() {
               </select>
               <span className="text-slate-500">ระบบจะจำรายผู้ใช้ให้อัตโนมัติ</span>
             </div>
-            <p className="mt-1 text-xs text-slate-400">
+            <p className="mt-1 text-xs text-slate-400 sm:text-xs">
               {assistantMode === "opd_demo"
                 ? "โหมด OPD รวม: ซักประวัติ/ตรวจร่างกาย/DDx/แผนรักษา + RDU โดยต้องเช็กข้อบ่งชี้ยาฆ่าเชื้อ และชื่อโรคให้ใส่ (ICD-10: ...)"
                 : "ถามโรค/แนวทางลง diagnosis และการบันทึกสรุป โดยอิงชุดความรู้ในระบบและอ้างอิงเอกสารมาตรฐานเป็น [R#] (ไม่ใช่คำแนะทางการรักษาแทนแพทย์)"}
             </p>
-            <p className="mt-1 text-[11px] text-slate-500">
+            <p className="mt-1 hidden text-[11px] text-slate-500 sm:block">
               ทั้งสองโหมดคุยได้ทุกเรื่องในแชทเดียวกัน ต่างกันที่โครงคำตอบเริ่มต้น
             </p>
-            <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-300">
+            <div className="mt-2 hidden flex-wrap items-center gap-2 text-[11px] text-slate-300 sm:flex">
               <span className="text-slate-500">ลัดไปหน้าอื่น:</span>
               <a href="/app" className="rounded-full border border-slate-700 px-2 py-0.5 hover:border-cyan-500/50 hover:text-cyan-200">
                 Discharge Summary
@@ -1281,7 +1281,7 @@ export default function ChartSummaryConsultChatPage() {
               <p className="text-sm text-slate-500">เริ่มพิมพ์คำถามได้เลย เช่น เคสนี้ควรลง diagnosis อะไร</p>
             )}
           </div>
-          <div className="sticky bottom-0 mt-2 shrink-0 border-t border-white/10 bg-[#081120]/85 pt-2 backdrop-blur">
+          <div className="sticky bottom-0 mt-2 shrink-0 border-t border-white/10 bg-[#081120]/85 pt-2 pb-[env(safe-area-inset-bottom)] backdrop-blur">
             <div>
               {composerHint ? <div className="mb-1 text-[11px] text-cyan-300">{composerHint}</div> : null}
               {pendingImages.length ? (
@@ -1329,7 +1329,7 @@ export default function ChartSummaryConsultChatPage() {
                     }
                   }}
                   rows={2}
-                  className="w-full max-h-[180px] min-h-[56px] resize-none overflow-y-auto rounded-xl border border-slate-700 bg-slate-900/80 px-3 py-2.5 pr-32 text-sm leading-relaxed outline-none focus:border-cyan-500"
+                  className="w-full max-h-[180px] min-h-[56px] resize-none overflow-y-auto rounded-xl border border-slate-700 bg-slate-900/80 px-3 py-2.5 pr-28 sm:pr-32 text-sm leading-relaxed outline-none focus:border-cyan-500"
                   placeholder={
                     assistantMode === "opd_demo"
                       ? "เล่าเคส OPD แล้วให้ช่วยจัด flow รวม RDU: ซักประวัติ/ตรวจร่างกาย/DDx(ICD-10)/เกณฑ์ยาฆ่าเชื้อ/สรุปเคส"
@@ -1341,7 +1341,7 @@ export default function ChartSummaryConsultChatPage() {
                     type="button"
                     onClick={() => imageInputRef.current?.click()}
                     disabled={loading}
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-600 bg-slate-900/80 text-slate-200 disabled:opacity-50"
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-slate-600 bg-slate-900/80 text-slate-200 disabled:opacity-50 sm:h-8 sm:w-8"
                     title="แนบรูป"
                     aria-label="แนบรูป"
                   >
@@ -1355,7 +1355,7 @@ export default function ChartSummaryConsultChatPage() {
                     type="button"
                     onClick={toggleMic}
                     disabled={!isMicSupported || loading}
-                    className={`inline-flex h-8 w-8 items-center justify-center rounded-lg border disabled:opacity-50 ${
+                    className={`inline-flex h-7 w-7 items-center justify-center rounded-lg border disabled:opacity-50 sm:h-8 sm:w-8 ${
                       isListening
                         ? "border-rose-500 bg-rose-600/20 text-rose-100"
                         : "border-slate-600 bg-slate-900/80 text-slate-200"
@@ -1373,7 +1373,7 @@ export default function ChartSummaryConsultChatPage() {
                     type="button"
                     onClick={() => void sendMessage()}
                     disabled={loading || !input.trim()}
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-cyan-600 text-white hover:bg-cyan-500 disabled:opacity-50"
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-cyan-600 text-white hover:bg-cyan-500 disabled:opacity-50 sm:h-8 sm:w-8"
                     title={loading ? "กำลังตอบ..." : "ส่ง"}
                     aria-label={loading ? "กำลังตอบ..." : "ส่ง"}
                   >
@@ -1411,13 +1411,13 @@ export default function ChartSummaryConsultChatPage() {
                 </div>
               ) : null}
             </div>
-            <div className="mt-2 flex flex-wrap items-center gap-2">
+            <div className="mt-2 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
               {assistantMode === "coding" ? (
                 <button
                   type="button"
                   onClick={() => void sendSummary("diagnosis")}
                   disabled={loading || !active?.messages.length}
-                  className="rounded-full border border-sky-700 bg-sky-900/40 px-3 py-1 text-xs text-sky-200 hover:bg-sky-800/50 disabled:opacity-50"
+                  className="w-full rounded-full border border-sky-700 bg-sky-900/40 px-3 py-1 text-xs text-sky-200 hover:bg-sky-800/50 disabled:opacity-50 sm:w-auto"
                 >
                   สรุป diagnosis
                 </button>
@@ -1427,7 +1427,7 @@ export default function ChartSummaryConsultChatPage() {
                     type="button"
                     onClick={() => void sendSummary("opd_case")}
                     disabled={loading || !active?.messages.length}
-                    className="rounded-full border border-sky-700 bg-sky-900/40 px-3 py-1 text-xs text-sky-200 hover:bg-sky-800/50 disabled:opacity-50"
+                    className="w-full rounded-full border border-sky-700 bg-sky-900/40 px-3 py-1 text-xs text-sky-200 hover:bg-sky-800/50 disabled:opacity-50 sm:w-auto"
                   >
                     สรุปเคส OPD
                   </button>
@@ -1435,7 +1435,7 @@ export default function ChartSummaryConsultChatPage() {
                     type="button"
                     onClick={() => void sendSummary("opd_soap")}
                     disabled={loading || !active?.messages.length}
-                    className="rounded-full border border-teal-700 bg-teal-900/40 px-3 py-1 text-xs text-teal-200 hover:bg-teal-800/50 disabled:opacity-50"
+                    className="w-full rounded-full border border-teal-700 bg-teal-900/40 px-3 py-1 text-xs text-teal-200 hover:bg-teal-800/50 disabled:opacity-50 sm:w-auto"
                   >
                     สรุป SOAP
                   </button>
@@ -1445,7 +1445,7 @@ export default function ChartSummaryConsultChatPage() {
                 type="button"
                 onClick={() => void regenerateLastAnswer()}
                 disabled={loading || !active?.messages.some((m) => m.role === "user")}
-                className="rounded-full border border-emerald-700 bg-emerald-900/40 px-3 py-1 text-xs text-emerald-200 hover:bg-emerald-800/50 disabled:opacity-50"
+                className="w-full rounded-full border border-emerald-700 bg-emerald-900/40 px-3 py-1 text-xs text-emerald-200 hover:bg-emerald-800/50 disabled:opacity-50 sm:w-auto"
               >
                 Regenerate answer
               </button>
@@ -1453,7 +1453,7 @@ export default function ChartSummaryConsultChatPage() {
                 type="button"
                 onClick={stopStreaming}
                 disabled={!loading}
-                className="rounded-full border border-rose-700 bg-rose-900/40 px-3 py-1 text-xs text-rose-200 hover:bg-rose-800/50 disabled:opacity-50"
+                className="w-full rounded-full border border-rose-700 bg-rose-900/40 px-3 py-1 text-xs text-rose-200 hover:bg-rose-800/50 disabled:opacity-50 sm:w-auto"
               >
                 {isStopping ? "Stopping..." : "Stop generating"}
               </button>
@@ -1461,7 +1461,7 @@ export default function ChartSummaryConsultChatPage() {
                 type="button"
                 onClick={() => void retryStreamFromLastChunk()}
                 disabled={loading || !canRetryStream}
-                className="rounded-full border border-indigo-700 bg-indigo-900/40 px-3 py-1 text-xs text-indigo-200 hover:bg-indigo-800/50 disabled:opacity-50"
+                className="w-full rounded-full border border-indigo-700 bg-indigo-900/40 px-3 py-1 text-xs text-indigo-200 hover:bg-indigo-800/50 disabled:opacity-50 sm:w-auto"
               >
                 Retry stream
               </button>
