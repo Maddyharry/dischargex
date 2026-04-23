@@ -192,6 +192,7 @@ export default function ChartSummaryConsultChatPage() {
   const threadsRef = useRef<Thread[]>(threads);
   const activeIdRef = useRef<string>(activeId);
   const cloudInitRef = useRef(false);
+  const [stickToBottom, setStickToBottom] = useState(true);
 
   const active = useMemo(
     () => threads.find((t) => t.id === activeId) ?? threads[0],
@@ -201,8 +202,16 @@ export default function ChartSummaryConsultChatPage() {
   useEffect(() => {
     const el = messagesRef.current;
     if (!el) return;
+    if (!stickToBottom) return;
     el.scrollTop = el.scrollHeight;
-  }, [active?.messages, loading, activeId]);
+  }, [active?.messages, loading, activeId, stickToBottom]);
+
+  useEffect(() => {
+    setStickToBottom(true);
+    const el = messagesRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+  }, [activeId]);
 
   useEffect(() => {
     threadsRef.current = threads;
@@ -1044,41 +1053,16 @@ export default function ChartSummaryConsultChatPage() {
                 </p>
               </div>
             </div>
-            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs sm:hidden">
-              <button
-                type="button"
-                onClick={() => setAssistantMode("coding")}
-                className={`rounded-full px-3 py-1 ${assistantMode === "coding" ? "bg-cyan-500/25 text-cyan-100" : "bg-slate-800 text-slate-300"}`}
-              >
-                Coding
-              </button>
-              <button
-                type="button"
-                onClick={() => setAssistantMode("opd_demo")}
-                className={`rounded-full px-3 py-1 ${assistantMode === "opd_demo" ? "bg-violet-500/25 text-violet-100" : "bg-slate-800 text-slate-300"}`}
-              >
-                OPD
-              </button>
-              <button
-                type="button"
-                onClick={() => setMode("fast")}
-                className={`rounded-full px-3 py-1 ${mode === "fast" ? "bg-cyan-500/25 text-cyan-100" : "bg-slate-800 text-slate-300"}`}
-              >
-                Fast
-              </button>
-              <button
-                type="button"
-                onClick={() => setMode("precise")}
-                className={`rounded-full px-3 py-1 ${mode === "precise" ? "bg-cyan-500/25 text-cyan-100" : "bg-slate-800 text-slate-300"}`}
-              >
-                Precise
-              </button>
+            <div className="mt-2 flex items-center justify-between gap-2 text-xs sm:hidden">
+              <span className="text-slate-400">
+                {assistantMode === "opd_demo" ? "OPD" : "Coding"} · {mode === "fast" ? "Fast" : "Precise"}
+              </span>
               <button
                 type="button"
                 onClick={() => setShowMobileTools((prev) => !prev)}
                 className="ml-auto rounded-full border border-slate-700 bg-slate-900/70 px-3 py-1 text-slate-200"
               >
-                {showMobileTools ? "ซ่อนเครื่องมือ" : "เครื่องมือ"}
+                {showMobileTools ? "ซ่อนตั้งค่า" : "ตั้งค่า"}
               </button>
             </div>
             <div className="mt-2 hidden flex-wrap items-center gap-2 text-xs sm:flex">
@@ -1191,6 +1175,36 @@ export default function ChartSummaryConsultChatPage() {
             ) : null}
             {showMobileTools ? (
               <div className="mt-2 rounded-xl border border-slate-700/70 bg-slate-950/40 p-2 sm:hidden">
+                <div className="mb-2 flex flex-wrap items-center gap-2 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setAssistantMode("coding")}
+                    className={`rounded-full px-3 py-1 ${assistantMode === "coding" ? "bg-cyan-500/25 text-cyan-100" : "bg-slate-800 text-slate-300"}`}
+                  >
+                    Coding
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAssistantMode("opd_demo")}
+                    className={`rounded-full px-3 py-1 ${assistantMode === "opd_demo" ? "bg-violet-500/25 text-violet-100" : "bg-slate-800 text-slate-300"}`}
+                  >
+                    OPD
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMode("fast")}
+                    className={`rounded-full px-3 py-1 ${mode === "fast" ? "bg-cyan-500/25 text-cyan-100" : "bg-slate-800 text-slate-300"}`}
+                  >
+                    Fast
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMode("precise")}
+                    className={`rounded-full px-3 py-1 ${mode === "precise" ? "bg-cyan-500/25 text-cyan-100" : "bg-slate-800 text-slate-300"}`}
+                  >
+                    Precise
+                  </button>
+                </div>
                 <button
                   type="button"
                   onClick={() => setShowPromptSuggestions((prev) => !prev)}
@@ -1203,6 +1217,11 @@ export default function ChartSummaryConsultChatPage() {
           </div>
           <div
             ref={messagesRef}
+            onScroll={(e) => {
+              const el = e.currentTarget;
+              const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 72;
+              setStickToBottom(nearBottom);
+            }}
             className="mt-3 min-h-[320px] max-h-[54dvh] overflow-y-auto rounded-xl border border-slate-700/70 bg-slate-950/50 p-3 md:min-h-0 md:max-h-none md:flex-1"
           >
             {active?.messages.length ? (
@@ -1210,18 +1229,16 @@ export default function ChartSummaryConsultChatPage() {
                 {active.messages.map((m, idx) => (
                   <div key={`${m.role}-${idx}`}>
                     <div className={`flex ${m.role === "user" ? "justify-end" : "justify-start"} gap-2`}>
-                      {m.role === "assistant" ? (
-                        <div className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-cyan-500/20 text-[11px] text-cyan-200">
-                          AI
-                        </div>
-                      ) : null}
                       <div
                         className={`rounded-2xl px-3 py-2 text-[15px] leading-relaxed whitespace-pre-wrap shadow-sm sm:text-sm ${
                           m.role === "user"
-                            ? "max-w-[94%] bg-cyan-700/70 text-white"
-                            : "max-w-[94%] border border-white/10 bg-slate-800/90 text-slate-100"
+                            ? "max-w-[88%] bg-cyan-700/70 text-white"
+                            : "w-full border border-white/10 bg-slate-800/90 text-slate-100 md:max-w-[94%]"
                         }`}
                       >
+                        {m.role === "assistant" ? (
+                          <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-cyan-300">Assistant</div>
+                        ) : null}
                         <ChatMessageBody content={m.content} />
                       </div>
                       {m.role === "assistant" ? (
@@ -1343,6 +1360,22 @@ export default function ChartSummaryConsultChatPage() {
               <p className="text-sm text-slate-500">เริ่มพิมพ์คำถามได้เลย เช่น เคสนี้ควรลง diagnosis อะไร</p>
             )}
           </div>
+          {!stickToBottom ? (
+            <div className="mt-2 flex justify-center">
+              <button
+                type="button"
+                onClick={() => {
+                  const el = messagesRef.current;
+                  if (!el) return;
+                  el.scrollTop = el.scrollHeight;
+                  setStickToBottom(true);
+                }}
+                className="rounded-full border border-cyan-500/40 bg-cyan-500/10 px-3 py-1 text-xs text-cyan-200 hover:bg-cyan-500/20"
+              >
+                เลื่อนไปล่าสุด
+              </button>
+            </div>
+          ) : null}
           <div className="sticky bottom-0 mt-2 shrink-0 border-t border-white/10 bg-[#081120]/85 pt-2 pb-[env(safe-area-inset-bottom)] backdrop-blur">
             <div>
               {composerHint ? <div className="mb-1 text-[11px] text-cyan-300">{composerHint}</div> : null}
