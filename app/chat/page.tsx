@@ -814,7 +814,7 @@ export default function ChartSummaryConsultChatPage() {
     }
   }
 
-  function toggleMic() {
+  async function toggleMic() {
     if (!isMicSupported) {
       setComposerHint("เบราว์เซอร์นี้ยังไม่รองรับ SpeechRecognition");
       return;
@@ -825,7 +825,20 @@ export default function ChartSummaryConsultChatPage() {
       rec.stop();
       setComposerHint("หยุดฟังเสียงแล้ว");
     } else {
-      rec.start();
+      try {
+        if (typeof navigator !== "undefined" && navigator.mediaDevices?.getUserMedia) {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          stream.getTracks().forEach((track) => track.stop());
+        }
+      } catch {
+        setComposerHint("ไม่ได้รับสิทธิ์ไมโครโฟน กรุณาอนุญาตไมค์ใน Chrome แล้วลองใหม่");
+        return;
+      }
+      try {
+        rec.start();
+      } catch {
+        setComposerHint("เปิดไมค์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+      }
     }
   }
 
@@ -909,8 +922,8 @@ export default function ChartSummaryConsultChatPage() {
         ];
 
   return (
-    <main className="h-[calc(100dvh-3.5rem)] overflow-hidden bg-[#081120] text-slate-100">
-      <div className="mx-auto flex h-full w-full max-w-7xl flex-col gap-3 px-2 py-3 md:grid md:grid-cols-[170px_minmax(0,1fr)] md:px-4">
+    <main className="min-h-[calc(100dvh-3.5rem)] overflow-y-auto bg-[#081120] text-slate-100 md:h-[calc(100dvh-3.5rem)] md:overflow-hidden">
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-3 px-2 py-3 md:h-full md:grid md:grid-cols-[170px_minmax(0,1fr)] md:px-4">
         <div className="flex items-center gap-2 md:hidden">
           <button
             type="button"
@@ -1015,7 +1028,7 @@ export default function ChartSummaryConsultChatPage() {
           </div>
         </aside>
 
-        <section className="flex h-full min-h-0 flex-1 flex-col rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+        <section className="flex min-h-0 flex-1 flex-col rounded-2xl border border-white/10 bg-white/[0.03] p-3 md:h-full">
           <div className="shrink-0">
             <div className="flex items-center gap-3">
               <div className="flex h-9 w-9 items-center justify-center rounded-full bg-cyan-500/20 text-cyan-200">AI</div>
@@ -1141,7 +1154,7 @@ export default function ChartSummaryConsultChatPage() {
           </div>
           <div
             ref={messagesRef}
-            className="mt-3 min-h-0 flex-1 overflow-y-auto rounded-xl border border-slate-700/70 bg-slate-950/50 p-3"
+            className="mt-3 min-h-[260px] max-h-[42dvh] overflow-y-auto rounded-xl border border-slate-700/70 bg-slate-950/50 p-3 md:min-h-0 md:max-h-none md:flex-1"
           >
             {active?.messages.length ? (
               <div className="space-y-3">
@@ -1213,7 +1226,7 @@ export default function ChartSummaryConsultChatPage() {
                           type="button"
                           onClick={() => void rateAssistantMessage(active.id, idx, "not_helpful", "insufficient_evidence")}
                           disabled={ratingBusyId !== ""}
-                          className={`rounded border px-2 py-0.5 disabled:opacity-50 ${
+                          className={`hidden rounded border px-2 py-0.5 disabled:opacity-50 sm:inline-block ${
                             selectedInsufficient
                               ? "border-rose-500 bg-rose-900/40 text-rose-200"
                               : "border-slate-700 hover:bg-slate-800"
@@ -1225,7 +1238,7 @@ export default function ChartSummaryConsultChatPage() {
                           type="button"
                           onClick={() => void rateAssistantMessage(active.id, idx, "not_helpful", "legacy_term")}
                           disabled={ratingBusyId !== ""}
-                          className={`rounded border px-2 py-0.5 disabled:opacity-50 ${
+                          className={`hidden rounded border px-2 py-0.5 disabled:opacity-50 sm:inline-block ${
                             selectedLegacy
                               ? "border-rose-500 bg-rose-900/40 text-rose-200"
                               : "border-slate-700 hover:bg-slate-800"
@@ -1237,7 +1250,7 @@ export default function ChartSummaryConsultChatPage() {
                           type="button"
                           onClick={() => void rateAssistantMessage(active.id, idx, "not_helpful", "not_specific")}
                           disabled={ratingBusyId !== ""}
-                          className={`rounded border px-2 py-0.5 disabled:opacity-50 ${
+                          className={`hidden rounded border px-2 py-0.5 disabled:opacity-50 sm:inline-block ${
                             selectedSpecific
                               ? "border-rose-500 bg-rose-900/40 text-rose-200"
                               : "border-slate-700 hover:bg-slate-800"
