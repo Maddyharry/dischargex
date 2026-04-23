@@ -23,36 +23,13 @@ const PLAN_SELECT_OPTIONS = {
   ],
 } as const;
 
-function validateBirthDateBE(value: string): string | null {
-  const s = (value || "").trim();
-  if (!s) return "กรุณากรอกวันเกิด";
-  const match = s.match(/^(\d{1,2})\s*\/\s*(\d{1,2})\s*\/\s*(\d{4})$/);
-  if (!match) return "รูปแบบไม่ถูกต้อง ใช้ วว/ดด/ปี พ.ศ. (เช่น 15/8/2543)";
-  const day = parseInt(match[1], 10);
-  const month = parseInt(match[2], 10);
-  const yearBE = parseInt(match[3], 10);
-  if (yearBE < 2468 || yearBE > 2580) return "ปี พ.ศ. ควรอยู่ช่วง 2468–2580";
-  if (month < 1 || month > 12) return "เดือนต้องอยู่ระหว่าง 1–12";
-  if (day < 1 || day > 31) return "วันต้องอยู่ระหว่าง 1–31";
-  const daysInMonth = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-  const yearCE = yearBE - 543;
-  const isLeap = (y: number) => (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
-  const maxDay = month === 2 ? (isLeap(yearCE) ? 29 : 28) : daysInMonth[month - 1];
-  if (day > maxDay) return `วันในเดือนนี้ต้องไม่เกิน ${maxDay}`;
-  return null;
-}
-
 function PricingPageContent() {
   const searchParams = useSearchParams();
   const { data: session, status: sessionStatus } = useSession();
   const isLoggedIn = sessionStatus === "authenticated" && !!session?.user?.email;
-  const sessionName = session?.user?.name ?? "";
 
   const [billingView, setBillingView] = React.useState<"monthly" | "yearly">("monthly");
-  const [qrOpen, setQrOpen] = React.useState(false);
-  const [birthDateError, setBirthDateError] = React.useState<string | null>(null);
   const [submitError, setSubmitError] = React.useState<string | null>(null);
-  const [submitting, setSubmitting] = React.useState(false);
   const [stripeLoading, setStripeLoading] = React.useState(false);
   const [requestType, setRequestType] = React.useState<"plan" | "add_credits">("plan");
   const [selectedPlanRequested, setSelectedPlanRequested] = React.useState<string>("standard_monthly");
@@ -66,52 +43,6 @@ function PricingPageContent() {
     toPlanId: string | null;
   } | null>(null);
   const [quoteError, setQuoteError] = React.useState<string | null>(null);
-  const [formPrefill, setFormPrefill] = React.useState<{
-    fullName: string;
-    birthDate: string;
-    hospitalName: string;
-    province: string;
-    phone: string;
-  } | null>(null);
-  const [formData, setFormData] = React.useState({
-    fullName: "",
-    birthDate: "",
-    hospitalName: "",
-    province: "",
-    phone: "",
-  });
-
-  React.useEffect(() => {
-    if (!isLoggedIn) return;
-    let cancelled = false;
-    fetch("/api/me")
-      .then((r) => r.json())
-      .then((data) => {
-        if (cancelled || !data.ok || !data.user) return;
-        const u = data.user;
-        setFormPrefill({
-          fullName: u.name ?? "",
-          birthDate: u.birthDate ?? "",
-          hospitalName: u.hospitalName ?? "",
-          province: u.province ?? "",
-          phone: u.phone ?? "",
-        });
-      })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, [isLoggedIn]);
-
-  React.useEffect(() => {
-    if (formPrefill) {
-      setFormData(formPrefill);
-    }
-  }, [formPrefill]);
-
-  React.useEffect(() => {
-    if (sessionName && !formPrefill && formData.fullName === "") {
-      setFormData((prev) => ({ ...prev, fullName: sessionName }));
-    }
-  }, [sessionName, formPrefill, formData.fullName]);
 
   const [addCreditsOption, setAddCreditsOption] = React.useState(0);
   const submitSuccess = searchParams.get("status") === "success";
@@ -164,15 +95,6 @@ function PricingPageContent() {
       });
     return () => controller.abort();
   }, [isLoggedIn, requestType, addCreditsOption, selectedPlanRequested]);
-
-  React.useEffect(() => {
-    if (!qrOpen) return;
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") setQrOpen(false);
-    }
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [qrOpen]);
 
   async function startStripeCheckout() {
     setSubmitError(null);
@@ -498,32 +420,6 @@ function PricingPageContent() {
             นี่คือหน้าชำระเงินอย่างเป็นทางการของ DischargeX เท่านั้น ข้อมูลที่ส่งใช้เพื่อยืนยันคำขอเปิดแพ็กเกจ/เครดิตเพิ่ม
           </p>
 
-          {qrOpen && process.env.NEXT_PUBLIC_PROMPTPAY_QR_URL ? (
-            <div
-              className="fixed inset-0 z-[200] flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm"
-              onMouseDown={(e) => {
-                if (e.target === e.currentTarget) setQrOpen(false);
-              }}
-              role="dialog"
-              aria-modal="true"
-            >
-              <div className="relative w-full max-w-sm">
-                <button
-                  type="button"
-                  onClick={() => setQrOpen(false)}
-                  className="absolute -top-11 right-0 rounded-xl border border-slate-600 bg-slate-800/90 px-4 py-2 text-sm font-medium text-slate-200 hover:bg-slate-700 transition"
-                >
-                  ปิด (ESC)
-                </button>
-                <img
-                  src={process.env.NEXT_PUBLIC_PROMPTPAY_QR_URL}
-                  alt="PromptPay QR (ขยาย)"
-                  className="mx-auto w-full max-w-xs rounded-2xl border border-slate-600 bg-white object-contain p-4 shadow-2xl"
-                />
-              </div>
-            </div>
-          ) : null}
-
           {!isLoggedIn ? (
             <div className="mt-6 rounded-2xl border border-amber-500/40 bg-amber-950/20 p-8 text-center">
               <p className="text-amber-200 font-medium">กรุณาเข้าสู่ระบบก่อนจึงจะส่งคำขอเปิดแพ็กเกจได้</p>
@@ -538,30 +434,14 @@ function PricingPageContent() {
             </div>
           ) : (
           <>
-          <div className="mt-4 rounded-2xl border border-indigo-500/30 bg-indigo-950/20 p-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <div className="text-sm font-semibold text-indigo-100">ชำระด้วยบัตรผ่าน Stripe</div>
-                <div className="text-xs text-indigo-200/80">
-                  แนะนำสำหรับเปิดแพ็กเกจทันที ระบบจะ apply entitlement อัตโนมัติเมื่อชำระสำเร็จ
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => void startStripeCheckout()}
-                disabled={stripeLoading}
-                data-telemetry-click="pricing_stripe_checkout"
-                className="rounded-xl bg-indigo-500 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-400 disabled:opacity-60"
-              >
-                {stripeLoading ? "กำลังเชื่อม Stripe..." : "ชำระด้วยบัตร (Stripe)"}
-              </button>
-            </div>
+          <div className="mt-4 rounded-2xl border border-cyan-500/30 bg-cyan-950/20 p-4 text-sm text-cyan-100">
+            ระบบใช้ Stripe ทั้งหมดแบบอัตโนมัติแล้ว (ไม่มีการโอนสลิป/รอแอดมินอนุมัติ)
           </div>
 
           {isExistingPlan && (
             <div className="mt-4 rounded-2xl border border-cyan-500/30 bg-cyan-950/20 px-4 py-3 text-sm text-cyan-200">
               บัญชีนี้มีแผน <span className="font-semibold">{hasPlan}</span> อยู่แล้ว
-              ส่งฟอร์มด้านล่างได้ถ้าต้องการอัปเกรดหรือต่ออายุ
+              เมื่อกดดำเนินการ ระบบจะพาไป Stripe เพื่อจัดการแพ็กเกจ/ต่ออายุอัตโนมัติ
             </div>
           )}
 
@@ -571,220 +451,7 @@ function PricingPageContent() {
             </div>
           )}
 
-          <form
-            className="mt-6 grid gap-4 md:grid-cols-2"
-            encType="multipart/form-data"
-            aria-label="DischargeX plan and payment verification form"
-            onSubmit={async (e) => {
-              e.preventDefault();
-              setSubmitError(null);
-              const form = e.currentTarget;
-              const birthInput = form.querySelector<HTMLInputElement>('input[name="birthDate"]');
-              const err = validateBirthDateBE(birthInput?.value ?? "");
-              if (err) {
-                setBirthDateError(err);
-                birthInput?.focus();
-                return;
-              }
-              setBirthDateError(null);
-              setSubmitting(true);
-              try {
-                const fd = new FormData(form);
-                const res = await fetch("/api/billing/request", {
-                  method: "POST",
-                  body: fd,
-                });
-                if (!res.ok) {
-                  const text = await res.text();
-                  let msg: string | null = null;
-                  try {
-                    const parsed = text ? (JSON.parse(text) as { error?: unknown }) : null;
-                    if (parsed && typeof parsed === "object" && typeof parsed.error === "string") {
-                      msg = parsed.error;
-                    }
-                  } catch {
-                    // ignore
-                  }
-                  setSubmitError(msg || text || `ส่งคำขอไม่สำเร็จ (${res.status})`);
-                  return;
-                }
-                const text = await res.text();
-                let redirectUrl = "/pricing?status=success";
-                try {
-                  const parsed = text ? (JSON.parse(text) as { redirectUrl?: unknown }) : null;
-                  if (parsed && typeof parsed === "object" && typeof parsed.redirectUrl === "string") {
-                    redirectUrl = parsed.redirectUrl;
-                  }
-                } catch {
-                  // ignore
-                }
-                window.location.href = redirectUrl;
-              } catch {
-                setSubmitError("ส่งคำขอไม่สำเร็จ กรุณาลองใหม่");
-              } finally {
-                setSubmitting(false);
-              }
-            }}
-          >
-            <div className="space-y-1">
-              <label className="text-xs text-slate-300">ชื่อ-นามสกุล</label>
-              <input
-                name="fullName"
-                required
-                value={formData.fullName}
-                onChange={(e) => setFormData((prev) => ({ ...prev, fullName: e.target.value }))}
-                className="w-full rounded-2xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-cyan-500"
-              />
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-xs text-slate-300">อีเมล (จากบัญชีที่ล็อกอิน)</label>
-              <div className="rounded-2xl border border-slate-700 bg-slate-950/50 px-4 py-3 text-sm text-slate-300">
-                {session?.user?.email ?? "-"}
-              </div>
-              <p className="text-[11px] text-slate-500">ใช้อีเมลนี้ยืนยันตัวตน ไม่ต้องกรอก</p>
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-xs text-slate-300">วันเกิด (วว/ดด/ปี พ.ศ.)</label>
-              <input
-                type="text"
-                name="birthDate"
-                required
-                value={formData.birthDate}
-                onChange={(e) => {
-                  setFormData((prev) => ({ ...prev, birthDate: e.target.value }));
-                  if (birthDateError != null) setBirthDateError(null);
-                }}
-                placeholder="เช่น 15/8/2543"
-                title="กรุณากรอกเป็นวันเดือนปี พ.ศ. เช่น 15/8/2543"
-                className={`w-full rounded-2xl border px-3 py-2 text-sm text-slate-100 outline-none focus:border-cyan-500 ${
-                  birthDateError ? "border-red-500 bg-red-950/20" : "border-slate-700 bg-slate-950"
-                }`}
-                onBlur={(e) => {
-                  const err = validateBirthDateBE(e.target.value);
-                  setBirthDateError(err);
-                }}
-              />
-              {birthDateError ? (
-                <p className="text-xs text-red-400">{birthDateError}</p>
-              ) : (
-                <p className="text-[11px] text-slate-500">กรุณากรอกปี พ.ศ. เท่านั้น (เช่น พ.ศ. 2543)</p>
-              )}
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-xs text-slate-300">โรงพยาบาล / หน่วยงาน</label>
-              <input
-                name="hospitalName"
-                required
-                value={formData.hospitalName}
-                onChange={(e) => setFormData((prev) => ({ ...prev, hospitalName: e.target.value }))}
-                className="w-full rounded-2xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-cyan-500"
-              />
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-xs text-slate-300">จังหวัด</label>
-              <select
-                name="province"
-                required
-                value={formData.province}
-                onChange={(e) => setFormData((prev) => ({ ...prev, province: e.target.value }))}
-                className="w-full rounded-2xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-cyan-500"
-              >
-                <option value="">-- เลือกจังหวัด --</option>
-                <option value="กรุงเทพมหานคร">กรุงเทพมหานคร</option>
-                <option value="กระบี่">กระบี่</option>
-                <option value="กาญจนบุรี">กาญจนบุรี</option>
-                <option value="กาฬสินธุ์">กาฬสินธุ์</option>
-                <option value="กำแพงเพชร">กำแพงเพชร</option>
-                <option value="ขอนแก่น">ขอนแก่น</option>
-                <option value="จันทบุรี">จันทบุรี</option>
-                <option value="ฉะเชิงเทรา">ฉะเชิงเทรา</option>
-                <option value="ชลบุรี">ชลบุรี</option>
-                <option value="ชัยนาท">ชัยนาท</option>
-                <option value="ชัยภูมิ">ชัยภูมิ</option>
-                <option value="ชุมพร">ชุมพร</option>
-                <option value="เชียงราย">เชียงราย</option>
-                <option value="เชียงใหม่">เชียงใหม่</option>
-                <option value="ตรัง">ตรัง</option>
-                <option value="ตราด">ตราด</option>
-                <option value="ตาก">ตาก</option>
-                <option value="นครนายก">นครนายก</option>
-                <option value="นครปฐม">นครปฐม</option>
-                <option value="นครพนม">นครพนม</option>
-                <option value="นครราชสีมา">นครราชสีมา</option>
-                <option value="นครศรีธรรมราช">นครศรีธรรมราช</option>
-                <option value="นครสวรรค์">นครสวรรค์</option>
-                <option value="นนทบุรี">นนทบุรี</option>
-                <option value="นราธิวาส">นราธิวาส</option>
-                <option value="น่าน">น่าน</option>
-                <option value="บึงกาฬ">บึงกาฬ</option>
-                <option value="บุรีรัมย์">บุรีรัมย์</option>
-                <option value="ปทุมธานี">ปทุมธานี</option>
-                <option value="ประจวบคีรีขันธ์">ประจวบคีรีขันธ์</option>
-                <option value="ปราจีนบุรี">ปราจีนบุรี</option>
-                <option value="ปัตตานี">ปัตตานี</option>
-                <option value="พระนครศรีอยุธยา">พระนครศรีอยุธยา</option>
-                <option value="พะเยา">พะเยา</option>
-                <option value="พังงา">พังงา</option>
-                <option value="พัทลุง">พัทลุง</option>
-                <option value="พิจิตร">พิจิตร</option>
-                <option value="พิษณุโลก">พิษณุโลก</option>
-                <option value="เพชรบุรี">เพชรบุรี</option>
-                <option value="เพชรบูรณ์">เพชรบูรณ์</option>
-                <option value="แพร่">แพร่</option>
-                <option value="ภูเก็ต">ภูเก็ต</option>
-                <option value="มหาสารคาม">มหาสารคาม</option>
-                <option value="มุกดาหาร">มุกดาหาร</option>
-                <option value="แม่ฮ่องสอน">แม่ฮ่องสอน</option>
-                <option value="ยโสธร">ยโสธร</option>
-                <option value="ยะลา">ยะลา</option>
-                <option value="ร้อยเอ็ด">ร้อยเอ็ด</option>
-                <option value="ระนอง">ระนอง</option>
-                <option value="ระยอง">ระยอง</option>
-                <option value="ราชบุรี">ราชบุรี</option>
-                <option value="ลพบุรี">ลพบุรี</option>
-                <option value="ลำปาง">ลำปาง</option>
-                <option value="ลำพูน">ลำพูน</option>
-                <option value="เลย">เลย</option>
-                <option value="ศรีสะเกษ">ศรีสะเกษ</option>
-                <option value="สกลนคร">สกลนคร</option>
-                <option value="สงขลา">สงขลา</option>
-                <option value="สตูล">สตูล</option>
-                <option value="สมุทรปราการ">สมุทรปราการ</option>
-                <option value="สมุทรสาคร">สมุทรสาคร</option>
-                <option value="สมุทรสงคราม">สมุทรสงคราม</option>
-                <option value="สระแก้ว">สระแก้ว</option>
-                <option value="สระบุรี">สระบุรี</option>
-                <option value="สิงห์บุรี">สิงห์บุรี</option>
-                <option value="สุโขทัย">สุโขทัย</option>
-                <option value="สุพรรณบุรี">สุพรรณบุรี</option>
-                <option value="สุราษฎร์ธานี">สุราษฎร์ธานี</option>
-                <option value="สุรินทร์">สุรินทร์</option>
-                <option value="หนองคาย">หนองคาย</option>
-                <option value="หนองบัวลำภู">หนองบัวลำภู</option>
-                <option value="อ่างทอง">อ่างทอง</option>
-                <option value="อำนาจเจริญ">อำนาจเจริญ</option>
-                <option value="อุดรธานี">อุดรธานี</option>
-                <option value="อุตรดิตถ์">อุตรดิตถ์</option>
-                <option value="อุทัยธานี">อุทัยธานี</option>
-                <option value="อุบลราชธานี">อุบลราชธานี</option>
-              </select>
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-xs text-slate-300">เบอร์โทร</label>
-              <input
-                name="phone"
-                required
-                value={formData.phone}
-                onChange={(e) => setFormData((prev) => ({ ...prev, phone: e.target.value }))}
-                className="w-full rounded-2xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-cyan-500"
-              />
-            </div>
-
+          <div className="mt-6 grid gap-4 md:grid-cols-2">
             <div className="space-y-3 md:col-span-2">
               <label className="text-xs text-slate-300">ประเภทคำขอ</label>
               <div className="flex gap-4">
@@ -801,7 +468,6 @@ function PricingPageContent() {
                 <label className="flex cursor-pointer items-center gap-2">
                   <input
                     type="radio"
-                    name="requestType"
                     checked={requestType === "add_credits"}
                     onChange={() => setRequestType("add_credits")}
                     className="h-4 w-4 border-slate-600 bg-slate-900 text-cyan-500"
@@ -851,81 +517,33 @@ function PricingPageContent() {
               )}
             </div>
 
-            {isLoggedIn && (
-              <>
-                <div className="md:col-span-2 rounded-2xl border border-emerald-500/25 bg-emerald-950/10 p-4 text-sm text-emerald-100">
-                  <div className="text-xs font-medium uppercase tracking-wide text-emerald-300/90">ยอดที่ต้องโอน</div>
-                  <div className="mt-1 text-2xl font-bold text-emerald-300">
-                    {quote?.finalAmount != null ? `${quote.finalAmount.toLocaleString("th-TH")} บาท` : "—"}
+            <div className="md:col-span-2 rounded-2xl border border-emerald-500/25 bg-emerald-950/10 p-4 text-sm text-emerald-100">
+              <div className="text-xs font-medium uppercase tracking-wide text-emerald-300/90">ยอดที่ต้องชำระ</div>
+              <div className="mt-1 text-2xl font-bold text-emerald-300">
+                {quote?.finalAmount != null ? `${quote.finalAmount.toLocaleString("th-TH")} บาท` : "—"}
+              </div>
+              {quoteError ? <div className="mt-1 text-xs text-amber-300">{quoteError}</div> : null}
+              <div className="mt-3 rounded-2xl border border-indigo-500/30 bg-indigo-950/20 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-semibold text-indigo-100">ชำระผ่าน Stripe</div>
+                    <div className="text-xs text-indigo-200/80">
+                      ระบบจะเปิดแพ็กเกจ/ต่ออายุอัตโนมัติจาก webhook ทันทีเมื่อชำระสำเร็จ
+                    </div>
                   </div>
-                  {quoteError ? <div className="mt-1 text-xs text-amber-300">{quoteError}</div> : null}
-                  {quote?.paymentType === "upgrade" && quote.remainingValue != null && quote.remainingDays != null ? (
-                    <div className="mt-1 text-xs text-slate-300">
-                      อัปเกรดจะหัก มูลค่าที่เหลือ ตามจำนวนวันที่เหลือ {quote.remainingDays} วัน (ประมาณ {quote.remainingValue.toLocaleString("th-TH")} บาท)
-                    </div>
-                  ) : quote?.paymentType === "downgrade" ? (
-                    <div className="mt-1 text-xs text-slate-300">
-                      ดาวน์เกรดจะมีผลรอบถัดไป (ไม่ต้องโอน ยอด = 0)
-                    </div>
-                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => void startStripeCheckout()}
+                    disabled={stripeLoading}
+                    data-telemetry-click="pricing_stripe_checkout"
+                    className="rounded-xl bg-indigo-500 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-400 disabled:opacity-60"
+                  >
+                    {stripeLoading ? "กำลังเชื่อม Stripe..." : "ไปหน้า Stripe"}
+                  </button>
                 </div>
-                <div className="md:col-span-2">
-                  {process.env.NEXT_PUBLIC_PROMPTPAY_QR_URL ? (
-                    <div className="rounded-2xl border border-slate-600/80 bg-slate-950/60 p-4">
-                      <p className="text-xs font-medium text-slate-400 mb-2">QR โอนเงิน</p>
-                      <button
-                        type="button"
-                        onClick={() => setQrOpen(true)}
-                        data-telemetry-click="pricing_promptpay_qr_open"
-                        className="flex items-center justify-center rounded-xl border border-slate-600 bg-white p-3 transition hover:border-cyan-500/50 hover:shadow-md"
-                        title="คลิกเพื่อขยาย"
-                      >
-                        <img
-                          src={process.env.NEXT_PUBLIC_PROMPTPAY_QR_URL}
-                          alt="PromptPay QR"
-                          className="h-28 w-28 object-contain"
-                        />
-                      </button>
-                      <p className="mt-2 text-[11px] text-slate-500">คลิกเพื่อขยาย</p>
-                    </div>
-                  ) : (
-                    <div className="rounded-2xl border border-dashed border-slate-600 bg-slate-950/30 px-4 py-3 text-xs text-slate-400">
-                      ไม่พบ PromptPay QR
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
-            <div className="space-y-1 md:col-span-2">
-              <label className="text-xs text-slate-300">แนบสลิปการโอน (ภาพ)</label>
-              <input
-                type="file"
-                name="slip"
-                accept="image/*"
-                required
-                className="w-full rounded-2xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none file:mr-3 file:rounded-xl file:border-none file:bg-slate-800 file:px-3 file:py-1 file:text-xs file:text-slate-100 focus:border-cyan-500"
-              />
+              </div>
             </div>
-
-            <div className="md:col-span-2">
-              <button
-                type="submit"
-                disabled={submitting}
-                data-telemetry-click="pricing_submit_payment_request"
-                className="w-full rounded-2xl bg-gradient-to-r from-emerald-500 to-cyan-500 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-900/40 transition hover:brightness-110 disabled:opacity-60"
-              >
-                {submitting
-                  ? "กำลังส่ง..."
-                  : requestType === "add_credits"
-                  ? "ส่งคำขอซื้อ Boost เพิ่ม"
-                  : "ส่งคำขอเปิดแพ็กเกจ"}
-              </button>
-            </div>
-          </form>
-
-          <p className="mt-3 text-xs text-slate-500">
-            หลังจากส่งคำขอแล้ว ทีมงานจะตรวจสอบสลิปและเปิดใช้งานแพ็กเกจภายใน 24 ชั่วโมง
-          </p>
+          </div>
           </>
           )}
         </section>
