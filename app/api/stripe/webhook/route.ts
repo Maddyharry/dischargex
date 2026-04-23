@@ -187,8 +187,14 @@ export async function POST(req: Request) {
       });
     } else if (event.type === "invoice.paid") {
       const invoice = event.data.object;
-      const subscriptionId = typeof invoice.subscription === "string" ? invoice.subscription : null;
-      const customerId = typeof invoice.customer === "string" ? invoice.customer : null;
+      const invoiceAny = invoice as unknown as {
+        id: string;
+        subscription?: string | null;
+        customer?: string | null;
+      };
+      const subscriptionId =
+        typeof invoiceAny.subscription === "string" ? invoiceAny.subscription : null;
+      const customerId = typeof invoiceAny.customer === "string" ? invoiceAny.customer : null;
       const user = await findUserByStripeRefs(subscriptionId, customerId);
       if (!user || !subscriptionId) return NextResponse.json({ ok: true, ignored: true });
 
@@ -205,14 +211,20 @@ export async function POST(req: Request) {
           action: "renewal",
           creditsDelta: getPlanDefinition(applied.planId).creditsPerCycle,
           expiryDeltaDays: 0,
-          note: `Stripe invoice paid ${invoice.id}`,
+          note: `Stripe invoice paid ${invoiceAny.id}`,
           relatedPaymentId: null,
         },
       });
     } else if (event.type === "invoice.payment_failed") {
       const invoice = event.data.object;
-      const subscriptionId = typeof invoice.subscription === "string" ? invoice.subscription : null;
-      const customerId = typeof invoice.customer === "string" ? invoice.customer : null;
+      const invoiceAny = invoice as unknown as {
+        id: string;
+        subscription?: string | null;
+        customer?: string | null;
+      };
+      const subscriptionId =
+        typeof invoiceAny.subscription === "string" ? invoiceAny.subscription : null;
+      const customerId = typeof invoiceAny.customer === "string" ? invoiceAny.customer : null;
       const user = await findUserByStripeRefs(subscriptionId, customerId);
       if (!user) return NextResponse.json({ ok: true, ignored: true });
       await prisma.user.update({
@@ -224,7 +236,7 @@ export async function POST(req: Request) {
         type: "billing",
         title: "ต่ออายุแพ็กเกจไม่สำเร็จ",
         message: "ระบบไม่สามารถตัดชำระต่ออายุอัตโนมัติได้ กรุณาตรวจสอบวิธีชำระเงินใน Stripe",
-        meta: { stripeInvoiceId: invoice.id },
+        meta: { stripeInvoiceId: invoiceAny.id },
       });
     } else if (event.type === "customer.subscription.updated" || event.type === "customer.subscription.deleted") {
       const sub = event.data.object;
