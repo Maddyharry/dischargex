@@ -32,7 +32,15 @@ async function applySubscriptionState(params: {
   const sub = await stripe.subscriptions.retrieve(params.subscriptionId, {
     expand: ["items.data.price"],
   });
-  const firstItem = sub.items.data[0];
+  const subAny = sub as unknown as {
+    id: string;
+    status?: string | null;
+    customer?: string | null;
+    current_period_start?: number | null;
+    current_period_end?: number | null;
+    items?: { data?: Array<{ price?: { id?: string | null } }> };
+  };
+  const firstItem = subAny.items?.data?.[0];
   const priceId = firstItem?.price?.id || null;
   const mappedPlanId = getPlanIdByStripePriceId(priceId);
 
@@ -43,9 +51,9 @@ async function applySubscriptionState(params: {
   if (!existingUser) return null;
 
   const planId = normalizePlanId(mappedPlanId || existingUser.plan || "trial");
-  const periodStart = toDateFromUnix(sub.current_period_start, new Date());
+  const periodStart = toDateFromUnix(subAny.current_period_start, new Date());
   const periodEnd = toDateFromUnix(
-    sub.current_period_end,
+    subAny.current_period_end,
     getPeriodBounds(periodStart, planId).end
   );
   const { cycleStart, cycleEnd } = getCreditCycleBounds(periodStart, planId, periodStart);
@@ -55,14 +63,14 @@ async function applySubscriptionState(params: {
     where: { id: params.userId },
     data: {
       plan: planId,
-      subscriptionStatus: mapStripeSubscriptionStatus(sub.status),
+      subscriptionStatus: mapStripeSubscriptionStatus(subAny.status),
       periodStartedAt: periodStart,
       subscriptionExpiresAt: periodEnd,
       currentCreditCycleStart: cycleStart,
       currentCreditCycleEnd: cycleEndLimited,
       nextCreditRefreshAt: cycleEndLimited.getTime() < periodEnd.getTime() ? cycleEndLimited : null,
-      stripeCustomerId: typeof sub.customer === "string" ? sub.customer : null,
-      stripeSubscriptionId: sub.id,
+      stripeCustomerId: typeof subAny.customer === "string" ? subAny.customer : null,
+      stripeSubscriptionId: subAny.id,
       nextPlanId: null,
       nextPlanEffectiveDate: null,
       ...(params.resetExtraCredits ? { extraCredits: 0 } : {}),
@@ -73,7 +81,7 @@ async function applySubscriptionState(params: {
     planId,
     periodStart,
     periodEnd,
-    status: mapStripeSubscriptionStatus(sub.status),
+    status: mapStripeSubscriptionStatus(subAny.status),
   };
 }
 
@@ -220,15 +228,21 @@ export async function POST(req: Request) {
       });
     } else if (event.type === "customer.subscription.updated" || event.type === "customer.subscription.deleted") {
       const sub = event.data.object;
-      const subscriptionId = sub.id;
-      const customerId = typeof sub.customer === "string" ? sub.customer : null;
+      const subAny = sub as unknown as {
+        id: string;
+        status?: string | null;
+        customer?: string | null;
+        current_period_end?: number | null;
+      };
+      const subscriptionId = subAny.id;
+      const customerId = typeof subAny.customer === "string" ? subAny.customer : null;
       const user = await findUserByStripeRefs(subscriptionId, customerId);
       if (!user) return NextResponse.json({ ok: true, ignored: true });
       await prisma.user.update({
         where: { id: user.id },
         data: {
-          subscriptionStatus: mapStripeSubscriptionStatus(sub.status),
-          subscriptionExpiresAt: toDateFromUnix(sub.current_period_end, new Date()),
+          subscriptionStatus: mapStripeSubscriptionStatus(subAny.status),
+          subscriptionExpiresAt: toDateFromUnix(subAny.current_period_end, new Date()),
           stripeSubscriptionId: subscriptionId,
           stripeCustomerId: customerId,
         },
