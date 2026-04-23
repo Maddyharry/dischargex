@@ -141,25 +141,25 @@ export function Header() {
           </Link>
           <Link
             href="/app"
-            className="shrink-0 rounded-lg border border-slate-600/80 bg-slate-800/40 px-3 py-2 text-sm text-slate-200 transition hover:border-slate-500 hover:bg-slate-700/40 hover:text-white"
+            className="hidden shrink-0 rounded-lg border border-slate-600/80 bg-slate-800/40 px-3 py-2 text-sm text-slate-200 transition hover:border-slate-500 hover:bg-slate-700/40 hover:text-white sm:inline-flex"
           >
             Discharge Summary
           </Link>
           <Link
             href="/guidelines"
-            className="shrink-0 rounded-lg px-2.5 py-2 text-sm text-slate-300 hover:bg-white/5 hover:text-white"
+            className="hidden shrink-0 rounded-lg px-2.5 py-2 text-sm text-slate-300 hover:bg-white/5 hover:text-white md:inline"
           >
             แนวทาง
           </Link>
           <Link
             href="/knowledge"
-            className="shrink-0 rounded-lg px-2.5 py-2 text-sm text-slate-300 hover:bg-white/5 hover:text-white"
+            className="hidden shrink-0 rounded-lg px-2.5 py-2 text-sm text-slate-300 hover:bg-white/5 hover:text-white md:inline"
           >
             Knowledge
           </Link>
           <Link
             href="/pricing"
-            className="shrink-0 rounded-lg px-2.5 py-2 text-sm text-slate-300 hover:bg-white/5 hover:text-white"
+            className="hidden shrink-0 rounded-lg px-2.5 py-2 text-sm text-slate-300 hover:bg-white/5 hover:text-white sm:inline"
           >
             แพ็กเกจ
           </Link>

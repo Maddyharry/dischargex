@@ -178,6 +178,7 @@ export default function ChartSummaryConsultChatPage() {
   const [isMicSupported, setIsMicSupported] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [pendingImages, setPendingImages] = useState<UploadedImage[]>([]);
+  const [showMobileThreads, setShowMobileThreads] = useState(false);
   const [cloudSyncReady, setCloudSyncReady] = useState(false);
   const [chatStyle, setChatStyle] = useState<ChatStyleProfile>(DEFAULT_CHAT_STYLE_PROFILE);
   const [chatStyleReady, setChatStyleReady] = useState(false);
@@ -880,10 +881,12 @@ export default function ChartSummaryConsultChatPage() {
         if (activeId === threadId) {
           setActiveId(remain[0].id);
         }
+        setShowMobileThreads(false);
         return remain;
       }
       const t = newThread();
       setActiveId(t.id);
+      setShowMobileThreads(false);
       return [t];
     });
   }
@@ -907,8 +910,66 @@ export default function ChartSummaryConsultChatPage() {
 
   return (
     <main className="h-[calc(100dvh-3.5rem)] overflow-hidden bg-[#081120] text-slate-100">
-      <div className="mx-auto grid h-full w-full max-w-7xl grid-cols-1 gap-3 px-2 py-3 md:grid-cols-[170px_minmax(0,1fr)] md:px-4">
-        <aside className="h-full overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+      <div className="mx-auto flex h-full w-full max-w-7xl flex-col gap-3 px-2 py-3 md:grid md:grid-cols-[170px_minmax(0,1fr)] md:px-4">
+        <div className="flex items-center gap-2 md:hidden">
+          <button
+            type="button"
+            onClick={() => {
+              const t = newThread();
+              setThreads((prev) => [t, ...prev]);
+              setActiveId(t.id);
+              setComposerHint("");
+              setShowMobileThreads(false);
+            }}
+            className="flex-1 rounded-xl bg-cyan-600 px-3 py-2 text-sm font-medium hover:bg-cyan-500"
+          >
+            + แชทใหม่
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowMobileThreads((prev) => !prev)}
+            className="rounded-xl border border-slate-600 bg-slate-900/80 px-3 py-2 text-sm text-slate-200"
+          >
+            {showMobileThreads ? "ซ่อนรายการแชท" : "รายการแชท"}
+          </button>
+        </div>
+        {showMobileThreads ? (
+          <aside className="max-h-[36dvh] overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] p-3 md:hidden">
+            <div className="max-h-[30dvh] space-y-1 overflow-y-auto pr-1">
+              {threads.map((t) => (
+                <div
+                  key={t.id}
+                  className={`flex items-center gap-1 rounded-lg pr-1 ${
+                    t.id === activeId ? "bg-cyan-500/20" : "hover:bg-white/5"
+                  }`}
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveId(t.id);
+                      setComposerHint("");
+                      setShowMobileThreads(false);
+                    }}
+                    className={`flex-1 rounded-lg px-3 py-2 text-left text-sm ${
+                      t.id === activeId ? "text-cyan-100" : "text-slate-300"
+                    }`}
+                  >
+                    {t.title}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => removeThread(t.id)}
+                    className="rounded-md border border-slate-700 px-2 py-1 text-[11px] text-slate-400 hover:bg-slate-800 hover:text-rose-300"
+                    title="ลบแชตนี้"
+                  >
+                    ลบ
+                  </button>
+                </div>
+              ))}
+            </div>
+          </aside>
+        ) : null}
+        <aside className="hidden h-full overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] p-3 md:block">
           <button
             type="button"
             onClick={() => {
@@ -954,7 +1015,7 @@ export default function ChartSummaryConsultChatPage() {
           </div>
         </aside>
 
-        <section className="flex h-full min-h-0 flex-col rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+        <section className="flex h-full min-h-0 flex-1 flex-col rounded-2xl border border-white/10 bg-white/[0.03] p-3">
           <div className="shrink-0">
             <div className="flex items-center gap-3">
               <div className="flex h-9 w-9 items-center justify-center rounded-full bg-cyan-500/20 text-cyan-200">AI</div>
@@ -969,7 +1030,7 @@ export default function ChartSummaryConsultChatPage() {
                 </p>
               </div>
             </div>
-            <div className="mt-2 flex items-center gap-2 text-xs">
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
               <button
                 type="button"
                 onClick={() => setAssistantMode("coding")}
@@ -1102,7 +1163,7 @@ export default function ChartSummaryConsultChatPage() {
                         <ChatMessageBody content={m.content} />
                       </div>
                       {m.role === "assistant" ? (
-                        <div className="mt-1 text-[10px] text-slate-500">
+                        <div className="mt-1 hidden text-[10px] text-slate-500 sm:block">
                           source:{" "}
                           {m.answerSource === "mixed"
                             ? "mixed (internal+external)"
