@@ -100,37 +100,75 @@ export async function POST(req: NextRequest) {
       await prisma.user.update({ where: { id: dbUser.id }, data: { stripeCustomerId: customerId } });
     }
 
+    if (!isAddCredits && activeSubscription && dbUser.stripeSubscriptionId) {
+      const portal = await stripe.billingPortal.sessions.create({
+        customer: customerId,
+        return_url: `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/pricing`,
+      });
+      return NextResponse.json({
+        ok: true,
+        checkoutUrl: portal.url,
+        mode: "billing_portal",
+      });
+    }
+
     const priceMap = getStripePriceMap();
     const selectedPriceId = !isAddCredits && toPlanId ? priceMap[toPlanId] || "" : "";
+    if (!isAddCredits && !selectedPriceId) {
+      return NextResponse.json(
+        { ok: false, error: `ยังไม่ได้ตั้งค่า Stripe price สำหรับแพ็กเกจ ${toPlanId || "-"}` },
+        { status: 400 }
+      );
+    }
 
-    const sessionOut = await stripe.checkout.sessions.create({
-      mode: "payment",
-      customer: customerId,
-      success_url: `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/pricing?stripe=success`,
-      cancel_url: `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/pricing?stripe=cancel`,
-      line_items: selectedPriceId
-        ? [{ price: selectedPriceId, quantity: 1 }]
-        : [
+    const sessionOut = isAddCredits
+      ? await stripe.checkout.sessions.create({
+          mode: "payment",
+          customer: customerId,
+          success_url: `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/pricing?stripe=success`,
+          cancel_url: `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/pricing?stripe=cancel`,
+          line_items: [
             {
               price_data: {
                 currency: "thb",
                 product_data: {
-                  name: isAddCredits ? `Token usage add-on ${addCredits}` : `DischargeX ${toPlanId}`,
+                  name: `DischargeX Boost ${addCredits}`,
                 },
                 unit_amount: Math.round(finalAmount * 100),
               },
               quantity: 1,
             },
           ],
-      metadata: {
-        userId: dbUser.id,
-        paymentType,
-        currentPlanId,
-        toPlanId: toPlanId || "",
-        addCredits: isAddCredits ? String(addCredits) : "",
-        finalAmount: String(finalAmount),
-      },
-    });
+          metadata: {
+            userId: dbUser.id,
+            paymentType,
+            currentPlanId,
+            toPlanId: "",
+            addCredits: String(addCredits),
+            finalAmount: String(finalAmount),
+          },
+        })
+      : await stripe.checkout.sessions.create({
+          mode: "subscription",
+          customer: customerId,
+          success_url: `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/pricing?stripe=success`,
+          cancel_url: `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/pricing?stripe=cancel`,
+          line_items: [{ price: selectedPriceId, quantity: 1 }],
+          metadata: {
+            userId: dbUser.id,
+            paymentType,
+            currentPlanId,
+            toPlanId: toPlanId || "",
+            addCredits: "",
+            finalAmount: String(finalAmount),
+          },
+          subscription_data: {
+            metadata: {
+              userId: dbUser.id,
+              toPlanId: toPlanId || "",
+            },
+          },
+        });
 
     await prisma.paymentRequest.create({
       data: {

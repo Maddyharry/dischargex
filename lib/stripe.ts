@@ -22,3 +22,12 @@ export function getStripePriceMap(): Record<string, string> {
     pro_yearly: process.env.STRIPE_PRICE_PRO_YEARLY || "",
   };
 }
+
+export function getPlanIdByStripePriceId(priceId: string | null | undefined): string | null {
+  if (!priceId) return null;
+  const map = getStripePriceMap();
+  for (const [planId, mappedPriceId] of Object.entries(map)) {
+    if (mappedPriceId && mappedPriceId === priceId) return planId;
+  }
+  return null;
+}
