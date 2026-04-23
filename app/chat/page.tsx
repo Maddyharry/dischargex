@@ -175,6 +175,7 @@ export default function ChartSummaryConsultChatPage() {
   const [canRetryStream, setCanRetryStream] = useState(false);
   const [isStopping, setIsStopping] = useState(false);
   const [showPromptSuggestions, setShowPromptSuggestions] = useState(false);
+  const [showMobileTools, setShowMobileTools] = useState(false);
   const [isMicSupported, setIsMicSupported] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [pendingImages, setPendingImages] = useState<UploadedImage[]>([]);
@@ -1043,7 +1044,44 @@ export default function ChartSummaryConsultChatPage() {
                 </p>
               </div>
             </div>
-            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs sm:hidden">
+              <button
+                type="button"
+                onClick={() => setAssistantMode("coding")}
+                className={`rounded-full px-3 py-1 ${assistantMode === "coding" ? "bg-cyan-500/25 text-cyan-100" : "bg-slate-800 text-slate-300"}`}
+              >
+                Coding
+              </button>
+              <button
+                type="button"
+                onClick={() => setAssistantMode("opd_demo")}
+                className={`rounded-full px-3 py-1 ${assistantMode === "opd_demo" ? "bg-violet-500/25 text-violet-100" : "bg-slate-800 text-slate-300"}`}
+              >
+                OPD
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode("fast")}
+                className={`rounded-full px-3 py-1 ${mode === "fast" ? "bg-cyan-500/25 text-cyan-100" : "bg-slate-800 text-slate-300"}`}
+              >
+                Fast
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode("precise")}
+                className={`rounded-full px-3 py-1 ${mode === "precise" ? "bg-cyan-500/25 text-cyan-100" : "bg-slate-800 text-slate-300"}`}
+              >
+                Precise
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowMobileTools((prev) => !prev)}
+                className="ml-auto rounded-full border border-slate-700 bg-slate-900/70 px-3 py-1 text-slate-200"
+              >
+                {showMobileTools ? "ซ่อนเครื่องมือ" : "เครื่องมือ"}
+              </button>
+            </div>
+            <div className="mt-2 hidden flex-wrap items-center gap-2 text-xs sm:flex">
               <button
                 type="button"
                 onClick={() => setAssistantMode("coding")}
@@ -1151,10 +1189,21 @@ export default function ChartSummaryConsultChatPage() {
                 [R#] คือเลขเอกสารอ้างอิง เช่น [R2] = เอกสารลำดับที่ 2 ในชุดมาตรฐานของระบบ
               </p>
             ) : null}
+            {showMobileTools ? (
+              <div className="mt-2 rounded-xl border border-slate-700/70 bg-slate-950/40 p-2 sm:hidden">
+                <button
+                  type="button"
+                  onClick={() => setShowPromptSuggestions((prev) => !prev)}
+                  className="w-full rounded-full border border-slate-700 bg-slate-900/70 px-3 py-1 text-xs text-slate-300"
+                >
+                  {showPromptSuggestions ? "ซ่อนตัวอย่าง prompt" : "แสดงตัวอย่าง prompt"}
+                </button>
+              </div>
+            ) : null}
           </div>
           <div
             ref={messagesRef}
-            className="mt-3 min-h-[260px] max-h-[42dvh] overflow-y-auto rounded-xl border border-slate-700/70 bg-slate-950/50 p-3 md:min-h-0 md:max-h-none md:flex-1"
+            className="mt-3 min-h-[320px] max-h-[54dvh] overflow-y-auto rounded-xl border border-slate-700/70 bg-slate-950/50 p-3 md:min-h-0 md:max-h-none md:flex-1"
           >
             {active?.messages.length ? (
               <div className="space-y-3">
@@ -1167,10 +1216,10 @@ export default function ChartSummaryConsultChatPage() {
                         </div>
                       ) : null}
                       <div
-                        className={`rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap shadow-sm ${
+                        className={`rounded-2xl px-3 py-2 text-[15px] leading-relaxed whitespace-pre-wrap shadow-sm sm:text-sm ${
                           m.role === "user"
-                            ? "ml-6 max-w-[90%] bg-cyan-700/70 text-white"
-                            : "mr-6 max-w-[90%] border border-white/10 bg-slate-800/90 text-slate-100"
+                            ? "max-w-[94%] bg-cyan-700/70 text-white"
+                            : "max-w-[94%] border border-white/10 bg-slate-800/90 text-slate-100"
                         }`}
                       >
                         <ChatMessageBody content={m.content} />
@@ -1401,7 +1450,7 @@ export default function ChartSummaryConsultChatPage() {
             <div className="mt-1 text-[11px] text-slate-500">
               ระบบปกปิดข้อมูลระบุตัวผู้ป่วยอัตโนมัติก่อนส่งไป AI (เช่น ชื่อ, เลขบัตร, HN, AN)
             </div>
-            <div className="mt-2">
+            <div className="mt-2 hidden sm:block">
               <button
                 type="button"
                 onClick={() => setShowPromptSuggestions((prev) => !prev)}
@@ -1466,7 +1515,7 @@ export default function ChartSummaryConsultChatPage() {
                 type="button"
                 onClick={stopStreaming}
                 disabled={!loading}
-                className="w-full rounded-full border border-rose-700 bg-rose-900/40 px-3 py-1 text-xs text-rose-200 hover:bg-rose-800/50 disabled:opacity-50 sm:w-auto"
+                className="hidden w-full rounded-full border border-rose-700 bg-rose-900/40 px-3 py-1 text-xs text-rose-200 hover:bg-rose-800/50 disabled:opacity-50 sm:block sm:w-auto"
               >
                 {isStopping ? "Stopping..." : "Stop generating"}
               </button>
@@ -1474,10 +1523,30 @@ export default function ChartSummaryConsultChatPage() {
                 type="button"
                 onClick={() => void retryStreamFromLastChunk()}
                 disabled={loading || !canRetryStream}
-                className="w-full rounded-full border border-indigo-700 bg-indigo-900/40 px-3 py-1 text-xs text-indigo-200 hover:bg-indigo-800/50 disabled:opacity-50 sm:w-auto"
+                className="hidden w-full rounded-full border border-indigo-700 bg-indigo-900/40 px-3 py-1 text-xs text-indigo-200 hover:bg-indigo-800/50 disabled:opacity-50 sm:block sm:w-auto"
               >
                 Retry stream
               </button>
+              {loading ? (
+                <button
+                  type="button"
+                  onClick={stopStreaming}
+                  disabled={!loading}
+                  className="w-full rounded-full border border-rose-700 bg-rose-900/40 px-3 py-1 text-xs text-rose-200 hover:bg-rose-800/50 disabled:opacity-50 sm:hidden"
+                >
+                  {isStopping ? "Stopping..." : "Stop"}
+                </button>
+              ) : null}
+              {canRetryStream ? (
+                <button
+                  type="button"
+                  onClick={() => void retryStreamFromLastChunk()}
+                  disabled={loading || !canRetryStream}
+                  className="w-full rounded-full border border-indigo-700 bg-indigo-900/40 px-3 py-1 text-xs text-indigo-200 hover:bg-indigo-800/50 disabled:opacity-50 sm:hidden"
+                >
+                  Retry
+                </button>
+              ) : null}
             </div>
           </div>
         </section>
