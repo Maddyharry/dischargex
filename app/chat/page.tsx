@@ -870,20 +870,20 @@ export default function ChartSummaryConsultChatPage() {
       setComposerHint("หยุดฟังเสียงแล้ว");
     } else {
       try {
-        if (typeof navigator !== "undefined" && navigator.mediaDevices?.getUserMedia) {
-          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-          stream.getTracks().forEach((track) => track.stop());
-        }
-      } catch {
-        setComposerHint("ไม่ได้รับสิทธิ์ไมโครโฟน กรุณาอนุญาตไมค์ใน Chrome แล้วลองใหม่");
-        return;
-      }
-      try {
         shouldKeepListeningRef.current = true;
         rec.start();
       } catch {
-        shouldKeepListeningRef.current = false;
-        setComposerHint("เปิดไมค์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+        try {
+          if (typeof navigator !== "undefined" && navigator.mediaDevices?.getUserMedia) {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            stream.getTracks().forEach((track) => track.stop());
+          }
+          shouldKeepListeningRef.current = true;
+          rec.start();
+        } catch {
+          shouldKeepListeningRef.current = false;
+          setComposerHint("เปิดไมค์ไม่สำเร็จบนคอม ลองใช้ Chrome ล่าสุด และอนุญาตไมค์ใน Site settings");
+        }
       }
     }
   }
