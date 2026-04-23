@@ -40,6 +40,7 @@ export async function POST(req: NextRequest) {
         subscriptionExpiresAt: true,
         periodStartedAt: true,
         stripeCustomerId: true,
+        stripeSubscriptionId: true,
       },
     });
     if (!dbUser) return NextResponse.json({ ok: false, error: "User not found" }, { status: 404 });
