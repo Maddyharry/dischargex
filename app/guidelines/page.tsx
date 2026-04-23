@@ -104,7 +104,11 @@ export default function GuidelinesPage() {
                 <span className="font-medium text-slate-100">เข้าสู่ระบบ</span> — ล็อกอินด้วย Google หรืออีเมล/รหัสผ่านจากหน้า Login
               </li>
               <li>
-                <span className="font-medium text-slate-100">เข้า Workspace</span> — หลังล็อกอินไปที่เมนู &quot;Workspace&quot; หรือหน้าแอปหลัก
+                <span className="font-medium text-slate-100">เริ่มจาก AI Chat หรือเข้า Workspace</span> — เริ่มคุยเคสที่{" "}
+                <Link href="/chat" className="text-cyan-300 underline hover:text-cyan-200">/chat</Link>{" "}
+                เพื่อถามแนวทางก่อน แล้วค่อยเข้า{" "}
+                <Link href="/app" className="text-cyan-300 underline hover:text-cyan-200">/app</Link>{" "}
+                เพื่อสร้าง Discharge Summary
               </li>
               <li>
                 <span className="font-medium text-slate-100">วางข้อความ</span> — Copy ข้อความจาก doctor order sheet หรือเวชระเบียนมา Paste ในช่อง &quot;Clinical Input Workspace&quot; (ช่อง Lab / อื่นๆ เป็น optional)
@@ -180,6 +184,19 @@ export default function GuidelinesPage() {
                 </p>
               </details>
             </div>
+          </section>
+
+          <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+            <h2 className="text-lg font-semibold text-cyan-200">
+              หน้าไหนใช้ทำอะไร (สรุปเร็ว)
+            </h2>
+            <ul className="mt-4 space-y-3 text-sm leading-6 text-slate-300 list-disc list-inside">
+              <li><span className="font-medium text-slate-100">หน้าแรก</span> (<Link href="/" className="text-cyan-300 underline hover:text-cyan-200">/</Link>) — ดูภาพรวมว่าระบบมีอะไรและเริ่มจากจุดไหน</li>
+              <li><span className="font-medium text-slate-100">AI Chat</span> (<Link href="/chat" className="text-cyan-300 underline hover:text-cyan-200">/chat</Link>) — ถาม diagnosis checklist, differential, และแนวทางบันทึกเคส</li>
+              <li><span className="font-medium text-slate-100">Discharge Summary</span> (<Link href="/app" className="text-cyan-300 underline hover:text-cyan-200">/app</Link>) — วางข้อความจาก chart เพื่อสร้างสรุปและทบทวน coding</li>
+              <li><span className="font-medium text-slate-100">แพ็กเกจ/ราคา</span> (<Link href="/pricing" className="text-cyan-300 underline hover:text-cyan-200">/pricing</Link>) — ดูราคาอัปเดตล่าสุดและช่องทางชำระเงิน</li>
+              <li><span className="font-medium text-slate-100">โปรไฟล์และแจ้งเตือน</span> (<Link href="/app/profile" className="text-cyan-300 underline hover:text-cyan-200">/app/profile</Link>) — ตรวจสถานะบัญชี แพ็กเกจ และการแจ้งเตือนจากทีม</li>
+            </ul>
           </section>
         </div>
 

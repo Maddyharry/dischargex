@@ -6,20 +6,20 @@ import { useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 
 const ADD_CREDIT_OPTIONS = [
-  { credits: 50, price: 200, label: "50 เครดิต (200฿)" },
-  { credits: 100, price: 350, label: "100 เครดิต (350฿)" },
+  { credits: 40, price: 89, label: "Boost Chat/Summary S: ประมาณ 40 หน่วยเสริม (89฿ / 7 วัน)" },
+  { credits: 120, price: 199, label: "Boost Chat/Summary M: ประมาณ 120 หน่วยเสริม (199฿ / 7 วัน)" },
 ] as const;
 
 const PLAN_SELECT_OPTIONS = {
   monthly: [
-    { value: "basic_monthly", label: "Basic Monthly (299฿ / 50 เครดิต / 30 วัน)" },
-    { value: "standard_monthly", label: "Standard Monthly (699฿ / 120 เครดิต / 30 วัน) — แนะนำ" },
-    { value: "pro_monthly", label: "Pro Monthly (1,490฿ / 250 เครดิต / 30 วัน)" },
+    { value: "basic_monthly", label: "Basic Monthly (299฿ / 30 วัน) — โปรโมชั่นช่วงแรก" },
+    { value: "standard_monthly", label: "Standard Monthly (590฿ / 30 วัน) — แนะนำ" },
+    { value: "pro_monthly", label: "Pro Monthly (1,090฿ / 30 วัน)" },
   ],
   yearly: [
-    { value: "basic_yearly", label: "Basic Yearly (2,990฿ / 50 เครดิต ต่อรอบ 30 วัน)" },
-    { value: "standard_yearly", label: "Standard Yearly (6,990฿ / 120 เครดิต ต่อรอบ 30 วัน) — แนะนำ" },
-    { value: "pro_yearly", label: "Pro Yearly (14,900฿ / 250 เครดิต ต่อรอบ 30 วัน)" },
+    { value: "basic_yearly", label: "Basic Yearly (2,990฿ / ปี) — เฉลี่ยประมาณ 249฿/เดือน" },
+    { value: "standard_yearly", label: "Standard Yearly (5,990฿ / ปี) — เฉลี่ยประมาณ 499฿/เดือน" },
+    { value: "pro_yearly", label: "Pro Yearly (10,990฿ / ปี) — เฉลี่ยประมาณ 916฿/เดือน" },
   ],
 } as const;
 
@@ -53,6 +53,7 @@ function PricingPageContent() {
   const [birthDateError, setBirthDateError] = React.useState<string | null>(null);
   const [submitError, setSubmitError] = React.useState<string | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
+  const [stripeLoading, setStripeLoading] = React.useState(false);
   const [requestType, setRequestType] = React.useState<"plan" | "add_credits">("plan");
   const [selectedPlanRequested, setSelectedPlanRequested] = React.useState<string>("standard_monthly");
   const [quote, setQuote] = React.useState<{
@@ -173,6 +174,31 @@ function PricingPageContent() {
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [qrOpen]);
 
+  async function startStripeCheckout() {
+    setSubmitError(null);
+    setStripeLoading(true);
+    try {
+      const payload =
+        requestType === "add_credits"
+          ? { addCredits: ADD_CREDIT_OPTIONS[addCreditsOption].credits }
+          : { planRequested: selectedPlanRequested };
+      const res = await fetch("/api/stripe/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = (await res.json()) as { ok?: boolean; error?: string; checkoutUrl?: string };
+      if (!res.ok || !data.ok || !data.checkoutUrl) {
+        throw new Error(data.error || "เริ่มชำระเงินด้วยบัตรไม่สำเร็จ");
+      }
+      window.location.href = data.checkoutUrl;
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : "เริ่มชำระเงินด้วยบัตรไม่สำเร็จ");
+    } finally {
+      setStripeLoading(false);
+    }
+  }
+
   return (
     <main className="min-h-screen bg-[#081120] text-slate-100">
       <div className="mx-auto max-w-5xl px-4 py-10 space-y-8">
@@ -206,7 +232,10 @@ function PricingPageContent() {
             เลือกแพ็กเกจตามปริมาณงาน
           </h1>
           <p className="mt-3 max-w-2xl text-sm text-slate-400 md:text-base">
-            1 เครดิต = 1 เคส (รองรับเคสทั่วไป) · เคสยาวมากอาจใช้มากกว่า 1 เครดิต
+            โปรโมชั่นช่วงเปิดตัว: จ่ายแบบรายเดือนหรือรายปี และแสดงโควตาการใช้งานแบบเข้าใจง่ายเป็นจำนวนโดยประมาณต่อวัน
+          </p>
+          <p className="mt-2 text-xs text-slate-500">
+            ราคาอัปเดตล่าสุดในหน้านี้เสมอ — หากมีแคมเปญใหม่ ระบบจะแสดงที่หน้านี้ก่อนช่องทางอื่น
           </p>
 
           <div className="mt-8 rounded-2xl border border-cyan-500/20 bg-cyan-950/15 p-5 md:p-6">
@@ -244,7 +273,7 @@ function PricingPageContent() {
               </button>
             </div>
             <span className="text-[11px] text-slate-500">
-              รายปี = จ่ายล่วงหน้า 365 วัน แต่ให้เครดิตเป็นรอบ ๆ (ไม่ใช่ก้อนใหญ่ทีเดียว)
+              รายปี = จ่ายล่วงหน้า 365 วัน และประหยัดกว่ารายเดือนโดยเฉลี่ย
             </span>
           </div>
 
@@ -253,7 +282,7 @@ function PricingPageContent() {
               <h2 className="text-lg font-semibold text-white">Trial</h2>
               <p className="mt-1 text-sm text-slate-400">ลองก่อน ตัดสินใจทีหลัง</p>
               <p className="mt-4 text-3xl font-bold text-white">0฿</p>
-              <p className="text-xs text-slate-400">10 เครดิต / 7 วัน</p>
+              <p className="text-xs text-slate-400">ทดลองใช้ฟรี 14 วัน (ใช้งานเต็มช่วงทดลอง)</p>
               <ul className="mt-4 space-y-2 text-sm text-slate-200">
                 <li>- ไม่มีผูกมัด</li>
                 <li>- ใช้ได้ 1 ครั้งต่อบัญชี</li>
@@ -274,13 +303,15 @@ function PricingPageContent() {
               </p>
               <p className="text-xs text-slate-400">
                 {billingView === "yearly"
-                  ? "50 เครดิต / รอบ 30 วัน · อายุแพ็กเกจ 365 วัน"
-                  : "50 เครดิต / 30 วัน"}
+                  ? "เฉลี่ยประมาณ 249฿/เดือน · ใช้งานได้ต่อเนื่อง 365 วัน"
+                  : "ใช้งานแบบรายเดือน 30 วัน"}
               </p>
               <ul className="mt-4 space-y-2 text-sm text-slate-200">
+                <li>- คุย AI ได้ประมาณ 40 ครั้ง/วัน</li>
+                <li>- สร้าง Discharge Summary ได้ประมาณ 4 เคส/วัน</li>
                 <li>- Principal / Comorbidity / Complication</li>
                 <li>- แนะนำ ICD-10 / ICD-9</li>
-                <li>- เหมาะสำหรับช่วยคิด diagnosis บางเคส</li>
+                <li>- เหมาะสำหรับเริ่มใช้งานจริง</li>
               </ul>
             </div>
 
@@ -297,14 +328,16 @@ function PricingPageContent() {
               <h2 className="text-lg font-semibold text-white">Standard</h2>
               <p className="mt-1 text-sm text-cyan-100">ครบ ใช้จริงทุกวัน — แพ็กหลักสำหรับทำ discharge summary</p>
               <p className="mt-4 text-3xl font-bold text-white">
-                {billingView === "yearly" ? "6,990฿" : "699฿"}
+                {billingView === "yearly" ? "5,990฿" : "590฿"}
               </p>
               <p className="text-xs text-cyan-200/90">
                 {billingView === "yearly"
-                  ? "120 เครดิต / รอบ 30 วัน · อายุแพ็กเกจ 365 วัน"
-                  : "120 เครดิต / 30 วัน"}
+                  ? "เฉลี่ยประมาณ 499฿/เดือน · ใช้งานได้ต่อเนื่อง 365 วัน"
+                  : "ใช้งานแบบรายเดือน 30 วัน"}
               </p>
               <ul className="mt-4 space-y-2 text-sm text-slate-100">
+                <li>- คุย AI ได้ประมาณ 140 ครั้ง/วัน</li>
+                <li>- สร้าง Discharge Summary ได้ประมาณ 14 เคส/วัน</li>
                 <li>- Diagnosis ครบ + Admit / Discharge</li>
                 <li>- Investigations, Treatment, Outcome, Home medication</li>
                 <li>- เหมาะสำหรับทำ discharge summary จริง</li>
@@ -321,14 +354,16 @@ function PricingPageContent() {
               <h2 className="text-lg font-semibold text-white">Pro</h2>
               <p className="mt-1 text-sm text-slate-200">สำหรับ optimize งานและ coding</p>
               <p className="mt-4 text-3xl font-bold text-white">
-                {billingView === "yearly" ? "14,900฿" : "1,490฿"}
+                {billingView === "yearly" ? "10,990฿" : "1,090฿"}
               </p>
               <p className="text-xs text-slate-200">
                 {billingView === "yearly"
-                  ? "250 เครดิต / รอบ 30 วัน · อายุแพ็กเกจ 365 วัน"
-                  : "250 เครดิต / 30 วัน"}
+                  ? "เฉลี่ยประมาณ 916฿/เดือน · ใช้งานได้ต่อเนื่อง 365 วัน"
+                  : "ใช้งานแบบรายเดือน 30 วัน"}
               </p>
               <ul className="mt-4 space-y-2 text-sm text-slate-100">
+                <li>- คุย AI ได้ประมาณ 420 ครั้ง/วัน</li>
+                <li>- สร้าง Discharge Summary ได้ประมาณ 42 เคส/วัน</li>
                 <li>- ทุกอย่างใน Standard</li>
                 <li>- วิเคราะห์เชิงลึกมากขึ้นสำหรับเคสซับซ้อน</li>
                 <li>- แนะนำเติมข้อความใน order sheet (รวมผล lab/รังสีในหน้า) เพื่อรองรับรหัส (AdjRW ประมาณการ ไม่รับประกันการเบิกจ่าย)</li>
@@ -369,10 +404,16 @@ function PricingPageContent() {
               </thead>
               <tbody className="divide-y divide-white/10 text-slate-300 [&>tr]:transition [&>tr:hover]:bg-white/[0.03]">
                 <tr>
-                  <td className="px-4 py-3">เครดิตต่อรอบ</td>
-                  <td className={`px-4 py-3 ${selectedPlanTier === "basic" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>50</td>
-                  <td className={`px-4 py-3 ${selectedPlanTier === "standard" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>120</td>
-                  <td className={`px-4 py-3 ${selectedPlanTier === "pro" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>250</td>
+                  <td className="px-4 py-3">คุย AI ได้ประมาณต่อวัน</td>
+                  <td className={`px-4 py-3 ${selectedPlanTier === "basic" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>~40 ครั้ง</td>
+                  <td className={`px-4 py-3 ${selectedPlanTier === "standard" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>~140 ครั้ง</td>
+                  <td className={`px-4 py-3 ${selectedPlanTier === "pro" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>~420 ครั้ง</td>
+                </tr>
+                <tr>
+                  <td className="px-4 py-3">สร้าง Discharge Summary ได้ประมาณต่อวัน</td>
+                  <td className={`px-4 py-3 ${selectedPlanTier === "basic" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>~4 เคส</td>
+                  <td className={`px-4 py-3 ${selectedPlanTier === "standard" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>~14 เคส</td>
+                  <td className={`px-4 py-3 ${selectedPlanTier === "pro" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>~42 เคส</td>
                 </tr>
                 <tr>
                   <td className="px-4 py-3">ช่วยคิด Principal / Comorbidity / Complication</td>
@@ -410,10 +451,21 @@ function PricingPageContent() {
             </table>
           </div>
           <p className="mt-2 text-xs text-slate-500">
-            เครดิตฐานรีเฟรชเป็นรอบ 30 วัน และโบนัสเครดิตอยู่ในกลุ่มเครดิตเสริมตามเงื่อนไขระบบ
+            ความสามารถที่แสดงเป็นตัวเลขโดยประมาณต่อวันตามการใช้งานจริงและนโยบาย Fair Use ของระบบ
             <br />
             ทดลองใช้ (Trial) รวมฟีเจอร์ &quot;แนะนำเติม chart / AdjRW ประมาณการ&quot; เช่นเดียวกับ Pro ในขอบเขตที่ระบบกำหนด
           </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Link href="/chat" className="rounded-xl border border-cyan-500/40 px-3 py-2 text-xs text-cyan-200 hover:bg-cyan-500/10">
+              เริ่มที่ AI Chat
+            </Link>
+            <Link href="/app" className="rounded-xl border border-slate-600 px-3 py-2 text-xs text-slate-200 hover:bg-slate-800">
+              ไปหน้า Discharge Summary
+            </Link>
+            <Link href="/guidelines" className="rounded-xl border border-slate-600 px-3 py-2 text-xs text-slate-200 hover:bg-slate-800">
+              ดูแนวทางใช้งาน
+            </Link>
+          </div>
         </section>
 
         <section className="rounded-2xl border border-cyan-500/15 bg-gradient-to-br from-cyan-950/20 to-transparent p-6">
@@ -438,9 +490,9 @@ function PricingPageContent() {
         </section>
 
         <section className="rounded-3xl border border-white/10 bg-gradient-to-b from-white/[0.04] to-transparent p-6 md:p-8 backdrop-blur">
-          <h2 className="text-xl font-semibold text-white tracking-tight">ชำระเงินผ่าน PromptPay</h2>
+          <h2 className="text-xl font-semibold text-white tracking-tight">ชำระเงิน (Stripe เป็นหลัก, PromptPay เป็นทางเลือก)</h2>
           <p className="mt-2 text-sm text-slate-400">
-            เลือกแพ็กเกจหรือเครดิตเพิ่ม แล้วโอนตามยอดที่แสดง จากนั้นกรอกข้อมูลและแนบสลิปด้านล่าง
+            เลือกแพ็กเกจหรือ Boost เสริมช่วงพีค แล้วชำระผ่าน Stripe ได้ทันที หรือโอน PromptPay พร้อมแนบสลิปสำหรับองค์กร
           </p>
           <p className="mt-3 rounded-xl border border-cyan-500/25 bg-cyan-500/10 px-3 py-2 text-xs text-cyan-100">
             นี่คือหน้าชำระเงินอย่างเป็นทางการของ DischargeX เท่านั้น ข้อมูลที่ส่งใช้เพื่อยืนยันคำขอเปิดแพ็กเกจ/เครดิตเพิ่ม
@@ -478,6 +530,7 @@ function PricingPageContent() {
               <p className="mt-2 text-sm text-slate-400">ใช้อีเมลที่สมัครไว้เพื่อยืนยันตัวตน</p>
               <Link
                 href="/login"
+                data-telemetry-click="pricing_require_login"
                 className="mt-4 inline-block rounded-2xl bg-cyan-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-cyan-600 transition hover:brightness-110"
               >
                 เข้าสู่ระบบ
@@ -485,6 +538,26 @@ function PricingPageContent() {
             </div>
           ) : (
           <>
+          <div className="mt-4 rounded-2xl border border-indigo-500/30 bg-indigo-950/20 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div className="text-sm font-semibold text-indigo-100">ชำระด้วยบัตรผ่าน Stripe</div>
+                <div className="text-xs text-indigo-200/80">
+                  แนะนำสำหรับเปิดแพ็กเกจทันที ระบบจะ apply entitlement อัตโนมัติเมื่อชำระสำเร็จ
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => void startStripeCheckout()}
+                disabled={stripeLoading}
+                data-telemetry-click="pricing_stripe_checkout"
+                className="rounded-xl bg-indigo-500 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-400 disabled:opacity-60"
+              >
+                {stripeLoading ? "กำลังเชื่อม Stripe..." : "ชำระด้วยบัตร (Stripe)"}
+              </button>
+            </div>
+          </div>
+
           {isExistingPlan && (
             <div className="mt-4 rounded-2xl border border-cyan-500/30 bg-cyan-950/20 px-4 py-3 text-sm text-cyan-200">
               บัญชีนี้มีแผน <span className="font-semibold">{hasPlan}</span> อยู่แล้ว
@@ -733,7 +806,7 @@ function PricingPageContent() {
                     onChange={() => setRequestType("add_credits")}
                     className="h-4 w-4 border-slate-600 bg-slate-900 text-cyan-500"
                   />
-                  <span className="text-sm text-slate-200">ซื้อเครดิตเพิ่ม</span>
+                  <span className="text-sm text-slate-200">ซื้อ Boost เพิ่ม</span>
                 </label>
               </div>
 
@@ -756,7 +829,7 @@ function PricingPageContent() {
                 </div>
               ) : (
                 <div className="space-y-1">
-                  <label className="text-xs text-slate-400">จำนวนเครดิตที่ซื้อเพิ่ม</label>
+                  <label className="text-xs text-slate-400">เลือกแพ็ก Boost เสริม</label>
                   <select
                     value={addCreditsOption}
                     onChange={(e) => setAddCreditsOption(Number(e.target.value))}
@@ -803,6 +876,7 @@ function PricingPageContent() {
                       <button
                         type="button"
                         onClick={() => setQrOpen(true)}
+                        data-telemetry-click="pricing_promptpay_qr_open"
                         className="flex items-center justify-center rounded-xl border border-slate-600 bg-white p-3 transition hover:border-cyan-500/50 hover:shadow-md"
                         title="คลิกเพื่อขยาย"
                       >
@@ -837,12 +911,13 @@ function PricingPageContent() {
               <button
                 type="submit"
                 disabled={submitting}
+                data-telemetry-click="pricing_submit_payment_request"
                 className="w-full rounded-2xl bg-gradient-to-r from-emerald-500 to-cyan-500 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-900/40 transition hover:brightness-110 disabled:opacity-60"
               >
                 {submitting
                   ? "กำลังส่ง..."
                   : requestType === "add_credits"
-                  ? "ส่งคำขอซื้อเครดิตเพิ่ม"
+                  ? "ส่งคำขอซื้อ Boost เพิ่ม"
                   : "ส่งคำขอเปิดแพ็กเกจ"}
               </button>
             </div>

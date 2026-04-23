@@ -26,6 +26,8 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const error = searchParams.get("error") || "";
   const errorMsg = ERROR_MESSAGES[error] || (error ? ERROR_MESSAGES.Default : null);
+  const callbackUrl = (searchParams.get("callbackUrl") || "").trim();
+  const postLoginUrl = callbackUrl || "/chat";
   const registered = searchParams.get("registered") === "1";
   const reset = searchParams.get("reset") === "1";
   const verified = searchParams.get("verified") === "1";
@@ -40,9 +42,9 @@ function LoginForm() {
 
   useEffect(() => {
     if (status === "authenticated") {
-      router.replace("/app");
+      router.replace(postLoginUrl);
     }
-  }, [router, status]);
+  }, [postLoginUrl, router, status]);
 
   useEffect(() => {
     if (!emailFromQuery) return;
@@ -89,7 +91,7 @@ function LoginForm() {
       const res = await signIn("credentials", {
         email: email.trim(),
         password,
-        callbackUrl: "/app",
+        callbackUrl: postLoginUrl,
         redirect: false,
       });
       if (res?.url) window.location.href = res.url;
@@ -144,7 +146,7 @@ function LoginForm() {
       <div className="w-full max-w-md rounded-3xl border border-white/10 bg-slate-900/80 p-6 shadow-2xl">
         <h1 className="text-2xl font-semibold">เข้าสู่ระบบ DischargeX</h1>
         <p className="mt-2 text-sm text-slate-400">
-          ทดลองใช้งานฟรี 10 เครดิต (ใช้ได้ 7 วัน) หลังจากนั้นสามารถอัปเกรดแพ็กเกจได้ตลอดเวลา
+          ทดลองใช้งานฟรี 14 วันแบบใช้งานเต็ม หลังจากนั้นสามารถอัปเกรดแพ็กเกจได้ตลอดเวลา
         </p>
         <p className="mt-2 rounded-xl border border-cyan-500/25 bg-cyan-500/10 px-3 py-2 text-xs text-cyan-100">
           นี่คือหน้าล็อกอินอย่างเป็นทางการของ DischargeX (secure login)
@@ -257,7 +259,7 @@ function LoginForm() {
         <div className="mt-4 space-y-3">
           <button
             type="button"
-            onClick={() => signIn("google", { callbackUrl: "/app" })}
+            onClick={() => signIn("google", { callbackUrl: postLoginUrl })}
             className="w-full rounded-2xl bg-white px-4 py-3 text-sm font-medium text-slate-900 shadow hover:bg-slate-100"
           >
             เข้าสู่ด้วย Google

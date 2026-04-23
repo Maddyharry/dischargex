@@ -19,6 +19,7 @@ import { WorkspaceTutorialOverlay } from "@/app/components/WorkspaceTutorialOver
 import { type WorkspaceCoachPhase } from "@/app/components/WorkspaceTutorialFloating";
 import type { DiagnosisEngineItem, DischargeEnginePayload } from "@/lib/discharge-engine/types";
 import { createDxCoachData } from "@/lib/charge-mentor";
+import { getPlanDefinition, normalizePlanId } from "@/lib/billing-rules";
 
 type Block = {
   key: string;
@@ -46,6 +47,15 @@ type ResultMeta = {
     audit_risk: string;
     reason_th: string;
   } | null;
+  token_usage?: {
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+  };
+  token_billing_estimate?: {
+    estimatedCostThb: number;
+  };
+  privacy?: { deidentifiedBeforeModel?: boolean };
 };
 
 type PreprocessSummary = {
@@ -78,6 +88,36 @@ type DiagnosisItem = {
   id: string;
   text: string;
   bucket: DiagnosisBucket;
+};
+type PrincipalAlternative = {
+  text: string;
+  icd10?: string;
+  kind: "recommended" | "what_if";
+  reason: string;
+  evidenceHints: string[];
+};
+type SummaryStrategy = "strict_audit_safe" | "what_if_optimize";
+type RecalcCompareSnapshot = {
+  principalDx: string;
+  principalIcd10: string;
+  warningsCount: number;
+  adjrw: number | null;
+};
+type RecalcCompareResult = {
+  before: RecalcCompareSnapshot;
+  after: RecalcCompareSnapshot;
+};
+type UploadedImageInput = {
+  id: string;
+  name: string;
+  dataUrl: string;
+};
+type UndoAlternativeSnapshot = {
+  blocks: NormalizedBlock[];
+  warnings: string[];
+  meta: ResultMeta;
+  engine: DischargeEnginePayload | null;
+  diagnosisItems: DiagnosisItem[];
 };
 
 type WorkspacePanelKey =
@@ -166,6 +206,15 @@ function emptyPreprocess(): PreprocessSummary {
   };
 }
 
+function toDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("file_read_failed"));
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function Page() {
   return (
     <React.Suspense fallback={<main className="min-h-screen bg-[#081120] text-slate-100" />}>
@@ -183,6 +232,8 @@ function PageContent() {
   const { setWorkspaceSnapshot, openFeedbackTo } = useFeedbackContext();
   const [orderSheet, setOrderSheet] = useState("");
   const [other, setOther] = useState("");
+  const [uploadedImages, setUploadedImages] = useState<UploadedImageInput[]>([]);
+  const imageInputRef = useRef<HTMLInputElement | null>(null);
 
   const [blocks, setBlocks] = useState<NormalizedBlock[]>(createEmptyBlocks());
   const [warnings, setWarnings] = useState<string[]>([]);
@@ -209,6 +260,7 @@ function PageContent() {
     total: number;
     used: number;
     remaining: number;
+    nextCreditRefreshAt?: string | null;
     daysLeftInMonth?: number;
   } | null>(null);
   const [deviceId, setDeviceId] = useState<string | null>(null);
@@ -216,6 +268,11 @@ function PageContent() {
   const [collapsedPanels, setCollapsedPanels] =
     useState<Record<WorkspacePanelKey, boolean>>(WORKSPACE_PANEL_DEFAULTS);
   const [dxCoachDetailed, setDxCoachDetailed] = useState(false);
+  const [selectedPrincipalAlternative, setSelectedPrincipalAlternative] = useState("");
+  const [summaryStrategy, setSummaryStrategy] = useState<SummaryStrategy>("strict_audit_safe");
+  const [lastRunStrategy, setLastRunStrategy] = useState<SummaryStrategy | null>(null);
+  const [recalcCompare, setRecalcCompare] = useState<RecalcCompareResult | null>(null);
+  const [undoAlternativeSnapshot, setUndoAlternativeSnapshot] = useState<UndoAlternativeSnapshot | null>(null);
   const [mobileSectionIndex, setMobileSectionIndex] = useState(0);
   const [isMobileViewport, setIsMobileViewport] = useState(false);
 
@@ -236,6 +293,7 @@ function PageContent() {
   const resultSectionRef = useRef<HTMLElement | null>(null);
 
   const recalcTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastEditTelemetryRef = useRef<Record<string, number>>({});
   const mobileSectionOrder: MobileSectionKey[] = ["hero", "input", "actions", "results"];
 
   const bypassWorkspaceApi =
@@ -468,6 +526,7 @@ function PageContent() {
         total: data.total,
         used: data.used,
         remaining: data.remaining,
+        nextCreditRefreshAt: typeof data.nextCreditRefreshAt === "string" ? data.nextCreditRefreshAt : null,
         daysLeftInMonth: typeof data.daysLeftInMonth === "number" ? data.daysLeftInMonth : undefined,
       });
     } catch {
@@ -517,6 +576,14 @@ function PageContent() {
     } catch {
       // dismiss ในหน้าได้ แม้ mark read ไม่สำเร็จ
     }
+  }
+
+  function addToast(title: string, message: string) {
+    const id = `tmp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    setToasts((prev) => [{ id, title, message }, ...prev].slice(0, 3));
+    window.setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 3500);
   }
 
   useEffect(() => {
@@ -734,14 +801,19 @@ function PageContent() {
   function isUsageLimitMessage(message: string) {
     return (
       /Credit limit reached/i.test(message) ||
-      message.includes("ใช้เครดิตเดือนนี้ครบแล้ว") ||
-      message.includes("ใช้เครดิตในรอบนี้ครบแล้ว") ||
+      message.includes("ครบโควตาโดยประมาณแล้ว") ||
+      message.includes("โควตาการใช้งานเดือนนี้ครบแล้ว") ||
       message.includes("หมดรอบการใช้งานแล้ว") ||
-      message.includes("เครดิตไม่พอสำหรับเคสนี้")
+      message.includes("โควตารอบนี้ไม่พอสำหรับเคสนี้")
     );
   }
 
-  async function recalcFromBlocks(nextBlocks: NormalizedBlock[], silent = false) {
+  async function recalcFromBlocks(
+    nextBlocks: NormalizedBlock[],
+    silent = false,
+    alternativeSearch = false,
+    compareBefore?: RecalcCompareSnapshot
+  ) {
     if (bypassWorkspaceApi) {
       return;
     }
@@ -763,10 +835,13 @@ function PageContent() {
             order_sheet: orderSheet,
             other,
           },
+          imageInputs: uploadedImages.map((img) => ({ name: img.name, dataUrl: img.dataUrl })),
           extraNote: "",
           templateRules: DEFAULT_TEMPLATE_RULES,
           settings: {
             model: "gpt-5.4",
+            strategy: summaryStrategy,
+            alternativeSearch,
           },
         }),
       });
@@ -780,6 +855,13 @@ function PageContent() {
       setPreprocess(parsed.result.preprocess || emptyPreprocess());
       setEngine(parsed.result.engine ?? null);
       setDiagnosisItems(buildDiagnosisItemsFromBlocks(refreshedBlocks));
+      setLastRunStrategy(summaryStrategy);
+      if (compareBefore) {
+        const after = buildCompareSnapshot(refreshedBlocks, parsed.result.warnings || [], parsed.result.meta);
+        setRecalcCompare({ before: compareBefore, after });
+      } else if (alternativeSearch) {
+        setRecalcCompare(null);
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Recalc failed";
       if (!isUsageLimitMessage(message)) {
@@ -800,9 +882,145 @@ function PageContent() {
     }, delay);
   }
 
+  async function handleUploadImages(files: FileList | null) {
+    if (!files?.length) return;
+    const picked = Array.from(files).slice(0, 4);
+    try {
+      const next = await Promise.all(
+        picked.map(async (file) => {
+          if (!file.type.startsWith("image/")) return null;
+          const dataUrl = await toDataUrl(file);
+          if (!/^data:image\/[a-zA-Z0-9.+-]+;base64,/.test(dataUrl)) return null;
+          return {
+            id: `img-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            name: file.name.slice(0, 120),
+            dataUrl,
+          } as UploadedImageInput;
+        })
+      );
+      const valid = next.filter((x): x is UploadedImageInput => Boolean(x));
+      if (!valid.length) return;
+      setUploadedImages((prev) => [...prev, ...valid].slice(0, 4));
+      addToast("เพิ่มรูป", `แนบรูปแล้ว ${Math.min(4, uploadedImages.length + valid.length)} ภาพ`);
+    } catch {
+      addToast("อัปโหลดไม่สำเร็จ", "กรุณาลองใหม่อีกครั้ง");
+    } finally {
+      if (imageInputRef.current) imageInputRef.current.value = "";
+    }
+  }
+
+  function removeUploadedImage(id: string) {
+    setUploadedImages((prev) => prev.filter((img) => img.id !== id));
+  }
+
+  async function trackWorkspaceTelemetry(event: string, payload?: Record<string, unknown>) {
+    try {
+      await fetch("/api/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "telemetry",
+          message: event,
+          payload: JSON.stringify(payload || {}),
+        }),
+      });
+    } catch {
+      // best effort telemetry
+    }
+  }
+
+  function diagnosisKeyOf(text: string) {
+    return (text || "")
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 80);
+  }
+
+  function setStrategy(next: SummaryStrategy) {
+    setSummaryStrategy(next);
+    void trackWorkspaceTelemetry("summary:strategy_changed", {
+      strategy: next,
+      from: summaryStrategy,
+      hasOrderSheet: Boolean(orderSheet.trim()),
+    });
+  }
+
+  function buildCompareSnapshot(sourceBlocks: NormalizedBlock[], sourceWarnings: string[], sourceMeta: ResultMeta): RecalcCompareSnapshot {
+    return {
+      principalDx: getBlockValue("principal_dx", sourceBlocks).trim(),
+      principalIcd10: (sourceBlocks.find((b) => b.key === "principal_dx")?.icd10 || "").trim(),
+      warningsCount: sourceWarnings.length,
+      adjrw: sourceMeta.adjrw,
+    };
+  }
+
+  async function requestMorePrincipalAlternatives() {
+    if (!blocks.length) return;
+    setSelectedPrincipalAlternative("");
+    void trackWorkspaceTelemetry("summary:request_more_alternatives", {
+      strategy: summaryStrategy,
+      currentPrincipal: getBlockValue("principal_dx", blocks).slice(0, 120),
+      diagnosisKey: diagnosisKeyOf(getBlockValue("principal_dx", blocks)),
+    });
+    await recalcFromBlocks(blocks, false, true);
+  }
+
+  function applyPrincipalAlternative(option: PrincipalAlternative) {
+    void trackWorkspaceTelemetry("summary:apply_principal_alternative", {
+      strategy: summaryStrategy,
+      selected: option.text,
+      kind: option.kind,
+      evidenceHintsCount: option.evidenceHints.length,
+      beforePrincipal: getBlockValue("principal_dx", blocks).slice(0, 120),
+      diagnosisKey: diagnosisKeyOf(option.text),
+    });
+    setUndoAlternativeSnapshot({
+      blocks: blocks.map((b) => ({ ...b })),
+      warnings: [...warnings],
+      meta: { ...meta },
+      engine: engine ? JSON.parse(JSON.stringify(engine)) as DischargeEnginePayload : null,
+      diagnosisItems: diagnosisItems.map((d) => ({ ...d })),
+    });
+    const nextBlocksBase = blocks.map((b) =>
+      b.key === "principal_dx" ? { ...b, content: option.text } : b
+    );
+    const nextItems = buildDiagnosisItemsFromBlocks(nextBlocksBase);
+    const finalBlocks = recomputeBlocksFromDiagnosis(nextBlocksBase, nextItems);
+    setSelectedPrincipalAlternative(option.text);
+    setDiagnosisItems(nextItems);
+    setBlocks(finalBlocks);
+    const before = buildCompareSnapshot(blocks, warnings, meta);
+    if (recalcTimerRef.current) clearTimeout(recalcTimerRef.current);
+    recalcTimerRef.current = setTimeout(() => {
+      void recalcFromBlocks(finalBlocks, false, false, before);
+    }, 350);
+  }
+
+  function undoPrincipalAlternative() {
+    if (!undoAlternativeSnapshot) return;
+    if (recalcTimerRef.current) clearTimeout(recalcTimerRef.current);
+    setBlocks(undoAlternativeSnapshot.blocks.map((b) => ({ ...b })));
+    setWarnings([...undoAlternativeSnapshot.warnings]);
+    setMeta({ ...undoAlternativeSnapshot.meta });
+    setEngine(undoAlternativeSnapshot.engine ? JSON.parse(JSON.stringify(undoAlternativeSnapshot.engine)) as DischargeEnginePayload : null);
+    setDiagnosisItems(undoAlternativeSnapshot.diagnosisItems.map((d) => ({ ...d })));
+    setSelectedPrincipalAlternative("");
+    setRecalcCompare(null);
+    setUndoAlternativeSnapshot(null);
+    void trackWorkspaceTelemetry("summary:undo_principal_alternative", {
+      strategy: summaryStrategy,
+      restoredPrincipal: getBlockValue("principal_dx", undoAlternativeSnapshot.blocks).slice(0, 120),
+      diagnosisKey: diagnosisKeyOf(getBlockValue("principal_dx", undoAlternativeSnapshot.blocks)),
+    });
+  }
+
   async function handleGenerate() {
     setLoading(true);
     setError("");
+    setRecalcCompare(null);
+    setUndoAlternativeSnapshot(null);
 
     try {
       if (bypassWorkspaceApi) {
@@ -817,6 +1035,7 @@ function PageContent() {
         setEngine(parsed.result.engine ?? null);
         setDiagnosisItems(buildDiagnosisItemsFromBlocks(nextBlocks));
         setCaseCount((c) => c + 1);
+        setLastRunStrategy(summaryStrategy);
         setTutorialPhase("finished_modal");
         return;
       }
@@ -834,10 +1053,12 @@ function PageContent() {
             order_sheet: orderSheet,
             other,
           },
+          imageInputs: uploadedImages.map((img) => ({ name: img.name, dataUrl: img.dataUrl })),
           extraNote: "",
           templateRules: DEFAULT_TEMPLATE_RULES,
           settings: {
             model: "gpt-5.4",
+            strategy: summaryStrategy,
           },
         }),
       });
@@ -852,6 +1073,7 @@ function PageContent() {
       setEngine(parsed.result.engine ?? null);
       setDiagnosisItems(buildDiagnosisItemsFromBlocks(nextBlocks));
       setCaseCount((c) => c + 1);
+      setLastRunStrategy(summaryStrategy);
       void loadUsage();
       window.dispatchEvent(new Event("usage-updated"));
     } catch (err) {
@@ -873,6 +1095,7 @@ function PageContent() {
   function handleNewPatient() {
     setOrderSheet("");
     setOther("");
+    setUploadedImages([]);
     setBlocks(createEmptyBlocks());
     setWarnings([]);
     setMeta({
@@ -886,6 +1109,8 @@ function PageContent() {
     setShowDiseaseGraph(false);
     setShowWeakSupported(false);
     setDiagnosisItems([]);
+    setRecalcCompare(null);
+    setUndoAlternativeSnapshot(null);
     setError("");
     setWorkspaceSnapshot(null);
   }
@@ -1132,6 +1357,7 @@ function PageContent() {
   const showChartCaptureHints =
     (userPlanId === "trial" || userPlanId.startsWith("pro")) &&
     !!engine?.chart_capture_hints?.length;
+  const canUseAdvancedAlternatives = userPlanId === "trial" || userPlanId.startsWith("pro");
   const dxCoachData = showDxCoach
     ? createDxCoachData({
         engine,
@@ -1187,6 +1413,53 @@ function PageContent() {
   ]
     .filter(Boolean)
     .slice(0, 3) as string[];
+  const principalAlternatives: PrincipalAlternative[] = (() => {
+    if (!engine || !canUseAdvancedAlternatives) return [];
+    const icdByDiagnosis = new Map<string, string>();
+    const rememberIcd = (text: string, icd10?: string) => {
+      const key = diagnosisKeyOf(text);
+      const code = String(icd10 || "").trim();
+      if (!key || !code || icdByDiagnosis.has(key)) return;
+      icdByDiagnosis.set(key, code);
+    };
+    rememberIcd(engine.principal_diagnosis?.text || "", engine.principal_diagnosis?.icd10);
+    [...(engine.comorbidities || []), ...(engine.complications || []), ...(engine.other_diagnoses || []), ...(engine.external_causes || [])].forEach(
+      (dx) => rememberIcd(dx.text, dx.icd10)
+    );
+    (engine.chart_capture_hints || []).forEach((h) => rememberIcd(h.target_diagnosis_text, h.target_icd10));
+    const fromClassification = (engine.classification?.principal_candidate || [])
+      .map((x) => String(x || "").trim())
+      .filter(Boolean);
+    const fromComplex = Array.isArray(engine.complex_case?.top_principal_candidates)
+      ? engine.complex_case.top_principal_candidates.map((x) => String(x || "").trim()).filter(Boolean)
+      : [];
+    const candidates = [engine.principal_diagnosis?.text || "", ...fromClassification, ...fromComplex]
+      .map((x) => x.trim())
+      .filter(Boolean);
+    const dedup = Array.from(new Set(candidates)).slice(0, 5);
+    return dedup.map((text) => {
+      const whatIf =
+        !!meta.upgrade?.new_principal &&
+        text.toLowerCase().includes(meta.upgrade.new_principal.toLowerCase().slice(0, 18));
+      const evidenceHints =
+        engine.chart_capture_hints
+          ?.filter((h) => {
+            const target = (h.target_diagnosis_text || "").toLowerCase();
+            return target && (text.toLowerCase().includes(target.slice(0, 18)) || target.includes(text.toLowerCase().slice(0, 18)));
+          })
+          .flatMap((h) => h.missing_in_input || [])
+          .slice(0, 4) || [];
+      return {
+        text,
+        icd10: icdByDiagnosis.get(diagnosisKeyOf(text)),
+        kind: whatIf ? "what_if" : "recommended",
+        reason: whatIf
+          ? "ตัวเลือกเชิง what-if: อาจเพิ่ม AdjRW ได้ แต่ต้องมีหลักฐานใน chart เพิ่มให้ครบ"
+          : "ตัวเลือกที่ปลอดภัยเชิง audit เมื่อ evidence ปัจจุบันรองรับ",
+        evidenceHints,
+      };
+    });
+  })();
 
   const copyAllText = blocks
     .slice()
@@ -1231,7 +1504,7 @@ function PageContent() {
               <p className="mt-2 text-sm leading-relaxed text-slate-400">
                 ระบบกำลังอ่านข้อความทางคลินิก — โดยปกติใช้เวลาประมาณ 1 นาที
               </p>
-              <p className="mt-1 text-xs text-slate-500">โปรดอย่าปิดหรือรีเฟรชหน้าจนน์จนกว่าจะเสร็จ</p>
+              <p className="mt-1 text-xs text-slate-500">โปรดอย่าปิดหรือรีเฟรชหน้าจนกว่าจะเสร็จ</p>
             </div>
           </div>
         </div>
@@ -1279,7 +1552,7 @@ function PageContent() {
               เข้าสู่ระบบ
             </Link>
             {" "}
-            เพื่อประมวลผลด้วย AI จริงและนับเครดิตตามแพ็กเกจ
+            เพื่อประมวลผลด้วย AI จริงตามโควตาแพ็กเกจ
           </div>
         ) : null}
         {isMobileViewport ? (
@@ -1287,6 +1560,19 @@ function PageContent() {
             โหมดมือถือ: Tutorial จะข้ามขั้นเปิดหน้าต่างตัวอย่างให้อัตโนมัติ เพื่อให้เริ่มวางข้อมูลและกดสร้างสรุปได้ทันที
           </div>
         ) : null}
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-cyan-500/30 bg-cyan-950/15 px-4 py-3">
+          <p className="text-sm text-cyan-100">
+            อยากเริ่มจากคุยเคสก่อน? ใช้{" "}
+            <span className="font-semibold text-cyan-200">AI Chat</span>{" "}
+            เพื่อถามแนวทางและ checklist ได้ทันที
+          </p>
+          <Link
+            href="/chat"
+            className="inline-flex shrink-0 items-center justify-center rounded-xl border border-cyan-400/50 bg-cyan-500/20 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:border-cyan-300/70 hover:bg-cyan-500/30 hover:text-white"
+          >
+            ไป AI Chat
+          </Link>
+        </div>
 
         <section
           ref={heroSectionRef}
@@ -1516,6 +1802,48 @@ function PageContent() {
                 title="Clinical Input Workspace"
                 subtitle="Paste หน้า order sheet — รวมผล lab / รังสีที่แสดงในหน้านั้นในช่องเดียวกัน (ระบบไม่แยกช่อง lab)"
               >
+                <div className="mb-3 flex flex-wrap items-center gap-2">
+                  <input
+                    ref={imageInputRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={(e) => void handleUploadImages(e.target.files)}
+                    className="hidden"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => imageInputRef.current?.click()}
+                    className="rounded-xl border border-slate-700 bg-slate-900/80 px-3 py-2 text-xs font-medium text-slate-100 transition hover:bg-slate-800"
+                  >
+                    อัปโหลดรูป
+                  </button>
+                  {uploadedImages.length ? (
+                    <span className="text-xs text-cyan-300">แนบรูปแล้ว {uploadedImages.length} ภาพ</span>
+                  ) : (
+                    <span className="text-xs text-slate-500">รองรับรูปถ่าย/สกรีนช็อต ระบบจะสกัดข้อความก่อนสรุป</span>
+                  )}
+                </div>
+                {uploadedImages.length ? (
+                  <div className="mb-3 flex flex-wrap gap-2">
+                    {uploadedImages.map((img) => (
+                      <span
+                        key={img.id}
+                        className="inline-flex items-center gap-2 rounded-full border border-slate-700 bg-slate-900/70 px-3 py-1 text-[11px] text-slate-200"
+                      >
+                        <span>{img.name}</span>
+                        <button
+                          type="button"
+                          onClick={() => removeUploadedImage(img.id)}
+                          className="text-rose-300 hover:text-rose-200"
+                          title="ลบรูปนี้"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
                 <ScrollTextarea
                   ref={orderSheetInputRef}
                   value={orderSheet}
@@ -1565,6 +1893,26 @@ function PageContent() {
                 </div>
               ) : null}
             <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2 rounded-2xl border border-slate-700 bg-slate-950/60 px-2 py-1.5 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setStrategy("strict_audit_safe")}
+                  className={`rounded-lg px-2 py-1 ${
+                    summaryStrategy === "strict_audit_safe" ? "bg-cyan-700/40 text-cyan-100" : "text-slate-300"
+                  }`}
+                >
+                  Strict audit-safe
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStrategy("what_if_optimize")}
+                  className={`rounded-lg px-2 py-1 ${
+                    summaryStrategy === "what_if_optimize" ? "bg-amber-700/40 text-amber-100" : "text-slate-300"
+                  }`}
+                >
+                  What-if optimize
+                </button>
+              </div>
               <button
                 type="button"
                 onClick={handleGenerate}
@@ -1602,24 +1950,31 @@ function PageContent() {
 
               {usageInfo ? (
                 <span className="text-xs text-slate-400">
-                  เครดิตในรอบนี้ ใช้ไป{" "}
-                  <span className="font-semibold text-slate-100">{usageInfo.used}</span>
-                  {" / "}
-                  <span className="font-semibold text-emerald-300">{usageInfo.total}</span>{" "}
-                  เคส (คงเหลือ{" "}
-                  <span className="font-semibold text-emerald-300">{usageInfo.remaining}</span>
-                  )
+                  วันนี้สร้างไปประมาณ{" "}
+                  <span className="font-semibold text-slate-100">{usageInfo.used}</span>{" "}
+                  เคส
+                  {usageInfo.nextCreditRefreshAt && (
+                    <>
+                      {" · "}รีเซ็ตโควตาประมาณ{" "}
+                      <span className="font-semibold text-emerald-300">
+                        {new Date(usageInfo.nextCreditRefreshAt).toLocaleString("th-TH", {
+                          dateStyle: "short",
+                          timeStyle: "short",
+                        })}
+                      </span>
+                    </>
+                  )}
                   {usageInfo.daysLeftInMonth !== undefined && (
                     <> · เหลืออีก {usageInfo.daysLeftInMonth} วัน</>
                   )}
                 </span>
               ) : (
                 <span className="text-xs text-slate-400">
-                  Used this account:{" "}
+                  ใช้บัญชีนี้ไปแล้ว:{" "}
                   <span className="font-semibold text-slate-100">
                     {caseCount}
                   </span>{" "}
-                  cases
+                  เคส
                 </span>
               )}
             </div>
@@ -1628,8 +1983,8 @@ function PageContent() {
             {error ? (
               <div className="rounded-2xl border border-red-900/60 bg-red-950/30 px-4 py-3 text-sm text-red-300">
                 {error.includes("Credit limit reached") ||
-                error.includes("ใช้เครดิตเดือนนี้ครบแล้ว") ||
-                error.includes("ใช้เครดิตในรอบนี้ครบแล้ว") ||
+                error.includes("ครบโควตาโดยประมาณแล้ว") ||
+                error.includes("โควตาการใช้งานเดือนนี้ครบแล้ว") ||
                 error.includes("หมดรอบการใช้งานแล้ว") ? (
                   <>
                     {error.split(" ไปที่หน้า pricing")[0]}
@@ -1653,6 +2008,11 @@ function PageContent() {
               collapsed={collapsedPanels.clinicalSignal}
               onToggle={() => togglePanel("clinicalSignal")}
             >
+              {lastRunStrategy ? (
+                <div className="mb-3 inline-flex items-center rounded-full border border-cyan-700/40 bg-cyan-900/20 px-3 py-1 text-[11px] text-cyan-200">
+                  โหมดล่าสุด: {lastRunStrategy === "strict_audit_safe" ? "Strict audit-safe" : "What-if optimize"}
+                </div>
+              ) : null}
               <div className="grid gap-3 md:grid-cols-3">
                 <Stat label="LOS Days" value={meta.losDays ?? "-"} />
                 <Stat label="Adj RW (estimate)" value={meta.adjrw ?? "-"} />
@@ -1679,21 +2039,139 @@ function PageContent() {
 
               {meta.adjrw !== null ? (
                 <div className="mt-4 rounded-2xl border border-amber-700/40 bg-amber-950/20 p-4 text-sm text-amber-100">
-                  <div className="font-semibold">การจับ documentation / coding ที่อาจเพิ่ม complexity (ประมาณการ)</div>
+                  <div className="font-semibold">โอกาสจากการบันทึกหลักฐานให้ครบ (AdjRW ประมาณการ)</div>
+                  <div className="mt-1 text-xs text-amber-200/80">
+                    เป็นคำแนะนำเชิงเอกสารเพื่อทบทวนร่วมกับ chart เท่านั้น ไม่ใช่การวินิจฉัยแทนแพทย์
+                  </div>
                   {meta.upgrade ? (
-                    <div className="mt-2 space-y-1 text-amber-200/90">
-                      <div><b>New principal:</b> {meta.upgrade.new_principal || "-"}</div>
-                      <div><b>Add ICD-9:</b> {(meta.upgrade.add_icd9 || []).join(", ") || "-"}</div>
-                      <div><b>Projected Adj RW:</b> {meta.upgrade.projected_adjrw}</div>
-                      <div><b>Increase:</b> {meta.upgrade.increase}</div>
-                      <div><b>Audit risk:</b> {meta.upgrade.audit_risk}</div>
-                      <div><b>Reason:</b> {meta.upgrade.reason_th}</div>
+                    <div className="mt-2 space-y-2 text-amber-200/90">
+                      <div className="grid gap-2 md:grid-cols-2">
+                        <div className="rounded-lg border border-amber-700/40 bg-amber-950/30 p-2">
+                          <div className="text-[11px] text-amber-300/80">Scenario A (ปัจจุบัน)</div>
+                          <div className="text-sm font-semibold">AdjRW ~ {meta.adjrw}</div>
+                        </div>
+                        <div className="rounded-lg border border-emerald-700/40 bg-emerald-950/30 p-2">
+                          <div className="text-[11px] text-emerald-300/80">Scenario B (what-if เมื่อหลักฐานครบ)</div>
+                          <div className="text-sm font-semibold">
+                            AdjRW ~ {meta.upgrade.projected_adjrw} ({meta.upgrade.increase >= 0 ? "+" : ""}
+                            {meta.upgrade.increase})
+                          </div>
+                        </div>
+                      </div>
+                      <div><b>ประเด็นที่ควรพิจารณาเพิ่ม:</b> {meta.upgrade.new_principal || "-"}</div>
+                      <div><b>หัตถการที่ควรทบทวนว่ามีหลักฐานครบหรือไม่:</b> {(meta.upgrade.add_icd9 || []).join(", ") || "-"}</div>
+                      <div><b>AdjRW ที่คาด (ประมาณการ):</b> {meta.upgrade.projected_adjrw}</div>
+                      <div><b>ผลต่างที่คาด:</b> {meta.upgrade.increase}</div>
+                      <div><b>ความเสี่ยง audit:</b> {meta.upgrade.audit_risk}</div>
+                      <div><b>เหตุผลเชิงหลักฐาน:</b> {meta.upgrade.reason_th}</div>
                     </div>
                   ) : (
                     <div className="mt-2 text-amber-200/90">
-                      ยังไม่พบคำแนะนำเพิ่มเติมในเคสนี้ (ผลประเมินปัจจุบันอาจเพียงพอแล้ว)
+                      ยังไม่พบทางเลือก what-if ที่ปลอดภัยหรือหลักฐานครบพอในเคสนี้ (ผลประเมินปัจจุบันอาจเพียงพอแล้ว)
                     </div>
                   )}
+                </div>
+              ) : null}
+
+              {canUseAdvancedAlternatives ? (
+                <div className="mt-4 rounded-2xl border border-cyan-700/40 bg-cyan-950/20 p-4 text-sm text-cyan-100">
+                  <div className="font-semibold">ไม่พอใจผลลัพธ์? ลองแนวทาง Principal diagnosis อื่น</div>
+                  <div className="mt-1 text-xs text-cyan-200/80">
+                    มีทั้งตัวเลือกที่ปลอดภัยเชิงหลักฐาน และ what-if ที่อาจเพิ่มคะแนน (ต้องมีหลักฐานเพิ่มจริง)
+                  </div>
+                  <div className="mt-2">
+                    <button
+                      type="button"
+                      onClick={() => void requestMorePrincipalAlternatives()}
+                      disabled={recalcLoading}
+                      className="rounded-lg border border-cyan-600 px-2 py-1 text-xs text-cyan-200 hover:bg-cyan-800/30 disabled:opacity-50"
+                    >
+                      ขอทางเลือกเพิ่มอีก
+                    </button>
+                    <button
+                      type="button"
+                      onClick={undoPrincipalAlternative}
+                      disabled={!undoAlternativeSnapshot || recalcLoading}
+                      className="ml-2 rounded-lg border border-amber-700 px-2 py-1 text-xs text-amber-200 hover:bg-amber-900/25 disabled:opacity-50"
+                    >
+                      ย้อนกลับก่อนเปลี่ยน PDx
+                    </button>
+                  </div>
+                  {principalAlternatives.length ? (
+                    <div className="mt-3 space-y-2">
+                      {principalAlternatives.map((opt) => (
+                        <div key={opt.text} className="rounded-xl border border-cyan-800/40 bg-slate-950/40 p-3">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div className="font-medium text-cyan-100">
+                              {opt.text}
+                              {opt.icd10 ? <span className="ml-1 text-xs font-normal text-slate-400">({opt.icd10})</span> : null}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => applyPrincipalAlternative(opt)}
+                              className="rounded-lg border border-cyan-600 px-2 py-1 text-xs text-cyan-200 hover:bg-cyan-800/30"
+                            >
+                              ใช้ตัวเลือกนี้
+                            </button>
+                          </div>
+                          <div className="mt-1 text-xs text-slate-300">{opt.reason}</div>
+                          {opt.evidenceHints.length ? (
+                            <div className="mt-1 text-xs text-slate-400">
+                              ถ้าจะลงแนวนี้ ควรมีใน order sheet เพิ่ม:{" "}
+                              {opt.evidenceHints.map((x) => humanizeMissingEvidence(x)).join(" · ")}
+                            </div>
+                          ) : null}
+                          {selectedPrincipalAlternative === opt.text ? (
+                            <div className="mt-1 text-[11px] text-emerald-300">
+                              เลือกแล้ว และกำลัง recalc ค่า ICD/ความเสี่ยงให้
+                            </div>
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="mt-2 text-xs text-cyan-200/80">
+                      ยังไม่มีตัวเลือกอื่นที่ชัดพอจากหลักฐานในเคสนี้
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="mt-4 rounded-2xl border border-slate-700/60 bg-slate-950/50 p-3 text-xs text-slate-400">
+                  ฟีเจอร์ “เสนอแนวทาง Principal diagnosis อื่น” เปิดให้เฉพาะ Trial/Pro ตามข้อจำกัดแพ็กเกจ
+                </div>
+              )}
+
+              {recalcCompare ? (
+                <div className="mt-3 rounded-2xl border border-emerald-700/40 bg-emerald-950/20 p-3 text-xs text-emerald-100">
+                  <div className="font-semibold">เปรียบเทียบก่อน-หลัง (หลังเปลี่ยน PDx)</div>
+                  <div className="mt-1">
+                    Principal: {recalcCompare.before.principalDx || "-"} → {recalcCompare.after.principalDx || "-"}
+                  </div>
+                  <div>
+                    ICD-10 (principal): {recalcCompare.before.principalIcd10 || "-"} → {recalcCompare.after.principalIcd10 || "-"}
+                  </div>
+                  <div className={recalcCompare.after.warningsCount > recalcCompare.before.warningsCount ? "text-rose-300" : recalcCompare.after.warningsCount < recalcCompare.before.warningsCount ? "text-emerald-300" : "text-slate-200"}>
+                    Warnings: {recalcCompare.before.warningsCount} → {recalcCompare.after.warningsCount}
+                    {recalcCompare.after.warningsCount > recalcCompare.before.warningsCount
+                      ? " (เพิ่มขึ้น)"
+                      : recalcCompare.after.warningsCount < recalcCompare.before.warningsCount
+                      ? " (ลดลง)"
+                      : " (เท่าเดิม)"}
+                  </div>
+                  <div
+                    className={
+                      (recalcCompare.after.adjrw ?? -999) > (recalcCompare.before.adjrw ?? -999)
+                        ? "text-emerald-300"
+                        : (recalcCompare.after.adjrw ?? -999) < (recalcCompare.before.adjrw ?? -999)
+                        ? "text-rose-300"
+                        : "text-slate-200"
+                    }
+                  >
+                    AdjRW: {recalcCompare.before.adjrw ?? "-"} → {recalcCompare.after.adjrw ?? "-"}
+                    {(recalcCompare.before.adjrw !== null && recalcCompare.after.adjrw !== null) ? (
+                      <> (Δ {(recalcCompare.after.adjrw - recalcCompare.before.adjrw).toFixed(2)})</>
+                    ) : null}
+                  </div>
                 </div>
               ) : null}
 
@@ -1716,12 +2194,10 @@ function PageContent() {
                         className="rounded-xl border border-amber-900/40 bg-amber-950/15 p-3 text-sm text-slate-200"
                       >
                         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 font-semibold text-amber-100/95">
-                          <span>ประเด็นที่ควรทบทวน: {h.target_diagnosis_text}</span>
-                          {h.target_icd10 ? (
-                            <span className="text-xs font-normal text-slate-400">
-                              ICD-10 {h.target_icd10}
-                            </span>
-                          ) : null}
+                          <span>
+                            ประเด็นที่ควรทบทวน: {h.target_diagnosis_text}
+                            {h.target_icd10 ? <span className="text-xs font-normal text-slate-400"> ({h.target_icd10})</span> : null}
+                          </span>
                           <span className="rounded-full border border-amber-700/50 bg-amber-900/25 px-2 py-0.5 text-[10px] font-medium text-amber-200">
                             {tierToPriorityLabel(h.tier)}
                           </span>
@@ -2101,8 +2577,9 @@ function PageContent() {
             .slice()
             .sort((a, b) => a.order - b.order)
             .map((block) => {
-              const plan = (session?.user as { plan?: string } | null | undefined)?.plan ?? "trial";
-              const isLockedBasic = plan === "basic" && BASIC_PLAN_LOCKED_KEYS.has(block.key);
+              const rawPlan = (session?.user as { plan?: string } | null | undefined)?.plan ?? "trial";
+              const planTier = getPlanDefinition(normalizePlanId(rawPlan)).tier;
+              const isLockedBasic = planTier === "basic" && BASIC_PLAN_LOCKED_KEYS.has(block.key);
               return (
               <FieldCard
                 key={block.key}
@@ -2113,6 +2590,27 @@ function PageContent() {
                 onCopy={() => copyText(block.key, block.content)}
                 readOnly={isLockedBasic}
                 onChange={(value) => {
+                  if (
+                    block.key === "principal_dx" ||
+                    block.key === "comorbidity" ||
+                    block.key === "complication" ||
+                    block.key === "other_diag" ||
+                    block.key === "icd9"
+                  ) {
+                    const now = Date.now();
+                    const k = `edit:${block.key}`;
+                    if ((lastEditTelemetryRef.current[k] || 0) + 15000 < now) {
+                      lastEditTelemetryRef.current[k] = now;
+                      void trackWorkspaceTelemetry("summary:block_edited", {
+                        blockKey: block.key,
+                        strategy: summaryStrategy,
+                        length: value.length,
+                        diagnosisKey: diagnosisKeyOf(
+                          block.key === "principal_dx" ? value : getBlockValue("principal_dx", blocks)
+                        ),
+                      });
+                    }
+                  }
                   const nextBlocksBase = blocks.map((b) =>
                     b.key === block.key ? { ...b, content: value } : b
                   );
@@ -2143,7 +2641,7 @@ function PageContent() {
                   block.key === "icd9" ? (
                     <div className="mt-4 space-y-2">
                       <div className="text-xs font-medium text-slate-400">
-                        Separate ICD-9 copy
+                        คัดลอก ICD-9 แยกรายการ
                       </div>
 
                       {icd9Items.length ? (

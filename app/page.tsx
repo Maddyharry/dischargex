@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getSeoCopy } from "@/lib/seo-variants";
+import { LandingSignupCta } from "./components/LandingSignupCta";
 
 const SITE_URL = "https://dischargex.net";
 
@@ -67,10 +68,10 @@ function HomeJsonLd() {
 }
 
 const heroFeatures = [
-  "ลดเวลาการสรุปชาร์จต่อเคส",
-  "ช่วยลดการพิมพ์ตกหล่นของข้อมูลสำคัญ",
-  "ช่วยเสนอ ICD ที่เหมาะสมตามข้อมูลในเวชระเบียน",
-  "ช่วยเตือนจุดที่ควรทบทวนก่อนใช้งานจริง",
+  "เริ่มได้ 2 ทาง: สรุปชาร์จทันที หรือคุยกับ Specialist Chat ก่อน",
+  "แนะนำ diagnosis แบบมีเกณฑ์หลักฐานและสิ่งที่ควรประเมินเพิ่ม",
+  "ช่วยทบทวน ICD และโอกาส capture complexity (AdjRW ประมาณการ)",
+  "ปกปิดข้อมูลระบุตัวผู้ป่วยอัตโนมัติก่อนส่งไป AI",
 ] as const;
 
 export default function Home() {
@@ -99,8 +100,9 @@ export default function Home() {
             </h1>
 
             <p className="mx-auto mt-6 max-w-2xl text-pretty text-base leading-relaxed text-slate-300/95 md:text-lg md:leading-relaxed">
-              ช่วยสรุป discharge summary จัดกลุ่มวินิจฉัย ค้นหา diagnosis และ procedure ที่อาจตกหล่น
-              และช่วยประเมินผลต่อการ coding review กับ AdjRW แบบประมาณการ
+              ผู้ช่วยงานสรุปเวชระเบียนและ coding ในบริบท สปสช:
+              สรุป discharge summary จากข้อความเคส, แนะนำสิ่งที่ควรประเมินก่อนลงวินิจฉัย
+              และช่วยเช็กความครบถ้วนของข้อมูลก่อนใช้งานจริง
             </p>
 
             <ul className="mx-auto mt-10 grid max-w-3xl gap-3 text-left sm:grid-cols-2 sm:gap-4">
@@ -127,19 +129,26 @@ export default function Home() {
 
             <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
               <Link
-                href="/signup"
-                className="inline-flex min-w-[160px] items-center justify-center rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 px-7 py-3.5 text-sm font-semibold text-white shadow-lg shadow-cyan-900/40 transition hover:brightness-110"
+                href="/chat"
+                data-telemetry-click="landing_hero_chat_entry"
+                className="inline-flex min-w-[190px] items-center justify-center rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 px-7 py-3.5 text-sm font-semibold text-white shadow-lg shadow-cyan-900/40 transition hover:brightness-110"
               >
-                เริ่มทดลองใช้งาน
+                เริ่มแชทเคสทันที (AI Chat)
               </Link>
+              <LandingSignupCta
+                telemetryKey="landing_hero_signup"
+                className="inline-flex min-w-[160px] items-center justify-center rounded-2xl border border-cyan-500/50 bg-cyan-500/10 px-7 py-3.5 text-sm font-semibold text-cyan-100 shadow-sm shadow-cyan-900/20 transition hover:border-cyan-400/70 hover:bg-cyan-500/15"
+              />
               <Link
                 href="/app/guest?tutorial=1"
+                data-telemetry-click="landing_hero_guest_demo"
                 className="inline-flex min-w-[160px] items-center justify-center rounded-2xl border border-emerald-500/50 bg-emerald-500/10 px-7 py-3.5 text-sm font-semibold text-emerald-100 shadow-sm shadow-emerald-900/20 transition hover:border-emerald-400/70 hover:bg-emerald-500/15"
               >
                 ลองใช้แบบสาธิต (ไม่ต้องสมัคร)
               </Link>
               <Link
                 href="/guidelines"
+                data-telemetry-click="landing_hero_guidelines"
                 className="rounded-2xl border border-slate-600/90 bg-slate-900/60 px-6 py-3.5 text-sm font-medium text-slate-100 backdrop-blur-sm transition hover:border-slate-500 hover:bg-slate-800/80"
               >
                 ดูวิธีทำงาน
@@ -151,10 +160,17 @@ export default function Home() {
                 ดูตัวอย่างผลลัพธ์
               </Link>
             </div>
+            <div className="mx-auto mt-6 max-w-3xl rounded-2xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-3 text-left text-xs leading-relaxed text-emerald-100">
+              ก่อนส่งข้อความไปประมวลผล AI ระบบจะปกปิดข้อมูลระบุตัวผู้ป่วย (เช่น ชื่อ, เลขบัตรประชาชน, HN/AN)
+              โดยอัตโนมัติ และใช้ข้อมูลเท่าที่จำเป็นต่อการวิเคราะห์เท่านั้น
+            </div>
+            <p className="mx-auto mt-3 max-w-3xl text-center text-xs leading-relaxed text-slate-400">
+              เริ่มจาก Specialist Chat ได้ทันทีเพื่อถาม fast-track, diagnosis checklist, แนวทางรักษาแบบใช้งานจริง
+            </p>
 
             <div className="mt-8 flex flex-wrap items-center justify-center gap-2.5 text-xs font-medium">
               <span className="rounded-full border border-white/10 bg-white/[0.05] px-4 py-1.5 text-slate-200">
-                ทดลองใช้ 10 เครดิต / 7 วัน
+                ทดลองใช้ฟรี 14 วัน (ใช้งานเต็มช่วงทดลอง)
               </span>
               <span className="rounded-full border border-white/10 bg-white/[0.05] px-4 py-1.5 text-slate-200">
                 เหมาะกับงาน IPD ที่มีข้อความให้คัดลอก
@@ -164,6 +180,7 @@ export default function Home() {
             <div className="mt-5">
               <Link
                 href="/pricing"
+                data-telemetry-click="landing_hero_pricing_link"
                 className="text-sm font-medium text-cyan-300/95 underline-offset-4 transition hover:text-cyan-200 hover:underline"
               >
                 ดูแพ็กเกจและราคา
@@ -201,6 +218,53 @@ export default function Home() {
               </Link>{" "}
               ก่อนเริ่มใช้งานจริง
             </p>
+          </div>
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-6xl px-4 py-2 md:py-4">
+        <div className="rounded-3xl border border-white/[0.08] bg-slate-950/40 p-6 md:p-8">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-400/90">ภาพรวมผลิตภัณฑ์</p>
+          <h2 className="mt-2 text-2xl font-bold tracking-tight text-white md:text-3xl">
+            DischargeX มีอะไรบ้าง?
+          </h2>
+          <div className="mt-6 grid gap-4 md:grid-cols-2">
+            <div className="rounded-2xl border border-cyan-500/25 bg-cyan-950/20 p-5">
+              <h3 className="text-base font-semibold text-cyan-100">AI Chat (เริ่มเร็ว)</h3>
+              <p className="mt-2 text-sm leading-relaxed text-slate-300">
+                ใช้ถามแนวทาง diagnosis, differential, evidence checklist และประเด็นที่ควรประเมินเพิ่มก่อนลงวินิจฉัย
+              </p>
+              <Link href="/chat" className="mt-3 inline-block text-sm text-cyan-300 underline underline-offset-2 hover:text-cyan-200">
+                ไป AI Chat
+              </Link>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+              <h3 className="text-base font-semibold text-white">Discharge Summary Workspace</h3>
+              <p className="mt-2 text-sm leading-relaxed text-slate-300">
+                วางข้อความจากเวชระเบียนเพื่อสร้างสรุปชาร์จแบบเป็นบล็อก ช่วยทบทวน coding/ICD และคัดลอกผลไปใช้งาน
+              </p>
+              <Link href="/app" className="mt-3 inline-block text-sm text-cyan-300 underline underline-offset-2 hover:text-cyan-200">
+                ไป Discharge Summary
+              </Link>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+              <h3 className="text-base font-semibold text-white">ราคาและแพ็กเกจ</h3>
+              <p className="mt-2 text-sm leading-relaxed text-slate-300">
+                มี Trial 14 วัน, แพ็ก Basic/Standard/Pro และ Boost เสริมช่วงพีค พร้อมช่องทางชำระเงินผ่าน Stripe/PromptPay
+              </p>
+              <Link href="/pricing" className="mt-3 inline-block text-sm text-cyan-300 underline underline-offset-2 hover:text-cyan-200">
+                ดูราคาอัปเดตล่าสุด
+              </Link>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+              <h3 className="text-base font-semibold text-white">แนวทางใช้งานและความปลอดภัย</h3>
+              <p className="mt-2 text-sm leading-relaxed text-slate-300">
+                มีวิดีโอเริ่มต้น, FAQ, ข้อจำกัดการใช้งาน และแนวทางปกปิดข้อมูลผู้ป่วยก่อนใช้งานจริง
+              </p>
+              <Link href="/guidelines" className="mt-3 inline-block text-sm text-cyan-300 underline underline-offset-2 hover:text-cyan-200">
+                ดูแนวทางทั้งหมด
+              </Link>
+            </div>
           </div>
         </div>
       </section>
@@ -328,18 +392,24 @@ export default function Home() {
             <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-cyan-400/10 blur-3xl" />
             <h2 className="relative text-2xl font-bold text-white md:text-3xl">เริ่มทดลองใช้งาน</h2>
             <p className="relative mt-4 max-w-2xl text-pretty text-base leading-relaxed text-slate-300 md:text-lg">
-              ทดลองใช้ 10 เครดิต ภายใน 7 วัน เพื่อประเมินว่าเหมาะกับ workflow ของคุณหรือไม่
+              ทดลองใช้ฟรี 14 วันแบบใช้งานเต็ม เพื่อประเมินว่าเหมาะกับ workflow ของคุณหรือไม่
               หลังจากนั้นเลือกแพ็กเกจตามปริมาณงานได้
             </p>
             <div className="relative mt-8 flex flex-wrap gap-3">
               <Link
-                href="/signup"
-                className="inline-flex min-w-[160px] items-center justify-center rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 px-7 py-3.5 text-sm font-semibold text-white shadow-lg shadow-cyan-900/40 transition hover:brightness-110"
+                href="/chat"
+                data-telemetry-click="landing_bottom_chat"
+                className="inline-flex min-w-[190px] items-center justify-center rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 px-7 py-3.5 text-sm font-semibold text-white shadow-lg shadow-cyan-900/40 transition hover:brightness-110"
               >
-                เริ่มทดลองใช้งาน
+                เริ่มแชทเคสทันที
               </Link>
+              <LandingSignupCta
+                telemetryKey="landing_bottom_signup"
+                className="inline-flex min-w-[160px] items-center justify-center rounded-2xl border border-cyan-500/50 bg-cyan-500/10 px-7 py-3.5 text-sm font-semibold text-cyan-100 shadow-sm shadow-cyan-900/20 transition hover:border-cyan-400/70 hover:bg-cyan-500/15"
+              />
               <Link
                 href="/pricing"
+                data-telemetry-click="landing_bottom_pricing"
                 className="rounded-2xl border border-slate-600/90 bg-slate-900/70 px-6 py-3.5 text-sm font-medium text-slate-100 backdrop-blur-sm transition hover:border-slate-500 hover:bg-slate-800/80"
               >
                 ดูแพ็กเกจและราคา

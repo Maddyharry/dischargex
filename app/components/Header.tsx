@@ -6,8 +6,7 @@ import { useEffect, useState, useRef } from "react";
 
 type UsageInfo = {
   plan: string;
-  remaining: number;
-  total: number;
+  nextCreditRefreshAt?: string | null;
   daysLeftInMonth?: number;
 } | null;
 
@@ -42,11 +41,10 @@ export function Header() {
     fetch("/api/usage")
       .then((r) => r.json())
       .then((d) => {
-        if (d.ok && d.remaining !== undefined && d.total !== undefined) {
+        if (d.ok) {
           setUsage({
             plan: d.plan ?? (session?.user as { plan?: string })?.plan ?? "trial",
-            remaining: d.remaining,
-            total: d.total,
+            nextCreditRefreshAt: typeof d.nextCreditRefreshAt === "string" ? d.nextCreditRefreshAt : null,
             daysLeftInMonth: typeof d.daysLeftInMonth === "number" ? d.daysLeftInMonth : undefined,
           });
         }
@@ -118,7 +116,7 @@ export function Header() {
   return (
     <header className="sticky top-0 z-50 border-b border-slate-800 bg-[#081120]/95 backdrop-blur">
       <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-4 px-4">
-        <Link href={session?.user ? "/app" : "/"} className="shrink-0 text-lg font-semibold text-white">
+        <Link href={session?.user ? "/chat" : "/"} className="shrink-0 text-lg font-semibold text-white">
           Discharge<span className="text-cyan-400">X</span>
         </Link>
 
@@ -136,10 +134,28 @@ export function Header() {
             Reference
           </Link>
           <Link
+            href="/chat"
+            className="shrink-0 rounded-lg border border-cyan-500/45 bg-cyan-500/12 px-3 py-2 text-sm font-medium text-cyan-100 transition hover:border-cyan-400/60 hover:bg-cyan-500/20 hover:text-white"
+          >
+            AI Chat
+          </Link>
+          <Link
+            href="/app"
+            className="shrink-0 rounded-lg border border-slate-600/80 bg-slate-800/40 px-3 py-2 text-sm text-slate-200 transition hover:border-slate-500 hover:bg-slate-700/40 hover:text-white"
+          >
+            Discharge Summary
+          </Link>
+          <Link
             href="/guidelines"
             className="shrink-0 rounded-lg px-2.5 py-2 text-sm text-slate-300 hover:bg-white/5 hover:text-white"
           >
             แนวทาง
+          </Link>
+          <Link
+            href="/knowledge"
+            className="shrink-0 rounded-lg px-2.5 py-2 text-sm text-slate-300 hover:bg-white/5 hover:text-white"
+          >
+            Knowledge
           </Link>
           <Link
             href="/pricing"
@@ -162,11 +178,6 @@ export function Header() {
                 <span className="hidden max-w-[120px] truncate sm:inline" title={String(displayName)}>
                   {displayName}
                 </span>
-                {usage && (
-                  <span className="rounded-md bg-emerald-500/20 px-1.5 py-0.5 text-xs font-medium text-emerald-300">
-                    {usage.remaining}/{usage.total}
-                  </span>
-                )}
                 <svg
                   className={`h-4 w-4 shrink-0 text-slate-400 transition ${menuOpen ? "rotate-180" : ""}`}
                   fill="none"
@@ -189,8 +200,18 @@ export function Header() {
                         <span className="text-slate-300">
                           {formatPlanName(usage.plan)}
                         </span>
-                        {" · "}
-                        <span className="text-emerald-400">เครดิตในรอบนี้ {usage.remaining}/{usage.total}</span>
+                        {usage.nextCreditRefreshAt && (
+                          <>
+                            {" · "}
+                            <span className="text-emerald-400">
+                              รีเซ็ตโควตาประมาณ{" "}
+                              {new Date(usage.nextCreditRefreshAt).toLocaleString("th-TH", {
+                                dateStyle: "short",
+                                timeStyle: "short",
+                              })}
+                            </span>
+                          </>
+                        )}
                         {usage.daysLeftInMonth !== undefined && (
                           <>
                             {" · "}
