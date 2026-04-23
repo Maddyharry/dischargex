@@ -189,6 +189,8 @@ export default function ChartSummaryConsultChatPage() {
   const abortRef = useRef<AbortController | null>(null);
   const pendingStreamRef = useRef<PendingStreamRequest | null>(null);
   const speechRef = useRef<InstanceType<SpeechRecognitionCtor> | null>(null);
+  const shouldKeepListeningRef = useRef(false);
+  const restartMicTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const threadsRef = useRef<Thread[]>(threads);
   const activeIdRef = useRef<string>(activeId);
   const cloudInitRef = useRef(false);
@@ -311,12 +313,29 @@ export default function ChartSummaryConsultChatPage() {
       setIsListening(true);
       setComposerHint("กำลังฟังจากไมค์... กดอีกครั้งเพื่อหยุด");
     };
-    rec.onend = () => setIsListening(false);
+    rec.onend = () => {
+      setIsListening(false);
+      if (!shouldKeepListeningRef.current) return;
+      if (restartMicTimerRef.current) {
+        clearTimeout(restartMicTimerRef.current);
+      }
+      restartMicTimerRef.current = setTimeout(() => {
+        if (!shouldKeepListeningRef.current) return;
+        try {
+          rec.start();
+        } catch {
+          setComposerHint("ไมค์หยุดชั่วคราว กำลังลองเชื่อมใหม่...");
+        }
+      }, 180);
+    };
     rec.onerror = (event) => {
       setIsListening(false);
       const errorKey = event?.error || "unknown";
       if (errorKey === "not-allowed") {
+        shouldKeepListeningRef.current = false;
         setComposerHint("ไมค์ถูกปฏิเสธสิทธิ์ กรุณาอนุญาตไมโครโฟนในเบราว์เซอร์");
+      } else if (errorKey === "no-speech") {
+        setComposerHint("ยังไม่ได้ยินเสียง กำลังฟังต่ออยู่...");
       } else {
         setComposerHint("ไมค์มีปัญหา กรุณาลองใหม่อีกครั้ง");
       }
@@ -332,6 +351,10 @@ export default function ChartSummaryConsultChatPage() {
     };
     speechRef.current = rec;
     return () => {
+      shouldKeepListeningRef.current = false;
+      if (restartMicTimerRef.current) {
+        clearTimeout(restartMicTimerRef.current);
+      }
       speechRef.current?.stop();
       speechRef.current = null;
     };
@@ -839,6 +862,10 @@ export default function ChartSummaryConsultChatPage() {
       return;
     }
     if (isListening) {
+      shouldKeepListeningRef.current = false;
+      if (restartMicTimerRef.current) {
+        clearTimeout(restartMicTimerRef.current);
+      }
       rec.stop();
       setComposerHint("หยุดฟังเสียงแล้ว");
     } else {
@@ -852,8 +879,10 @@ export default function ChartSummaryConsultChatPage() {
         return;
       }
       try {
+        shouldKeepListeningRef.current = true;
         rec.start();
       } catch {
+        shouldKeepListeningRef.current = false;
         setComposerHint("เปิดไมค์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
       }
     }
