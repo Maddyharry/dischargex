@@ -252,6 +252,7 @@ export default function ChartSummaryConsultChatPage() {
   const [chatStyle, setChatStyle] = useState<ChatStyleProfile>(DEFAULT_CHAT_STYLE_PROFILE);
   const [chatStyleReady, setChatStyleReady] = useState(false);
   const messagesRef = useRef<HTMLDivElement | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
