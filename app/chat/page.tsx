@@ -192,6 +192,7 @@ export default function ChartSummaryConsultChatPage() {
   const messagesRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
+  const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const pendingStreamRef = useRef<PendingStreamRequest | null>(null);
   const speechRef = useRef<InstanceType<SpeechRecognitionCtor> | null>(null);
@@ -469,6 +470,7 @@ export default function ChartSummaryConsultChatPage() {
         return next;
       });
       if (imageInputRef.current) imageInputRef.current.value = "";
+      if (cameraInputRef.current) cameraInputRef.current.value = "";
     });
   }
 
@@ -984,8 +986,8 @@ export default function ChartSummaryConsultChatPage() {
         ];
 
   return (
-    <main className="flex min-h-[calc(100dvh-3.5rem)] flex-col overflow-hidden bg-[#081120] text-slate-100 md:h-[calc(100dvh-3.5rem)]">
-      <div className="mx-auto flex min-h-0 w-full max-w-7xl flex-1 flex-col gap-2 px-2 py-2 md:h-full md:grid md:grid-cols-[170px_minmax(0,1fr)] md:gap-3 md:px-4 md:py-3">
+    <main className="fixed inset-x-0 bottom-0 top-14 z-10 flex min-h-0 flex-col overflow-hidden bg-[#081120] text-slate-100 md:static md:z-auto md:h-[calc(100dvh-3.5rem)] md:min-h-[calc(100dvh-3.5rem)] md:overflow-hidden">
+      <div className="mx-auto flex h-full min-h-0 w-full max-w-7xl flex-1 flex-col gap-2 px-2 py-2 md:h-full md:grid md:grid-cols-[170px_minmax(0,1fr)] md:gap-3 md:px-4 md:py-3">
         <div className="flex items-center gap-2 md:hidden">
           <button
             type="button"
@@ -1090,7 +1092,7 @@ export default function ChartSummaryConsultChatPage() {
           </div>
         </aside>
 
-        <section className="flex min-h-0 flex-1 flex-col rounded-xl border border-white/10 bg-white/[0.03] p-2 sm:rounded-2xl sm:p-3 md:h-full">
+        <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-white/10 bg-white/[0.03] p-2 sm:rounded-2xl sm:p-3 md:h-full">
           <div className="shrink-0">
             <div className="flex items-center gap-2 sm:gap-3">
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-cyan-500/20 text-sm text-cyan-200 sm:h-9 sm:w-9">
@@ -1286,28 +1288,44 @@ export default function ChartSummaryConsultChatPage() {
                 {active.messages.map((m, idx) => (
                   <div key={`${m.role}-${idx}`}>
                     <div className={`flex ${m.role === "user" ? "justify-end" : "justify-start"} gap-2`}>
-                      <div
-                        className={`rounded-2xl px-3 py-2 text-[15px] leading-relaxed whitespace-pre-wrap shadow-sm sm:text-sm ${
-                          m.role === "user"
-                            ? "max-w-[88%] bg-cyan-700/70 text-white"
-                            : "w-full border border-white/10 bg-slate-800/90 text-slate-100 md:max-w-[94%]"
-                        }`}
-                      >
-                        {m.role === "assistant" ? (
-                          <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-cyan-300">Assistant</div>
-                        ) : null}
-                        <ChatMessageBody content={m.content} />
-                      </div>
-                      {m.role === "assistant" ? (
-                        <div className="mt-1 hidden text-[10px] text-slate-500 sm:block">
-                          source:{" "}
-                          {m.answerSource === "mixed"
-                            ? "mixed (internal+external)"
-                            : m.answerSource === "external"
-                            ? "external references"
-                            : "internal knowledge"}
+                      {m.role === "user" ? (
+                        <div className="flex max-w-[min(92%,28rem)] flex-row-reverse items-start gap-0.5 sm:gap-1">
+                          <div className="min-w-0 flex-1 rounded-2xl bg-cyan-700/70 px-3 py-2 text-[15px] leading-relaxed whitespace-pre-wrap text-white shadow-sm sm:text-sm">
+                            <ChatMessageBody content={m.content} />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => editAndResendFrom(idx)}
+                            disabled={loading}
+                            title="แก้ไขแล้วส่งใหม่"
+                            aria-label="แก้ไขแล้วส่งใหม่"
+                            className="mt-1 shrink-0 rounded-lg p-1.5 text-white/45 transition hover:bg-white/15 hover:text-white active:bg-white/20 disabled:pointer-events-none disabled:opacity-30"
+                          >
+                            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L8 18l-4 1 1-4 11.5-11.5"
+                              />
+                            </svg>
+                          </button>
                         </div>
-                      ) : null}
+                      ) : (
+                        <>
+                          <div className="w-full rounded-2xl border border-white/10 bg-slate-800/90 px-3 py-2 text-[15px] leading-relaxed whitespace-pre-wrap text-slate-100 shadow-sm sm:text-sm md:max-w-[94%]">
+                            <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-cyan-300">Assistant</div>
+                            <ChatMessageBody content={m.content} />
+                          </div>
+                          <div className="mt-1 hidden text-[10px] text-slate-500 sm:block">
+                            source:{" "}
+                            {m.answerSource === "mixed"
+                              ? "mixed (internal+external)"
+                              : m.answerSource === "external"
+                              ? "external references"
+                              : "internal knowledge"}
+                          </div>
+                        </>
+                      )}
                     </div>
                     {m.role === "assistant" ? (
                       <div className="mt-1 flex items-center gap-2 text-[11px] text-slate-500">
@@ -1387,17 +1405,6 @@ export default function ChartSummaryConsultChatPage() {
                         })()}
                       </div>
                     ) : null}
-                    {m.role === "user" ? (
-                      <div className="mt-1 text-right">
-                        <button
-                          type="button"
-                          onClick={() => editAndResendFrom(idx)}
-                          className="rounded border border-slate-700 px-2 py-0.5 text-[11px] text-slate-400 hover:bg-slate-800"
-                        >
-                          แก้ไขแล้วส่งใหม่
-                        </button>
-                      </div>
-                    ) : null}
                   </div>
                 ))}
                 {loading ? (
@@ -1438,7 +1445,7 @@ export default function ChartSummaryConsultChatPage() {
               </button>
             </div>
           ) : null}
-          <div className="sticky bottom-0 mt-2 shrink-0 border-t border-white/10 bg-[#081120]/85 pt-2 pb-[env(safe-area-inset-bottom)] backdrop-blur">
+          <div className="mt-2 shrink-0 border-t border-white/10 bg-[#081120]/95 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] backdrop-blur md:pb-3">
             <div>
               {composerHint ? <div className="mb-1 text-[11px] text-cyan-300">{composerHint}</div> : null}
               {pendingImages.length ? (
@@ -1474,6 +1481,14 @@ export default function ChartSummaryConsultChatPage() {
                 onChange={(e) => onPickImages(e.target.files)}
                 className="hidden"
               />
+              <input
+                ref={cameraInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={(e) => onPickImages(e.target.files)}
+                className="hidden"
+              />
               <div className="relative">
                 <textarea
                   ref={textareaRef}
@@ -1486,26 +1501,39 @@ export default function ChartSummaryConsultChatPage() {
                     }
                   }}
                   rows={2}
-                  className="w-full max-h-[180px] min-h-[56px] resize-none overflow-y-auto rounded-xl border border-slate-700 bg-slate-900/80 px-3 py-2.5 pr-28 sm:pr-32 text-sm leading-relaxed outline-none focus:border-cyan-500"
+                  className="w-full max-h-[180px] min-h-[56px] resize-none overflow-y-auto rounded-xl border border-slate-700 bg-slate-900/80 px-3 py-2.5 pr-[7.25rem] sm:pr-36 text-sm leading-relaxed outline-none focus:border-cyan-500"
                   placeholder={
                     assistantMode === "opd_demo"
                       ? "เล่าเคส หรือแนบรูป EKG/X-ray…"
                       : "ถาม diagnosis / แนบรูปตรวจเพื่อช่วยอ่านเบื้องต้น…"
                   }
                 />
-                <div className="absolute right-2 bottom-2 flex items-center gap-1">
+                <div className="absolute right-1.5 bottom-2 flex items-center gap-0.5 sm:right-2 sm:gap-1">
                   <button
                     type="button"
                     onClick={() => imageInputRef.current?.click()}
                     disabled={loading}
                     className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-slate-600 bg-slate-900/80 text-slate-200 disabled:opacity-50 sm:h-8 sm:w-8"
-                    title="แนบรูป"
-                    aria-label="แนบรูป"
+                    title="เลือกรูปจากเครื่อง"
+                    aria-label="เลือกรูปจากเครื่อง"
                   >
                     <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
                       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
                       <path d="M16 3h5v5" />
                       <path d="m21 3-9 9" />
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => cameraInputRef.current?.click()}
+                    disabled={loading}
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-slate-600 bg-slate-900/80 text-slate-200 disabled:opacity-50 sm:h-8 sm:w-8"
+                    title="ถ่ายรูป"
+                    aria-label="ถ่ายรูป"
+                  >
+                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round">
+                      <path d="M14.5 4h-5L8 7H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-1.5-3z" />
+                      <circle cx="12" cy="13" r="3" />
                     </svg>
                   </button>
                   <button
