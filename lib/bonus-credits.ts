@@ -50,7 +50,7 @@ export async function revokeBonusCredits(params: {
         data: { extraCredits: { decrement: params.amount } },
       });
       if (updated.count === 0) {
-        throw new Error("เครดิตคงเหลือไม่พอสำหรับการ revoke");
+        throw new Error("โควตาโบนัสคงเหลือไม่พอสำหรับการยกเลิก");
       }
       await tx.creditLedger.create({
         data: {

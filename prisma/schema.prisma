@@ -25,13 +25,13 @@ model User {
   totalGenerations      Int       @default(0)
   plan                  String    @default("trial") // trial | basic_monthly | basic_yearly | standard_monthly | standard_yearly | pro_monthly | pro_yearly
   role                  String    @default("user")  // user | admin
-  extraCredits          Int       @default(0)       // เครดิต add-on ที่ยังใช้ได้ใน subscription ปัจจุบัน
+  extraCredits          Int       @default(0)       // โควตา Boost (add-on) ที่ยังใช้ได้ใน subscription ปัจจุบัน
   periodStartedAt       DateTime? // จุดเริ่มนับอายุ subscription รอบปัจจุบัน
   subscriptionStatus    String    @default("trial") // trial | active | expired | pending_change | cancelled
   subscriptionExpiresAt DateTime? // วันหมดอายุ subscription รอบปัจจุบัน
-  currentCreditCycleStart DateTime? // จุดเริ่มรอบเครดิตย่อย (30 วัน)
-  currentCreditCycleEnd   DateTime? // จุดสิ้นสุดรอบเครดิตย่อย (30 วัน)
-  nextCreditRefreshAt     DateTime? // เวลาที่จะ refresh เครดิต base รอบถัดไป
+  currentCreditCycleStart DateTime? // จุดเริ่มรอบโควตาย่อย (30 วัน)
+  currentCreditCycleEnd   DateTime? // จุดสิ้นสุดรอบโควตาย่อย (30 วัน)
+  nextCreditRefreshAt     DateTime? // เวลาที่จะ refresh โควตา base รอบถัดไป
   nextPlanId              String?   // แผนที่จะเปลี่ยนในรอบถัดไป (downgrade)
   nextPlanEffectiveDate   DateTime? // เวลาเปลี่ยนแผนถัดไป
   referralCode            String?   @unique
@@ -162,7 +162,7 @@ model PaymentRequest {
   province      String
   phone         String
   contactEmail  String
-  planRequested String   // แผนที่ขอ หรือ "add_credits" เมื่อเป็นซื้อเครดิตเพิ่ม
+  planRequested String   // แผนที่ขอ หรือ "add_credits" เมื่อซื้อ Boost/โควตาเสริม
   type          String   @default("new") // new | renewal | upgrade | downgrade | addon
   fromPlanId    String?
   toPlanId      String?
@@ -171,7 +171,7 @@ model PaymentRequest {
   slipFileName  String
   slipData      String?
   status        String   @default("awaiting_review") // pending | awaiting_slip | awaiting_review | approved | rejected | expired | cancelled
-  addCredits    Int?     // ถ้าไม่ null = ขอซื้อเครดิตเพิ่มจำนวนนี้
+  addCredits    Int?     // ถ้าไม่ null = ขอซื้อ Boost/โควตาเสริมจำนวนนี้
   stripeSessionId String?
   stripePaymentIntentId String?
   stripeInvoiceId String?
@@ -231,7 +231,7 @@ model Feedback {
   impactLevel         String?
   aiScore             Int?      // 0-10
   aiSuggestedCredit   Int?      // 0/2/5/10
-  adminFinalCredit    Int?      // เครดิตจริงที่แอดมินอนุมัติ
+  adminFinalCredit    Int?      // โควตาโบนัสที่แอดมินอนุมัติ
   status              String    @default("pending") // pending | approved | rejected | duplicate | implemented | revoked
   fingerprint         String?   // ใช้ช่วยตรวจ duplicate แบบเร็ว
   duplicateOfId       String?   // feedback id ที่ถูกจับว่าเหมือนกัน

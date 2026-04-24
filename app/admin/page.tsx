@@ -15,7 +15,7 @@ export default function AdminPage() {
           >
             <span className="font-medium">คำขอชำระเงิน</span>
             <p className="mt-1 text-sm text-slate-400">
-              ตรวจสลิป PromptPay อนุมัติ/ปฏิเสธ
+              สรุปสถานะการชำระ (ชำระหลักผ่าน Stripe)
             </p>
           </Link>
           <Link

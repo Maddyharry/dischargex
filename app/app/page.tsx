@@ -254,15 +254,6 @@ function PageContent() {
   const [copiedKey, setCopiedKey] = useState("");
   const [error, setError] = useState("");
 
-  const [caseCount, setCaseCount] = useState(0);
-  const [usageInfo, setUsageInfo] = useState<{
-    plan: string;
-    total: number;
-    used: number;
-    remaining: number;
-    nextCreditRefreshAt?: string | null;
-    daysLeftInMonth?: number;
-  } | null>(null);
   const [deviceId, setDeviceId] = useState<string | null>(null);
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
   const [collapsedPanels, setCollapsedPanels] =
@@ -323,6 +314,9 @@ function PageContent() {
     tutorialPhase === "workspace_paste" ||
     tutorialPhase === "generate_prompt" ||
     (tutorialPhase === "off" && tutorialInit && !tutorialDonePersisted);
+
+  /** มีข้อความ order sheet และ/หรือรูป — ให้สร้างสรุปจากรูปอย่างเดียวได้ */
+  const hasClinicalInput = Boolean(orderSheet.trim()) || uploadedImages.length > 0;
 
   useEffect(() => {
     return () => {
@@ -514,31 +508,6 @@ function PageContent() {
     }
     setTutorialDonePersisted(true);
   }
-
-  async function loadUsage() {
-    try {
-      const res = await fetch("/api/usage");
-      if (!res.ok) return;
-      const data = await res.json();
-      if (!data.ok) return;
-      setUsageInfo({
-        plan: data.plan,
-        total: data.total,
-        used: data.used,
-        remaining: data.remaining,
-        nextCreditRefreshAt: typeof data.nextCreditRefreshAt === "string" ? data.nextCreditRefreshAt : null,
-        daysLeftInMonth: typeof data.daysLeftInMonth === "number" ? data.daysLeftInMonth : undefined,
-      });
-    } catch {
-      // เงียบ ๆ ถ้าโหลดไม่ได้
-    }
-  }
-
-  useEffect(() => {
-    if (session?.user?.email) {
-      void loadUsage();
-    }
-  }, [session?.user?.email]);
 
   useEffect(() => {
     async function loadUnreadNotifications() {
@@ -943,7 +912,7 @@ function PageContent() {
     void trackWorkspaceTelemetry("summary:strategy_changed", {
       strategy: next,
       from: summaryStrategy,
-      hasOrderSheet: Boolean(orderSheet.trim()),
+      hasClinicalInput: Boolean(orderSheet.trim()) || uploadedImages.length > 0,
     });
   }
 
@@ -1034,7 +1003,6 @@ function PageContent() {
         setPreprocess(parsed.result.preprocess || emptyPreprocess());
         setEngine(parsed.result.engine ?? null);
         setDiagnosisItems(buildDiagnosisItemsFromBlocks(nextBlocks));
-        setCaseCount((c) => c + 1);
         setLastRunStrategy(summaryStrategy);
         setTutorialPhase("finished_modal");
         return;
@@ -1072,9 +1040,7 @@ function PageContent() {
       setPreprocess(parsed.result.preprocess || emptyPreprocess());
       setEngine(parsed.result.engine ?? null);
       setDiagnosisItems(buildDiagnosisItemsFromBlocks(nextBlocks));
-      setCaseCount((c) => c + 1);
       setLastRunStrategy(summaryStrategy);
-      void loadUsage();
       window.dispatchEvent(new Event("usage-updated"));
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";
@@ -1821,21 +1787,23 @@ function PageContent() {
                   {uploadedImages.length ? (
                     <span className="text-xs text-cyan-300">แนบรูปแล้ว {uploadedImages.length} ภาพ</span>
                   ) : (
-                    <span className="text-xs text-slate-500">รองรับรูปถ่าย/สกรีนช็อต ระบบจะสกัดข้อความก่อนสรุป</span>
+                    <span className="text-xs text-slate-500">
+                      รูปถ่าย/สกรีนช็อต — สกัดข้อความก่อนสรุป (ใช้รูปอย่างเดียวได้โดยไม่ต้องวาง order sheet)
+                    </span>
                   )}
                 </div>
                 {uploadedImages.length ? (
-                  <div className="mb-3 flex flex-wrap gap-2">
+                  <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-400">
+                    <span className="shrink-0 text-slate-500">ไฟล์ที่แนบ ({uploadedImages.length})</span>
                     {uploadedImages.map((img) => (
-                      <span
-                        key={img.id}
-                        className="inline-flex items-center gap-2 rounded-full border border-slate-700 bg-slate-900/70 px-3 py-1 text-[11px] text-slate-200"
-                      >
-                        <span>{img.name}</span>
+                      <span key={img.id} className="inline-flex max-w-full items-center gap-1">
+                        <span className="truncate text-slate-300" title={img.name}>
+                          {img.name}
+                        </span>
                         <button
                           type="button"
                           onClick={() => removeUploadedImage(img.id)}
-                          className="text-rose-300 hover:text-rose-200"
+                          className="shrink-0 text-rose-300 hover:text-rose-200"
                           title="ลบรูปนี้"
                         >
                           ×
@@ -1916,7 +1884,12 @@ function PageContent() {
               <button
                 type="button"
                 onClick={handleGenerate}
-                disabled={loading || !orderSheet.trim()}
+                disabled={loading || !hasClinicalInput}
+                title={
+                  hasClinicalInput
+                    ? undefined
+                    : "วางข้อความ order sheet หรืออัปโหลดรูปอย่างน้อย 1 อย่าง"
+                }
                 className="inline-flex min-w-[148px] items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-cyan-900/30 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {loading ? (
@@ -1947,36 +1920,6 @@ function PageContent() {
               >
                 {copiedKey === "copy-all" ? "คัดลอกแล้ว" : "คัดลอกทั้งหมด"}
               </button>
-
-              {usageInfo ? (
-                <span className="text-xs text-slate-400">
-                  วันนี้สร้างไปประมาณ{" "}
-                  <span className="font-semibold text-slate-100">{usageInfo.used}</span>{" "}
-                  เคส
-                  {usageInfo.nextCreditRefreshAt && (
-                    <>
-                      {" · "}รีเซ็ตโควตาประมาณ{" "}
-                      <span className="font-semibold text-emerald-300">
-                        {new Date(usageInfo.nextCreditRefreshAt).toLocaleString("th-TH", {
-                          dateStyle: "short",
-                          timeStyle: "short",
-                        })}
-                      </span>
-                    </>
-                  )}
-                  {usageInfo.daysLeftInMonth !== undefined && (
-                    <> · เหลืออีก {usageInfo.daysLeftInMonth} วัน</>
-                  )}
-                </span>
-              ) : (
-                <span className="text-xs text-slate-400">
-                  ใช้บัญชีนี้ไปแล้ว:{" "}
-                  <span className="font-semibold text-slate-100">
-                    {caseCount}
-                  </span>{" "}
-                  เคส
-                </span>
-              )}
             </div>
             </div>
 

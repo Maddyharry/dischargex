@@ -29,7 +29,7 @@ export default function TermsOfServicePage() {
             for diagnosis coding, summary accuracy, and compliance remains with the user and institution.
           </p>
           <p>
-            Account access is personal and must not be shared. Service plans, credits, and usage limits are
+            Account access is personal and must not be shared. Service plans, usage quotas, and limits are
             enforced according to the active subscription policy shown in the application.
           </p>
           <p>

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { THAI_PROVINCES, validateBirthDateBE, validateThaiPhone } from "@/lib/thai-input";
 import { LAST_REVIEWED_DATE, REFERENCE_SET_NAME } from "@/lib/reference-info";
+import { REFERRAL_BONUS_FIRST_PURCHASE, REFERRAL_BONUS_FIRST_USAGE } from "@/lib/referral-constants";
 
 type UserInfo = {
   id: string;
@@ -526,12 +527,16 @@ export default function ProfilePage() {
             </section>
 
             <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
-              <h2 className="text-lg font-semibold text-white">สิทธิ์โบนัสของฉัน</h2>
+              <h2 className="text-lg font-semibold text-white">โควตาโบนัสของฉัน</h2>
               <div className="mt-2 rounded-2xl border border-cyan-500/25 bg-cyan-950/20 px-4 py-3 text-xs text-cyan-100">
                 กติกาแนะนำเพื่อน:
                 <span className="block mt-1">- เพื่อนสมัคร/ผูกรหัสแนะนำ: ยังไม่เพิ่มสิทธิ์ทันที</span>
-                <span className="block">- เพื่อนเริ่มใช้งานครั้งแรก (เริ่มทดลองใช้ฟรี): โบนัส +5 หน่วย</span>
-                <span className="block">- เพื่อนซื้อแพ็กเกจครั้งแรก: โบนัส +10 หน่วย</span>
+                <span className="block">
+                  - เพื่อนเริ่มใช้งานครั้งแรก (เริ่มทดลองใช้ฟรี): โบนัส +{REFERRAL_BONUS_FIRST_USAGE} หน่วย
+                </span>
+                <span className="block">
+                  - เพื่อนซื้อแพ็กเกจครั้งแรก: โบนัส +{REFERRAL_BONUS_FIRST_PURCHASE} หน่วย
+                </span>
               </div>
               <div className="mt-4 grid gap-3 sm:grid-cols-4">
                 <div className="rounded-xl border border-slate-700 bg-slate-950/50 p-3">
@@ -539,15 +544,19 @@ export default function ProfilePage() {
                   <div className="mt-1 text-sm font-semibold text-slate-100">{referral?.stats.signups ?? 0}</div>
                 </div>
                 <div className="rounded-xl border border-slate-700 bg-slate-950/50 p-3">
-                  <div className="text-xs text-slate-500">เริ่มทดลองใช้ฟรีครั้งแรก (+5 หน่วย/คน)</div>
+                  <div className="text-xs text-slate-500">
+                    เริ่มทดลองใช้ฟรีครั้งแรก (+{REFERRAL_BONUS_FIRST_USAGE} หน่วย/คน)
+                  </div>
                   <div className="mt-1 text-sm font-semibold text-slate-100">{referral?.stats.firstUsages ?? 0}</div>
                 </div>
                 <div className="rounded-xl border border-slate-700 bg-slate-950/50 p-3">
-                  <div className="text-xs text-slate-500">ซื้อแพ็กเกจครั้งแรก (+10 หน่วย/คน)</div>
+                  <div className="text-xs text-slate-500">
+                    ซื้อแพ็กเกจครั้งแรก (+{REFERRAL_BONUS_FIRST_PURCHASE} หน่วย/คน)
+                  </div>
                   <div className="mt-1 text-sm font-semibold text-slate-100">{referral?.stats.firstPurchases ?? 0}</div>
                 </div>
                 <div className="rounded-xl border border-slate-700 bg-slate-950/50 p-3">
-                  <div className="text-xs text-slate-500">โบนัสจาก referral</div>
+                  <div className="text-xs text-slate-500">โบนัสโควตา (referral)</div>
                   <div className="mt-1 text-sm font-semibold text-emerald-300">{referral?.stats.credits ?? 0}</div>
                 </div>
               </div>
@@ -611,7 +620,7 @@ export default function ProfilePage() {
               </div>
 
               <div className="mt-4">
-                <h3 className="text-sm font-medium text-slate-200">ประวัติโบนัสล่าสุด</h3>
+                <h3 className="text-sm font-medium text-slate-200">ประวัติปรับโควตาโบนัสล่าสุด</h3>
                 {ledger.length === 0 ? (
                   <div className="mt-2 text-xs text-slate-500">ยังไม่มีรายการ</div>
                 ) : (
@@ -680,7 +689,7 @@ export default function ProfilePage() {
             <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
               <h2 className="text-lg font-semibold text-white">ประวัติ Billing / Payment</h2>
               <p className="mt-1 text-xs text-slate-400">
-                ดูคำขอทั้งหมด สถานะตรวจสลิป ราคาที่ประเมิน และหมายเหตุจากแอดมิน
+                รายการคำสั่งซื้อ/Stripe และสถานะ รวมราคาและบันทึกจากระบบ
               </p>
               {requests.length === 0 ? (
                 <div className="mt-4 rounded-2xl border border-slate-700/60 bg-slate-950/40 px-4 py-6 text-center text-sm text-slate-400">

@@ -938,6 +938,10 @@ function sanitizeIncomingImages(raw: unknown): UploadedImageInput[] {
   return out;
 }
 
+/** Used when the client sends images with no text — model still receives a clear clinical request. */
+const IMAGE_ONLY_FALLBACK_USER_MESSAGE_TH =
+  "ผู้ใช้แนบรูปตรวจทางการแพทย์ (เช่น EKG, CXR, หรือภาพอื่น) โดยไม่มีคำอธิบายข้อความ — ช่วยอ่านภาพและสรุปสิ่งที่มองเห็น/การประเมินเบื้องต้น พร้อม differential และสิ่งที่ควรตรวจเพิ่มหรือขอ formal read ทางรังสีวิทยา/คาร์ดิโอเมื่อจำเป็น ระบุชัดว่าไม่ใช่รายงานทางรังสีวิทยาทางการ";
+
 function buildUserContentPayload(prompt: string, images: UploadedImageInput[]) {
   if (!images.length) return prompt;
   return [
@@ -989,16 +993,20 @@ export async function POST(req: NextRequest) {
       images?: UploadedImageInput[];
       styleProfile?: ChatStyleProfilePatch;
     };
-    const message = String(body.message || "").trim();
+    const userMessageTrimmed = String(body.message || "").trim();
     const mode: ChatMode = body.mode === "precise" ? "precise" : "fast";
     const safeImages = sanitizeIncomingImages(body.images);
     const assistantMode: AssistantMode =
       body.assistantMode === "opd_demo" || body.assistantMode === "opd_rdu" ? "opd_demo" : "coding";
     const shouldStream = Boolean(body.stream);
-    if (!message) {
-      return jsonUtf8({ ok: false, error: "กรุณาระบุข้อความ" }, 400);
+    if (!userMessageTrimmed && safeImages.length === 0) {
+      return jsonUtf8({ ok: false, error: "กรุณาระบุข้อความหรือแนบรูป" }, 400);
     }
-    const messageForModel = deidentify(message);
+    const messageForPrompt =
+      userMessageTrimmed || (safeImages.length > 0 ? IMAGE_ONLY_FALLBACK_USER_MESSAGE_TH : "");
+    const messageForModel = deidentify(messageForPrompt);
+    const logUserMessage =
+      userMessageTrimmed || (safeImages.length > 0 ? "[แนบรูปเท่านั้น]" : "");
 
     const rawHistory = Array.isArray(body.history)
       ? body.history
@@ -1020,13 +1028,13 @@ export async function POST(req: NextRequest) {
       : null;
     const userId = dbUser?.id ?? null;
     const normalizedPlan = normalizePlanId(dbUser?.plan ?? "trial");
-    const stylePatchFromMessage = inferStylePatchFromMessage(message);
+    const stylePatchFromMessage = inferStylePatchFromMessage(userMessageTrimmed);
     const stylePatchFromRequest = body.styleProfile || {};
     let styleProfile = mergeChatStyleProfile(DEFAULT_CHAT_STYLE_PROFILE, stylePatchFromRequest);
     if (userId) {
       const storedStyle = await getUserChatStyleProfile(userId);
       styleProfile = mergeChatStyleProfile(storedStyle, { ...stylePatchFromMessage, ...stylePatchFromRequest });
-      if (shouldPersistStylePatch(message, stylePatchFromMessage)) {
+      if (shouldPersistStylePatch(userMessageTrimmed, stylePatchFromMessage)) {
         await setUserChatStyleProfile(userId, styleProfile);
       }
     } else {
@@ -1088,7 +1096,7 @@ export async function POST(req: NextRequest) {
     }
 
     const mergedKnowledge = await getMergedKnowledge(false);
-    const ranked = rankKnowledge(message, mergedKnowledge);
+    const ranked = rankKnowledge(messageForModel, mergedKnowledge);
     const matchedKnowledge = ranked.hasStrongMatch ? ranked.matched.slice(0, 8) : ranked.fallback.slice(0, 4);
     const compactMatchedKnowledge = compactKnowledgeSummaries(matchedKnowledge);
     const retrievedSnippets = await searchKnowledgeEvidence(messageForModel);
@@ -1102,7 +1110,7 @@ export async function POST(req: NextRequest) {
     const variant =
       process.env.SPECIALIST_CHAT_PROMPT_VARIANT === "A" || process.env.SPECIALIST_CHAT_PROMPT_VARIANT === "B"
         ? process.env.SPECIALIST_CHAT_PROMPT_VARIANT
-        : pickPromptVariant(userId || message.slice(0, 16));
+        : pickPromptVariant(userId || userMessageTrimmed.slice(0, 16) || (safeImages.length ? "image" : "u"));
     const intent = detectChatIntent(messageForModel, recentHistory);
     const system = buildSystemPrompt(assistantMode, variant, styleProfile);
     const caseSummaryPattern = buildCaseSummaryPatternBlock(assistantMode);
@@ -1147,7 +1155,12 @@ export async function POST(req: NextRequest) {
       "",
       "USER_MESSAGE:",
       messageForModel,
-      safeImages.length ? `USER_UPLOADED_IMAGE_COUNT: ${safeImages.length}` : "",
+      safeImages.length
+        ? [
+            `USER_UPLOADED_IMAGE_COUNT: ${safeImages.length}`,
+            "IMAGING_GUIDANCE: Interpret only what is reasonably visible in attached images. Answer in Thai. This is preliminary clinical pattern support, not a formal radiology or cardiology report. State uncertainty and when formal imaging/ECG interpretation is required.",
+          ].join("\n")
+        : "",
       "",
       "Respond as a real chat assistant.",
       "Do not force numbered sections unless user asks for checklist/template.",
@@ -1257,7 +1270,7 @@ export async function POST(req: NextRequest) {
                 );
               }
               if (!ranked.hasStrongMatch) {
-                await queuePendingKnowledgeEntry(message, reply, {
+                await queuePendingKnowledgeEntry(messageForModel, reply, {
                   externalSources: external.evidences.map((e) => ({
                     title: e.title,
                     url: e.sourceUrl,
@@ -1294,7 +1307,7 @@ export async function POST(req: NextRequest) {
                     {
                       userId,
                       type: "chat",
-                      message,
+                      message: logUserMessage,
                       payload: JSON.stringify({
                         source: "specialist_chat",
                         role: "user",
@@ -1302,7 +1315,7 @@ export async function POST(req: NextRequest) {
                         deidentifiedBeforeModel: true,
                       }),
                       category: "other",
-                      shortSummary: message.slice(0, 180),
+                      shortSummary: logUserMessage.slice(0, 180),
                       status: "pending",
                     },
                     {
@@ -1329,7 +1342,7 @@ export async function POST(req: NextRequest) {
                 source: "chat",
                 event: "specialist_chat_reply",
                 payload: {
-                  inputLength: message.length,
+                  inputLength: messageForPrompt.length,
                   historyCount: historyForPrompt.length,
                   usedConversationSummary: Boolean(conversationSummary),
                   intent,
@@ -1339,6 +1352,7 @@ export async function POST(req: NextRequest) {
                   answerSource,
                   baseAnswerSource,
                   forcedExternalEvidence: forceExternalEvidence,
+                  hadImagesOnly: Boolean(safeImages.length && !userMessageTrimmed),
                 },
               });
 
@@ -1420,7 +1434,7 @@ export async function POST(req: NextRequest) {
     });
     const usage = estimateTokenBillingThb(readUsageSummary(resp.usage));
     if (!ranked.hasStrongMatch) {
-      await queuePendingKnowledgeEntry(message, reply, {
+      await queuePendingKnowledgeEntry(messageForModel, reply, {
         externalSources: external.evidences.map((e) => ({
           title: e.title,
           url: e.sourceUrl,
@@ -1457,7 +1471,7 @@ export async function POST(req: NextRequest) {
           {
             userId,
             type: "chat",
-            message,
+            message: logUserMessage,
             payload: JSON.stringify({
               source: "specialist_chat",
               role: "user",
@@ -1465,7 +1479,7 @@ export async function POST(req: NextRequest) {
               deidentifiedBeforeModel: true,
             }),
             category: "other",
-            shortSummary: message.slice(0, 180),
+            shortSummary: logUserMessage.slice(0, 180),
             status: "pending",
           },
           {
@@ -1492,7 +1506,7 @@ export async function POST(req: NextRequest) {
       source: "chat",
       event: "specialist_chat_reply",
       payload: {
-        inputLength: message.length,
+        inputLength: messageForPrompt.length,
         historyCount: historyForPrompt.length,
         usedConversationSummary: Boolean(conversationSummary),
         intent,
@@ -1502,6 +1516,7 @@ export async function POST(req: NextRequest) {
         answerSource,
         baseAnswerSource,
         forcedExternalEvidence: forceExternalEvidence,
+        hadImagesOnly: Boolean(safeImages.length && !userMessageTrimmed),
       },
     });
 

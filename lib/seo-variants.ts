@@ -19,7 +19,7 @@ const conversionCopy: SeoCatalog = {
     title:
       "ราคา DischargeX — แพ็กเกจ AI สรุปชาร์จและช่วยทบทวน ICD-10 สำหรับงาน IPD",
     description:
-      "ดูราคาและแพ็กเกจ DischargeX สำหรับทีมแพทย์และเวชระเบียน: โควตาการใช้งานโดยประมาณต่อวันตาม Fair Use, รองรับ Stripe และ PromptPay, และช่วยทบทวนการจัดโครง diagnosis ตามแนวทาง สปสช/Thai DRG",
+      "ดูราคาและแพ็กเกจ DischargeX สำหรับทีมแพทย์และเวชระเบียน: โควตาการใช้งานโดยประมาณต่อวันตาม Fair Use, ชำระเงินหลักผ่าน Stripe, และช่วยทบทวนการจัดโครง diagnosis ตามแนวทาง สปสช/Thai DRG",
   },
   guidelines: {
     title:
@@ -38,9 +38,9 @@ const technicalCopy: SeoCatalog = {
   },
   pricing: {
     title:
-      "DischargeX Pricing | แพ็กเกจเครดิตสำหรับ AI Discharge Summary และ Coding Review",
+      "DischargeX Pricing | แพ็กเกจโควตา AI สำหรับ Discharge Summary และ Coding Review",
     description:
-      "เปรียบเทียบแพ็กเกจ Trial, Basic, Standard, Pro ของ DischargeX ตามจำนวนเครดิตและระดับการช่วยทบทวน diagnosis/ICD-10 สำหรับงาน IPD",
+      "เปรียบเทียบแพ็กเกจ Trial, Basic, Standard, Pro ของ DischargeX ตามจำนวนโควตาและระดับการช่วยทบทวน diagnosis/ICD-10 สำหรับงาน IPD",
   },
   guidelines: {
     title:

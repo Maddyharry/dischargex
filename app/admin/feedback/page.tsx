@@ -101,7 +101,7 @@ export default function AdminFeedbackPage() {
   }
 
   async function handleRefundCredit(userId: string) {
-    if (!confirm("ยืนยันคืนเครดิตให้ผู้ใช้รายนี้? (จะลบรายการใช้งานล่าสุดของ user)")) return;
+    if (!confirm("ยืนยันคืนโควตาให้ผู้ใช้รายนี้? (จะลบรายการใช้งานล่าสุดของ user)")) return;
     setRefundingUserId(userId);
     try {
       const res = await fetch("/api/admin/refund-credit", {
@@ -113,7 +113,7 @@ export default function AdminFeedbackPage() {
       if (!res.ok || !data.ok) {
         throw new Error(data.error || "ดำเนินการไม่สำเร็จ");
       }
-      alert(data.message || "คืนเครดิตให้ผู้ใช้แล้ว");
+      alert(data.message || "คืนโควตาให้ผู้ใช้แล้ว");
       void load();
     } catch (err) {
       alert(err instanceof Error ? err.message : "ดำเนินการไม่สำเร็จ");
@@ -131,7 +131,7 @@ export default function AdminFeedbackPage() {
       action === "approve"
         ? Number(
             prompt(
-              "จำนวนเครดิตที่จะให้ (ปรับได้):",
+              "จำนวนโควตาโบนัสที่จะให้ (ปรับได้):",
               String(suggestedCredit ?? 0)
             ) ?? suggestedCredit ?? 0
           )
@@ -270,7 +270,7 @@ export default function AdminFeedbackPage() {
                 : "border border-emerald-700 bg-slate-900/80 text-emerald-300 hover:bg-slate-800"
             }`}
           >
-            {onlySuggested ? "แสดงทั้งหมด" : `เฉพาะที่ AI แนะนำเครดิต (${suggestedCount})`}
+            {onlySuggested ? "แสดงทั้งหมด" : `เฉพาะที่ AI แนะนำโควตา (${suggestedCount})`}
           </button>
         </div>
 
@@ -396,7 +396,7 @@ export default function AdminFeedbackPage() {
                       ) : null}
                       {f.type === "error_report" && (f.aiSuggestedCredit ?? 0) > 0 ? (
                         <span className="rounded px-2 py-0.5 text-[11px] border border-emerald-700 text-emerald-300">
-                          AI แนะนำ {f.aiSuggestedCredit} เครดิต
+                          AI แนะนำ {f.aiSuggestedCredit} หน่วยโควตา
                         </span>
                       ) : null}
                       <span className="text-xs text-slate-500">
@@ -453,11 +453,11 @@ export default function AdminFeedbackPage() {
                         </div>
                         <div className="rounded bg-slate-950/70 border border-slate-700 p-2">
                           <div className="text-slate-500">AI suggested</div>
-                          <div className="text-cyan-300">{f.aiSuggestedCredit ?? 0} เครดิต</div>
+                          <div className="text-cyan-300">{f.aiSuggestedCredit ?? 0} หน่วยโควตา</div>
                         </div>
                         <div className="rounded bg-slate-950/70 border border-slate-700 p-2">
                           <div className="text-slate-500">Admin final</div>
-                          <div className="text-emerald-300">{f.adminFinalCredit ?? 0} เครดิต</div>
+                          <div className="text-emerald-300">{f.adminFinalCredit ?? 0} หน่วยโควตา</div>
                         </div>
                       </div>
 
@@ -538,10 +538,10 @@ export default function AdminFeedbackPage() {
                             disabled={refundingUserId === f.userId}
                             className="rounded-xl border border-emerald-600 bg-emerald-500/20 px-4 py-2 text-sm font-medium text-emerald-200 hover:bg-emerald-500/30 disabled:opacity-50"
                           >
-                            {refundingUserId === f.userId ? "กำลังดำเนินการ…" : "คืนเครดิตจากรายการล่าสุด"}
+                            {refundingUserId === f.userId ? "กำลังดำเนินการ…" : "คืนโควตาจากรายการล่าสุด"}
                           </button>
                           <p className="mt-1 text-xs text-slate-500">
-                            จะลบรายการใช้งานล่าสุดของ user นี้ และคืนเครดิตตามที่รายการนั้นใช้จริง
+                            จะลบรายการใช้งานล่าสุดของ user นี้ และคืนโควตาตามที่รายการนั้นใช้จริง
                           </p>
                         </div>
                       ) : null}
@@ -554,7 +554,7 @@ export default function AdminFeedbackPage() {
                             onClick={() => handleReview(f.id, "approve", f.aiSuggestedCredit)}
                             className="rounded-xl bg-emerald-600/70 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
                           >
-                            อนุมัติ+ให้เครดิต
+                            อนุมัติ+ให้โควตา
                           </button>
                           <button
                             type="button"
@@ -586,7 +586,7 @@ export default function AdminFeedbackPage() {
                             onClick={() => handleReview(f.id, "revoke")}
                             className="rounded-xl bg-amber-700 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
                           >
-                            ยกเลิกเครดิต
+                            ยกเลิกโควตา
                           </button>
                         </div>
                       ) : null}

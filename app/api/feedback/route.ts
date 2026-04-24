@@ -156,7 +156,7 @@ export async function POST(req: NextRequest) {
           `Feedback ID: ${feedback.id}`,
           `User ID: ${userId ?? "-"}`,
           `Score: ${score}/10`,
-          `Suggested credit: ${suggestedCredit}`,
+          `Suggested bonus quota: ${suggestedCredit}`,
           `Status: ${status}`,
           `Message: ${message.trim().slice(0, 500)}`,
         ],

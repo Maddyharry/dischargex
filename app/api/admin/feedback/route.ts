@@ -107,8 +107,8 @@ export async function PATCH(req: NextRequest) {
         await notifyUser({
           userId: feedback.userId,
           type: "bonus",
-          title: "ได้รับเครดิตโบนัสจาก Feedback",
-          message: `Feedback ของคุณได้รับการอนุมัติ และได้โบนัส +${finalCredit} เครดิต`,
+          title: "ได้รับโควตาโบนัสจาก Feedback",
+          message: `Feedback ของคุณได้รับการอนุมัติ และได้โบนัส +${finalCredit} หน่วยโควตา`,
           meta: { feedbackId: feedback.id, credit: finalCredit },
         });
       }
@@ -141,8 +141,8 @@ export async function PATCH(req: NextRequest) {
         await notifyUser({
           userId: feedback.userId,
           type: "bonus",
-          title: "เครดิตโบนัสถูกปรับลด",
-          message: `เครดิตโบนัสจาก Feedback ถูกยกเลิก -${creditsToRevoke} เครดิต`,
+          title: "โควตาโบนัสถูกปรับลด",
+          message: `โควตาโบนัสจาก Feedback ถูกยกเลิก -${creditsToRevoke} หน่วย`,
           meta: { feedbackId: feedback.id, credit: creditsToRevoke },
         });
       }

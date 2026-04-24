@@ -1,6 +1,12 @@
 import { prisma } from "./prisma";
 import { grantBonusCredits, ensureUserReferralCode } from "./bonus-credits";
 import { notifyUser } from "./notifications";
+import {
+  REFERRAL_BONUS_FIRST_PURCHASE,
+  REFERRAL_BONUS_FIRST_USAGE,
+} from "./referral-constants";
+
+export { REFERRAL_BONUS_FIRST_PURCHASE, REFERRAL_BONUS_FIRST_USAGE } from "./referral-constants";
 
 export async function getReferralDashboard(userId: string) {
   const code = await ensureUserReferralCode(userId);
@@ -93,19 +99,19 @@ export async function markReferralFirstUsage(referredUserId: string) {
     where: { referredUserId },
   });
   if (!referral || referral.firstUsageAt) return;
-  if (referral.status === "blocked") return;
+  if (referral.status === "blocked" || referral.status === "suspicious") return;
 
   const updated = await prisma.referral.updateMany({
     where: { id: referral.id, firstUsageAt: null },
     data: {
       firstUsageAt: new Date(),
-      usageCreditGranted: 5,
+      usageCreditGranted: REFERRAL_BONUS_FIRST_USAGE,
     },
   });
   if (updated.count > 0) {
     await grantBonusCredits({
       userId: referral.referrerUserId,
-      amount: 5,
+      amount: REFERRAL_BONUS_FIRST_USAGE,
       sourceType: "referral",
       sourceId: referral.id,
       note: "Referral milestone: first usage",
@@ -115,8 +121,8 @@ export async function markReferralFirstUsage(referredUserId: string) {
       userId: referral.referrerUserId,
       type: "bonus",
       title: "Referral: เพื่อนเริ่มใช้งานแล้ว",
-      message: "มีเพื่อนที่คุณแนะนำเริ่มใช้งานจริง โบนัส +5 เครดิต",
-      meta: { referralId: referral.id, milestone: "first_usage", credit: 5 },
+      message: `มีเพื่อนที่คุณแนะนำเริ่มใช้งานจริง โบนัส +${REFERRAL_BONUS_FIRST_USAGE} หน่วยโควตา`,
+      meta: { referralId: referral.id, milestone: "first_usage", credit: REFERRAL_BONUS_FIRST_USAGE },
     });
   }
 }
@@ -126,19 +132,19 @@ export async function markReferralFirstPurchase(referredUserId: string) {
     where: { referredUserId },
   });
   if (!referral || referral.firstPurchaseAt) return;
-  if (referral.status === "blocked") return;
+  if (referral.status === "blocked" || referral.status === "suspicious") return;
 
   const updated = await prisma.referral.updateMany({
     where: { id: referral.id, firstPurchaseAt: null },
     data: {
       firstPurchaseAt: new Date(),
-      purchaseCreditGranted: 10,
+      purchaseCreditGranted: REFERRAL_BONUS_FIRST_PURCHASE,
     },
   });
   if (updated.count > 0) {
     await grantBonusCredits({
       userId: referral.referrerUserId,
-      amount: 10,
+      amount: REFERRAL_BONUS_FIRST_PURCHASE,
       sourceType: "referral",
       sourceId: referral.id,
       note: "Referral milestone: first purchase",
@@ -148,8 +154,8 @@ export async function markReferralFirstPurchase(referredUserId: string) {
       userId: referral.referrerUserId,
       type: "bonus",
       title: "Referral: เพื่อนซื้อแพ็กเกจครั้งแรก",
-      message: "มีเพื่อนที่คุณแนะนำซื้อแพ็กเกจครั้งแรก โบนัส +10 เครดิต",
-      meta: { referralId: referral.id, milestone: "first_purchase", credit: 10 },
+      message: `มีเพื่อนที่คุณแนะนำซื้อแพ็กเกจครั้งแรก โบนัส +${REFERRAL_BONUS_FIRST_PURCHASE} หน่วยโควตา`,
+      meta: { referralId: referral.id, milestone: "first_purchase", credit: REFERRAL_BONUS_FIRST_PURCHASE },
     });
   }
 }

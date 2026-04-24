@@ -63,7 +63,7 @@ export async function POST(req: Request) {
       if (creditDelta !== 0) {
         const nextCredits = user.extraCredits + creditDelta;
         if (nextCredits < 0) {
-          throw new Error("เครดิตคงเหลือไม่พอสำหรับการหัก");
+          throw new Error("โควตาเสริมคงเหลือไม่พอสำหรับการหัก");
         }
         updates.extraCredits = nextCredits;
       }

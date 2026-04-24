@@ -6,8 +6,8 @@ import { prisma } from "@/lib/prisma";
 export const runtime = "nodejs";
 
 /**
- * คืนเครดิตจาก usage log ที่เลือก
- * หมายเหตุ: 1 usage อาจใช้ 1 หรือ 2 เครดิต (long case)
+ * คืนโควตาจาก usage log ที่เลือก
+ * หมายเหตุ: 1 usage อาจใช้ 1 หรือ 2 หน่วยโควตา (long case)
  */
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
@@ -46,7 +46,7 @@ export async function POST(req: Request) {
       await prisma.usageLog.delete({ where: { id: usageLogId } });
       return NextResponse.json({
         ok: true,
-        message: `คืนเครดิตแล้ว ${log.creditsUsed ?? 1} เครดิต (ลบรายการที่ระบุ)`,
+        message: `คืนโควตาแล้ว ${log.creditsUsed ?? 1} หน่วย (ลบรายการที่ระบุ)`,
       });
     }
 
@@ -64,7 +64,7 @@ export async function POST(req: Request) {
     await prisma.usageLog.delete({ where: { id: latest.id } });
     return NextResponse.json({
       ok: true,
-      message: `คืนเครดิตแล้ว ${latest.creditsUsed ?? 1} เครดิต (ลบรายการล่าสุด)`,
+      message: `คืนโควตาแล้ว ${latest.creditsUsed ?? 1} หน่วย (ลบรายการล่าสุด)`,
       deletedAt: latest.createdAt.toISOString(),
     });
   } catch (e) {

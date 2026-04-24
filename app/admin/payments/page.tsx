@@ -8,7 +8,7 @@ export default function AdminPaymentsPage() {
           <div>
             <h1 className="text-2xl font-semibold text-white">Admin – Payments</h1>
             <p className="mt-1 text-sm text-slate-300">
-              ตรวจคำขอจ่ายเงินผ่าน PromptPay แล้วกดอนุมัติ / ปฏิเสธ
+              สถานะการชำระเงิน—ปัจจุบันดำเนินการผ่าน Stripe อัตโนมัติ
             </p>
           </div>
           <Link

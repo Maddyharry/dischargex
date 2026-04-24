@@ -67,11 +67,11 @@ export async function GET(req: NextRequest) {
       paymentType = "addon";
       const addonPrice = getAddonPrice(addCredits!);
       if (!addonPrice) {
-        return NextResponse.json({ ok: false, error: "แพ็กเกจเครดิตเพิ่มไม่ถูกต้อง" }, { status: 400 });
+        return NextResponse.json({ ok: false, error: "ตัวเลือก Boost เสริมไม่ถูกต้อง" }, { status: 400 });
       }
       if (!activeSubscription || !isPaidPlan(currentPlanId)) {
         return NextResponse.json(
-          { ok: false, error: "ซื้อเครดิตเพิ่มได้เฉพาะบัญชีที่มี subscription แบบชำระเงินและยัง active" },
+          { ok: false, error: "ซื้อ Boost เสริมได้เฉพาะบัญชีที่มี subscription แบบชำระเงินและยัง active" },
           { status: 400 }
         );
       }

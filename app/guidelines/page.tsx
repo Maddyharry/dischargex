@@ -124,7 +124,7 @@ export default function GuidelinesPage() {
               </li>
             </ol>
             <p className="mt-4 text-xs text-slate-500">
-              แพ็กเกจและเครดิต: ดูได้ที่{" "}
+              แพ็กเกจและโควตา: ดูได้ที่{" "}
               <Link href="/pricing" className="text-cyan-400 hover:underline">แพ็กเกจ</Link>
               {" "}และ{" "}
               <Link href="/app/profile" className="text-cyan-400 hover:underline">ข้อมูลของฉัน</Link>

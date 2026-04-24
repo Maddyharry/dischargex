@@ -41,7 +41,7 @@
 ### 4.2 DDoS / ใช้ API หนักเกินไป
 
 - จำกัดจำนวน request ต่อ user ต่อนาที (rate limit) โดยเฉพาะ:
-  - `POST /api/summarize` (ใช้เครดิตและเรียก OpenAI)
+  - `POST /api/summarize` (ตรวจโควตา/usage และเรียก OpenAI)
   - `POST /api/auth/callback/admin` (ล็อกอินแอดมิน)
 - บน Vercel: ใช้ Vercel Firewall หรือ middleware จำกัด rate  
 - บนเซิร์ฟเวอร์เอง: ใช้ Nginx limit_req หรือ middleware ใน Next.js ที่นับ request ต่อ IP/user

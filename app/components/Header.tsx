@@ -6,6 +6,10 @@ import { useEffect, useState, useRef } from "react";
 
 type UsageInfo = {
   plan: string;
+  used: number;
+  total: number;
+  remaining: number;
+  extraCredits: number;
   nextCreditRefreshAt?: string | null;
   daysLeftInMonth?: number;
 } | null;
@@ -44,6 +48,10 @@ export function Header() {
         if (d.ok) {
           setUsage({
             plan: d.plan ?? (session?.user as { plan?: string })?.plan ?? "trial",
+            used: typeof d.used === "number" ? d.used : 0,
+            total: typeof d.total === "number" ? d.total : 0,
+            remaining: typeof d.remaining === "number" ? d.remaining : 0,
+            extraCredits: typeof d.extraCredits === "number" ? d.extraCredits : 0,
             nextCreditRefreshAt: typeof d.nextCreditRefreshAt === "string" ? d.nextCreditRefreshAt : null,
             daysLeftInMonth: typeof d.daysLeftInMonth === "number" ? d.daysLeftInMonth : undefined,
           });
@@ -115,12 +123,30 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-50 border-b border-slate-800 bg-[#081120]/95 backdrop-blur">
-      <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-4 px-4">
-        <Link href={session?.user ? "/chat" : "/"} className="shrink-0 text-lg font-semibold text-white">
-          Discharge<span className="text-cyan-400">X</span>
-        </Link>
+      <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-2 px-4 sm:gap-4">
+        <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
+          <Link href={session?.user ? "/chat" : "/"} className="shrink-0 text-lg font-semibold text-white">
+            Discharge<span className="text-cyan-400">X</span>
+          </Link>
+          {status !== "loading" && session?.user && usage && (
+            <div
+              className="hidden min-w-0 md:block"
+              title={`คงเหลือ ${usage.remaining} หน่วย — รอบนี้ใช้ ${usage.used} จาก ${usage.total}${
+                usage.extraCredits > 0 ? ` — โควตาเสริม ${usage.extraCredits}` : ""
+              }`}
+            >
+              <div className="max-w-[min(100%,22rem)] truncate rounded-lg border border-emerald-500/35 bg-emerald-950/35 px-2.5 py-1 text-[11px] leading-snug text-emerald-100/95 sm:text-xs">
+                <span className="font-semibold text-white">คงเหลือ {usage.remaining}</span>
+                <span className="text-slate-400"> · ใช้ {usage.used}/{usage.total}</span>
+                {usage.extraCredits > 0 ? (
+                  <span className="text-cyan-300/95"> · เสริม {usage.extraCredits}</span>
+                ) : null}
+              </div>
+            </div>
+          )}
+        </div>
 
-        <nav className="flex min-w-0 flex-1 items-center justify-end gap-1 sm:gap-2">
+        <nav className="flex min-w-0 shrink-0 items-center justify-end gap-1 sm:gap-2">
           <Link
             href="/about"
             className="hidden shrink-0 rounded-lg px-2.5 py-2 text-sm text-slate-300 hover:bg-white/5 hover:text-white sm:inline"
@@ -201,30 +227,39 @@ export function Header() {
                       {displayName}
                     </p>
                     {usage && (
-                      <p className="mt-0.5 text-xs text-slate-400">
-                        แผน{" "}
-                        <span className="text-slate-300">
-                          {formatPlanName(usage.plan)}
-                        </span>
-                        {usage.nextCreditRefreshAt && (
-                          <>
-                            {" · "}
-                            <span className="text-emerald-400">
-                              รีเซ็ตโควตาประมาณ{" "}
-                              {new Date(usage.nextCreditRefreshAt).toLocaleString("th-TH", {
-                                dateStyle: "short",
-                                timeStyle: "short",
-                              })}
-                            </span>
-                          </>
-                        )}
-                        {usage.daysLeftInMonth !== undefined && (
-                          <>
-                            {" · "}
-                            <span className="text-slate-500">เหลืออีก {usage.daysLeftInMonth} วัน</span>
-                          </>
-                        )}
-                      </p>
+                      <div className="mt-1.5 space-y-1.5 text-xs text-slate-400">
+                        <p className="md:hidden text-[11px] leading-snug">
+                          <span className="font-medium text-white">คงเหลือ {usage.remaining}</span>
+                          <span> · ใช้ {usage.used}/{usage.total}</span>
+                          {usage.extraCredits > 0 ? (
+                            <span className="text-cyan-300/90"> · เสริม {usage.extraCredits}</span>
+                          ) : null}
+                        </p>
+                        <p>
+                          แผน{" "}
+                          <span className="text-slate-300">
+                            {formatPlanName(usage.plan)}
+                          </span>
+                          {usage.nextCreditRefreshAt && (
+                            <>
+                              {" · "}
+                              <span className="text-emerald-400">
+                                รีเซ็ตโควตาประมาณ{" "}
+                                {new Date(usage.nextCreditRefreshAt).toLocaleString("th-TH", {
+                                  dateStyle: "short",
+                                  timeStyle: "short",
+                                })}
+                              </span>
+                            </>
+                          )}
+                          {usage.daysLeftInMonth !== undefined && (
+                            <>
+                              {" · "}
+                              <span className="text-slate-500">เหลืออีก {usage.daysLeftInMonth} วัน</span>
+                            </>
+                          )}
+                        </p>
+                      </div>
                     )}
                   </div>
                   <div className="py-1">

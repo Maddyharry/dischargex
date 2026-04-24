@@ -137,7 +137,7 @@ export default function AdminUsersPage() {
 
   async function adjustUser(userId: string) {
     const creditDeltaRaw = prompt(
-      "ปรับเครดิตโบนัส (ใส่ตัวเลข เช่น 50 หรือ -20)\nถ้าไม่ปรับเครดิต ให้เว้นว่างหรือใส่ 0",
+      "ปรับโควตาเสริม (ตัวเลข เช่น 50 หรือ -20)\nถ้าไม่ปรับโควตา ให้เว้นว่างหรือใส่ 0",
       ""
     );
     if (creditDeltaRaw === null) return;
@@ -156,7 +156,7 @@ export default function AdminUsersPage() {
       return;
     }
     if (creditDelta === 0 && expiryDeltaDays === 0) {
-      alert("ยังไม่ได้ระบุการปรับ\n\nตัวอย่าง:\n- เติมเครดิต: ใส่ 50\n- หักเครดิต: ใส่ -10\n- เพิ่มวันหมดอายุ: ใส่ 7\n- ลดวันหมดอายุ: ใส่ -3");
+      alert("ยังไม่ได้ระบุการปรับ\n\nตัวอย่าง:\n- เติมโควตา: ใส่ 50\n- หักโควตา: ใส่ -10\n- เพิ่มวันหมดอายุ: ใส่ 7\n- ลดวันหมดอายุ: ใส่ -3");
       return;
     }
 
@@ -192,7 +192,7 @@ export default function AdminUsersPage() {
           <div>
             <h1 className="text-2xl font-semibold text-white">Admin – Users</h1>
             <p className="mt-1 text-sm text-slate-300">
-              จัดการแผนและสิทธิ์ผู้ใช้ · แผนรายเดือน 30 วัน / แผนรายปี 365 วัน (อนุมัติสลิป = apply สิทธิ์)
+              จัดการแผนและสิทธิ์ผู้ใช้ · รอบ 30/365 วันตามแพ็กเกจ · ชำระเงินหลักผ่าน Stripe (webhook อัปเดตสิทธิ์อัตโนมัติ)
             </p>
           </div>
           <div className="flex gap-2">
@@ -206,7 +206,7 @@ export default function AdminUsersPage() {
               href="/admin/ledger"
               className="rounded-2xl border border-slate-700 bg-slate-900/80 px-4 py-2 text-sm font-medium text-slate-100 transition hover:bg-slate-800"
             >
-              Credit ledger
+              บันทึกโควตา
             </Link>
           </div>
         </header>
@@ -231,7 +231,7 @@ export default function AdminUsersPage() {
                   <th className="px-4 py-3">อีเมล / ชื่อ</th>
                   <th className="px-4 py-3">แผน</th>
                   <th className="px-4 py-3">สิทธิ์</th>
-                  <th className="px-4 py-3">เครดิตรอบนี้</th>
+                  <th className="px-4 py-3">โควตารอบนี้ (ใช้/ทั้งหมด)</th>
                   <th className="px-4 py-3" title="จำนวนวันจนถึงสิ้นรอบของแพ็กเกจ (30 วัน หรือ 365 วัน)">
                     เหลืออีก (วัน)
                   </th>
@@ -312,7 +312,7 @@ export default function AdminUsersPage() {
                             onClick={() => adjustUser(u.id)}
                             className="rounded-2xl border border-amber-700 bg-amber-950/40 px-3 py-1.5 text-xs font-medium text-amber-200 hover:bg-amber-900/50 disabled:opacity-50"
                           >
-                            {adjustingId === u.id ? "กำลังปรับ..." : "ปรับเครดิต/วัน"}
+                            {adjustingId === u.id ? "กำลังปรับ..." : "ปรับโควตา/วัน"}
                           </button>
                           <button
                             type="button"

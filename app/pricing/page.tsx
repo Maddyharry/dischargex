@@ -45,7 +45,8 @@ function PricingPageContent() {
   const [quoteError, setQuoteError] = React.useState<string | null>(null);
 
   const [addCreditsOption, setAddCreditsOption] = React.useState(0);
-  const submitSuccess = searchParams.get("status") === "success";
+  const submitSuccess =
+    searchParams.get("stripe") === "success" || searchParams.get("status") === "success";
   const hasPlan = (session?.user as { plan?: string } | undefined)?.plan;
   const isExistingPlan = hasPlan && hasPlan !== "trial";
   const defaultPlanRequested = billingView === "yearly" ? "standard_yearly" : "standard_monthly";
@@ -126,11 +127,11 @@ function PricingPageContent() {
       <div className="mx-auto max-w-5xl px-4 py-10 space-y-8">
         {submitSuccess && (
           <div className="rounded-3xl border border-emerald-500/50 bg-emerald-950/30 p-6 text-center">
-            <h2 className="text-xl font-semibold text-emerald-300">ส่งคำขอแล้ว</h2>
+            <h2 className="text-xl font-semibold text-emerald-300">ชำระเงินสำเร็จ</h2>
             <p className="mt-2 text-sm text-slate-300">
-              ทีมงานจะตรวจสอบสลิปและเปิดแพ็กเกจภายใน 24 ชั่วโมง
+              ระบบจะอัปเดตแพ็กเกจและโควตาจาก Stripe อัตโนมัติภายไม่กี่นาที
               <br />
-              รออัปเดตหรือไปใช้งานด้านล่างได้เลย
+              หากยังไม่เห็นการเปลี่ยนแปลง ลองรีเฟรชหน้าแอปหรือล็อกอินใหม่
             </p>
             <div className="mt-5 flex flex-wrap justify-center gap-3">
               <Link
@@ -391,19 +392,19 @@ function PricingPageContent() {
         </section>
 
         <section className="rounded-2xl border border-cyan-500/15 bg-gradient-to-br from-cyan-950/20 to-transparent p-6">
-          <h2 className="text-lg font-semibold text-white tracking-tight">รับเครดิตโบนัสเพิ่มเติม</h2>
+          <h2 className="text-lg font-semibold text-white tracking-tight">รับโควตาโบนัสเพิ่มเติม</h2>
           <p className="mt-2 text-sm text-slate-300">
             ส่ง feedback ที่มีประโยชน์ต่อการพัฒนาระบบ หรือแนะนำเพื่อนมาใช้งานจริง
-            เพื่อรับเครดิตโบนัสตามเงื่อนไข
+            เพื่อรับโควตาโบนัสตามเงื่อนไข
           </p>
           <ul className="mt-3 space-y-1 text-sm text-slate-200">
             <li>- โบนัส feedback พิจารณาตามคุณภาพของข้อเสนอ (ไม่รับประกันทุกรายการ)</li>
             <li>- โบนัสแนะนำเพื่อนได้เมื่อเพื่อนเริ่มใช้งานจริง/ซื้อแพ็กเกจครั้งแรก</li>
-            <li>- ทีมงานขอสงวนสิทธิ์ปรับเครดิตตามความเหมาะสม</li>
+            <li>- ทีมงานขอสงวนสิทธิ์ปรับโควตาโบนัสตามความเหมาะสม</li>
           </ul>
           <div className="mt-4 flex flex-wrap gap-2">
             <Link href="/app/profile" className="rounded-xl border border-cyan-400/40 px-3 py-2 text-sm text-cyan-200 hover:bg-cyan-500/10">
-              ดูเครดิตโบนัสของฉัน
+              ดูโควตาโบนัสของฉัน
             </Link>
             <Link href="/app?feedback=report" className="rounded-xl border border-slate-600 px-3 py-2 text-sm text-slate-200 hover:bg-slate-800">
               ไปส่ง feedback
@@ -412,12 +413,12 @@ function PricingPageContent() {
         </section>
 
         <section className="rounded-3xl border border-white/10 bg-gradient-to-b from-white/[0.04] to-transparent p-6 md:p-8 backdrop-blur">
-          <h2 className="text-xl font-semibold text-white tracking-tight">ชำระเงิน (Stripe เป็นหลัก, PromptPay เป็นทางเลือก)</h2>
+          <h2 className="text-xl font-semibold text-white tracking-tight">ชำระเงิน (Stripe)</h2>
           <p className="mt-2 text-sm text-slate-400">
-            เลือกแพ็กเกจหรือ Boost เสริมช่วงพีค แล้วชำระผ่าน Stripe ได้ทันที หรือโอน PromptPay พร้อมแนบสลิปสำหรับองค์กร
+            เลือกแพ็กเกจหรือ Boost เสริมช่วงพีค แล้วไปหน้า Stripe เพื่อชำระ—สิทธิ์และโควตาอัปเดตอัตโนมัติหลังชำระสำเร็จ
           </p>
           <p className="mt-3 rounded-xl border border-cyan-500/25 bg-cyan-500/10 px-3 py-2 text-xs text-cyan-100">
-            นี่คือหน้าชำระเงินอย่างเป็นทางการของ DischargeX เท่านั้น ข้อมูลที่ส่งใช้เพื่อยืนยันคำขอเปิดแพ็กเกจ/เครดิตเพิ่ม
+            นี่คือหน้าสั่งเปิดแพ็กหรือเติมโควตาเสริมอย่างเป็นทางการของ DischargeX เท่านั้น
           </p>
 
           {!isLoggedIn ? (

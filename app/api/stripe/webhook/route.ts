@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getCreditCycleBounds, getPeriodBounds, getPlanDefinition, normalizePlanId } from "@/lib/billing-rules";
 import { getPlanIdByStripePriceId, getStripe, getStripeWebhookSecret } from "@/lib/stripe";
 import { notifyUser } from "@/lib/notifications";
+import { markReferralFirstPurchase } from "@/lib/referral";
 
 export const runtime = "nodejs";
 
@@ -152,6 +153,14 @@ export async function POST(req: Request) {
         return NextResponse.json({ ok: false, error: "Unsupported checkout mode" }, { status: 400 });
       }
 
+      if (session.mode === "subscription") {
+        try {
+          await markReferralFirstPurchase(user.id);
+        } catch (referralErr) {
+          console.error("stripe_webhook markReferralFirstPurchase:", referralErr);
+        }
+      }
+
       await prisma.paymentRequest.update({
         where: { id: payment.id },
         data: {
@@ -191,6 +200,8 @@ export async function POST(req: Request) {
         id: string;
         subscription?: string | null;
         customer?: string | null;
+        /** งวดแรกหลังสร้าง subscription — สำรองกรณี `checkout.session.completed` ยิงไม่สำเร็จ */
+        billing_reason?: string | null;
       };
       const subscriptionId =
         typeof invoiceAny.subscription === "string" ? invoiceAny.subscription : null;
@@ -204,6 +215,14 @@ export async function POST(req: Request) {
         resetExtraCredits: false,
       });
       if (!applied) return NextResponse.json({ ok: true, ignored: true });
+
+      if (invoiceAny.billing_reason === "subscription_create") {
+        try {
+          await markReferralFirstPurchase(user.id);
+        } catch (referralErr) {
+          console.error("stripe_webhook invoice.paid markReferralFirstPurchase:", referralErr);
+        }
+      }
 
       await prisma.entitlementLog.create({
         data: {

@@ -46,6 +46,12 @@ const DEFAULT_CHAT_STYLE_PROFILE: ChatStyleProfile = {
   tone: "neutral",
 };
 
+/** Sent to the API when the user attaches images but leaves the text box empty. */
+const DEFAULT_IMAGE_ONLY_API_PROMPT =
+  "แนบรูปตรวจทางการแพทย์ (เช่น EKG หรือ X-ray) — ช่วยอ่านจากภาพแล้วสรุปสิ่งที่เห็นและประเมินเบื้องต้น พร้อม differential/สิ่งที่ควรตรวจเพิ่มหรือขอ formal read เมื่อจำเป็น (เน้น: ไม่ใช่รายงานทางรังสีวิทยาหรืออ่านคลื่นไฟฟ้าหัวใจทางการ)";
+/** Shown in the thread UI instead of the long API prompt. */
+const IMAGE_ONLY_DISPLAY_LINE = "แนบรูป — ขอช่วยอ่านและประเมินเบื้องต้น (EKG / X-ray / อื่นๆ)";
+
 type SpeechRecognitionCtor = new () => {
   lang: string;
   continuous: boolean;
@@ -705,15 +711,19 @@ export default function ChartSummaryConsultChatPage() {
   }
 
   async function sendMessage() {
-    const text = input.trim();
-    if (!text) return;
+    const trimmed = input.trim();
     const attachments = [...pendingImages];
+    if (!trimmed && attachments.length === 0) return;
+    const imageOnly = !trimmed && attachments.length > 0;
+    const text = imageOnly ? DEFAULT_IMAGE_ONLY_API_PROMPT : trimmed;
     setInput("");
     setPendingImages([]);
     if (composerHint.startsWith("แนบรูปแล้ว")) {
       setComposerHint("");
     }
-    await sendPreparedMessage(text, attachments);
+    await sendPreparedMessage(text, attachments, undefined, {
+      displayContent: imageOnly ? IMAGE_ONLY_DISPLAY_LINE : undefined,
+    });
   }
 
   function buildSummaryPrompt(kind: SummaryKind) {
@@ -759,18 +769,24 @@ export default function ChartSummaryConsultChatPage() {
   async function sendPreparedMessage(
     text: string,
     attachments?: UploadedImage[],
-    historyOverride?: ChatHistoryPayload[]
+    historyOverride?: ChatHistoryPayload[],
+    opts?: { displayContent?: string }
   ) {
     if (!text || !active || loading) return;
 
     const attachmentLine = attachments?.length ? `\n[แนบรูป ${attachments.length} ภาพ]` : "";
-    const userMsg: ChatMessage = { role: "user", content: `${text}${attachmentLine}` };
+    const displayBody = opts?.displayContent ?? text;
+    const userMsg: ChatMessage = { role: "user", content: `${displayBody}${attachmentLine}` };
+    const firstTitle =
+      opts?.displayContent === IMAGE_ONLY_DISPLAY_LINE
+        ? "แนบรูปตรวจ"
+        : (opts?.displayContent ?? text).slice(0, 40);
     setThreads((prev) =>
       prev.map((t) =>
         t.id === active.id
           ? {
               ...t,
-              title: t.messages.length === 0 ? text.slice(0, 40) : t.title,
+              title: t.messages.length === 0 ? firstTitle : t.title,
               messages: [...t.messages, userMsg],
             }
           : t
@@ -968,8 +984,8 @@ export default function ChartSummaryConsultChatPage() {
         ];
 
   return (
-    <main className="min-h-[calc(100dvh-3.5rem)] overflow-y-auto bg-[#081120] text-slate-100 md:h-[calc(100dvh-3.5rem)] md:overflow-hidden">
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-3 px-2 py-3 md:h-full md:grid md:grid-cols-[170px_minmax(0,1fr)] md:px-4">
+    <main className="flex min-h-[calc(100dvh-3.5rem)] flex-col overflow-hidden bg-[#081120] text-slate-100 md:h-[calc(100dvh-3.5rem)]">
+      <div className="mx-auto flex min-h-0 w-full max-w-7xl flex-1 flex-col gap-2 px-2 py-2 md:h-full md:grid md:grid-cols-[170px_minmax(0,1fr)] md:gap-3 md:px-4 md:py-3">
         <div className="flex items-center gap-2 md:hidden">
           <button
             type="button"
@@ -1074,15 +1090,17 @@ export default function ChartSummaryConsultChatPage() {
           </div>
         </aside>
 
-        <section className="flex min-h-0 flex-1 flex-col rounded-2xl border border-white/10 bg-white/[0.03] p-3 md:h-full">
+        <section className="flex min-h-0 flex-1 flex-col rounded-xl border border-white/10 bg-white/[0.03] p-2 sm:rounded-2xl sm:p-3 md:h-full">
           <div className="shrink-0">
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-cyan-500/20 text-cyan-200">AI</div>
-              <div>
-                <h1 className="text-xl font-semibold">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-cyan-500/20 text-sm text-cyan-200 sm:h-9 sm:w-9">
+                AI
+              </div>
+              <div className="min-w-0 flex-1">
+                <h1 className="truncate text-base font-semibold sm:text-xl">
                   {assistantMode === "opd_demo" ? "OPD Assistant Demo" : "แชทปรึกษาสรุปชาร์จ"}
                 </h1>
-                <p className="text-[11px] text-cyan-300">
+                <p className="hidden text-[11px] text-cyan-300 sm:block">
                   {assistantMode === "opd_demo"
                     ? "ซักประวัติ · ตรวจร่างกาย · DDx · RDU/ICD-10"
                     : "Medical coding assistant · evidence-first"}
@@ -1184,7 +1202,7 @@ export default function ChartSummaryConsultChatPage() {
               </select>
               <span className="text-slate-500">ระบบจะจำรายผู้ใช้ให้อัตโนมัติ</span>
             </div>
-            <p className="mt-1 text-xs text-slate-400 sm:text-xs">
+            <p className="mt-1 hidden text-xs text-slate-400 sm:block">
               {assistantMode === "opd_demo"
                 ? "โหมด OPD รวม: ซักประวัติ/ตรวจร่างกาย/DDx/แผนรักษา + RDU โดยต้องเช็กข้อบ่งชี้ยาฆ่าเชื้อ และชื่อโรคให้ใส่ (ICD-10: ...)"
                 : "ถามโรค/แนวทางลง diagnosis และการบันทึกสรุป โดยอิงชุดความรู้ในระบบและอ้างอิงเอกสารมาตรฐานเป็น [R#] (ไม่ใช่คำแนะทางการรักษาแทนแพทย์)"}
@@ -1205,7 +1223,7 @@ export default function ChartSummaryConsultChatPage() {
               </a>
             </div>
             {assistantMode === "coding" ? (
-              <p className="mt-1 text-xs text-slate-500">
+              <p className="mt-1 hidden text-xs text-slate-500 sm:block">
                 [R#] คือเลขเอกสารอ้างอิง เช่น [R2] = เอกสารลำดับที่ 2 ในชุดมาตรฐานของระบบ
               </p>
             ) : null}
@@ -1248,6 +1266,9 @@ export default function ChartSummaryConsultChatPage() {
                 >
                   {showPromptSuggestions ? "ซ่อนตัวอย่าง prompt" : "แสดงตัวอย่าง prompt"}
                 </button>
+                <p className="mt-2 text-center text-[10px] leading-snug text-slate-500">
+                  ข้อความถูกปกปิดข้อมูลระบุตัวก่อนส่ง AI
+                </p>
               </div>
             ) : null}
           </div>
@@ -1258,7 +1279,7 @@ export default function ChartSummaryConsultChatPage() {
               const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 72;
               setStickToBottom(nearBottom);
             }}
-            className="mt-3 min-h-[320px] max-h-[54dvh] overflow-y-auto rounded-xl border border-slate-700/70 bg-slate-950/50 p-3 md:min-h-0 md:max-h-none md:flex-1"
+            className="mt-2 min-h-0 flex-1 overflow-y-auto rounded-lg border border-slate-700/60 bg-slate-950/40 p-2 sm:mt-3 sm:rounded-xl sm:p-3 md:flex-1"
           >
             {active?.messages.length ? (
               <div className="space-y-3">
@@ -1393,7 +1414,12 @@ export default function ChartSummaryConsultChatPage() {
                 ) : null}
               </div>
             ) : (
-              <p className="text-sm text-slate-500">เริ่มพิมพ์คำถามได้เลย เช่น เคสนี้ควรลง diagnosis อะไร</p>
+              <div className="flex min-h-[min(50dvh,320px)] flex-col items-center justify-center gap-2 px-4 py-10 text-center">
+                <p className="text-base font-medium text-slate-200 sm:text-lg">มีอะไรให้ช่วยวันนี้?</p>
+                <p className="max-w-md text-sm leading-relaxed text-slate-500">
+                  พิมพ์เคสหรือคำถาม — หรือแนบรูป EKG / X-ray แล้วกดส่งได้เลย (ช่วยอ่านเบื้องต้น ไม่ทดแทน formal read)
+                </p>
+              </div>
             )}
           </div>
           {!stickToBottom ? (
@@ -1463,8 +1489,8 @@ export default function ChartSummaryConsultChatPage() {
                   className="w-full max-h-[180px] min-h-[56px] resize-none overflow-y-auto rounded-xl border border-slate-700 bg-slate-900/80 px-3 py-2.5 pr-28 sm:pr-32 text-sm leading-relaxed outline-none focus:border-cyan-500"
                   placeholder={
                     assistantMode === "opd_demo"
-                      ? "เล่าเคส OPD แล้วให้ช่วยจัด flow รวม RDU: ซักประวัติ/ตรวจร่างกาย/DDx(ICD-10)/เกณฑ์ยาฆ่าเชื้อ/สรุปเคส"
-                      : "ถามเกี่ยวกับ diagnosis, differential, ต้องตรวจอะไรเพิ่ม..."
+                      ? "เล่าเคส หรือแนบรูป EKG/X-ray…"
+                      : "ถาม diagnosis / แนบรูปตรวจเพื่อช่วยอ่านเบื้องต้น…"
                   }
                 />
                 <div className="absolute right-2 bottom-2 flex items-center gap-1">
@@ -1503,7 +1529,7 @@ export default function ChartSummaryConsultChatPage() {
                   <button
                     type="button"
                     onClick={() => void sendMessage()}
-                    disabled={loading || !input.trim()}
+                    disabled={loading || (!input.trim() && !pendingImages.length)}
                     className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-cyan-600 text-white hover:bg-cyan-500 disabled:opacity-50 sm:h-8 sm:w-8"
                     title={loading ? "กำลังตอบ..." : "ส่ง"}
                     aria-label={loading ? "กำลังตอบ..." : "ส่ง"}
@@ -1516,7 +1542,7 @@ export default function ChartSummaryConsultChatPage() {
                 </div>
               </div>
             </div>
-            <div className="mt-1 text-[11px] text-slate-500">
+            <div className="mt-1 hidden text-[11px] text-slate-500 sm:block">
               ระบบปกปิดข้อมูลระบุตัวผู้ป่วยอัตโนมัติก่อนส่งไป AI (เช่น ชื่อ, เลขบัตร, HN, AN)
             </div>
             <div className="mt-2 hidden sm:block">

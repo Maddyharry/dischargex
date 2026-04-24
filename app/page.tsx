@@ -250,7 +250,7 @@ export default function Home() {
             <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
               <h3 className="text-base font-semibold text-white">ราคาและแพ็กเกจ</h3>
               <p className="mt-2 text-sm leading-relaxed text-slate-300">
-                มี Trial 14 วัน, แพ็ก Basic/Standard/Pro และ Boost เสริมช่วงพีค พร้อมช่องทางชำระเงินผ่าน Stripe/PromptPay
+                มี Trial 14 วัน, แพ็ก Basic/Standard/Pro และ Boost เสริมช่วงพีค ชำระเงินหลักผ่าน Stripe (อัปเดตสิทธิ์อัตโนมัติ)
               </p>
               <Link href="/pricing" className="mt-3 inline-block text-sm text-cyan-300 underline underline-offset-2 hover:text-cyan-200">
                 ดูราคาอัปเดตล่าสุด

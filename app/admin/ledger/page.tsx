@@ -43,11 +43,11 @@ export default function AdminLedgerPage() {
       const text = await res.text();
       const data = (text ? JSON.parse(text) : {}) as { ok?: boolean; error?: string; ledger?: LedgerRow[] };
       if (!res.ok || !data.ok || !Array.isArray(data.ledger)) {
-        throw new Error(data.error || "โหลด ledger ไม่สำเร็จ");
+        throw new Error(data.error || "โหลดรายการไม่สำเร็จ");
       }
       setRows(data.ledger);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "โหลด ledger ไม่สำเร็จ");
+      setError(err instanceof Error ? err.message : "โหลดรายการไม่สำเร็จ");
     } finally {
       setLoading(false);
     }
@@ -61,7 +61,7 @@ export default function AdminLedgerPage() {
   async function manualAdjust() {
     const targetUserId = userId.trim();
     if (!targetUserId) {
-      setError("กรุณาใส่ userId เพื่อปรับเครดิต/วัน");
+      setError("กรุณาใส่ userId เพื่อปรับโควตา/วัน");
       return;
     }
     const creditDeltaRaw = (document.getElementById("creditDelta") as HTMLInputElement | null)?.value || "0";
@@ -103,8 +103,8 @@ export default function AdminLedgerPage() {
       <div className="mx-auto max-w-6xl px-4 py-8 space-y-6">
         <header className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-semibold text-white">Admin – Credit Ledger</h1>
-            <p className="mt-1 text-sm text-slate-300">ดูประวัติการเพิ่ม/ลดเครดิตโบนัส และปรับเครดิต/วันหมดอายุแบบ manual</p>
+            <h1 className="text-2xl font-semibold text-white">Admin – บันทึกโควตา</h1>
+            <p className="mt-1 text-sm text-slate-300">ดูประวัติการเพิ่ม/ลดโควตาเสริม และปรับโควตา/วันหมดอายุแบบ manual</p>
           </div>
           <div className="flex gap-2">
             <Link
@@ -175,7 +175,7 @@ export default function AdminLedgerPage() {
           <p className="mt-1 text-xs text-slate-400">ใช้ userId ด้านบนเป็นเป้าหมาย</p>
           <div className="mt-4 grid gap-3 md:grid-cols-4">
             <div>
-              <label className="text-xs text-slate-400">creditDelta</label>
+              <label className="text-xs text-slate-400">delta โควตา (+/−)</label>
               <input
                 id="creditDelta"
                 defaultValue="0"

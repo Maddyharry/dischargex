@@ -1878,7 +1878,7 @@ export async function POST(req: Request) {
               },
             });
             if (updatedCount.count === 0) {
-              throw new Error("เครดิต add-on ไม่เพียงพอ กรุณาลองใหม่อีกครั้ง");
+              throw new Error("โควตา Boost เสริมไม่เพียงพอ กรุณาลองใหม่อีกครั้ง");
             }
           } else {
             await tx.user.update({

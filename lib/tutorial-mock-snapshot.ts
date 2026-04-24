@@ -149,7 +149,7 @@ export const TUTORIAL_MOCK_RESULT: TutorialMockApiResult = {
     "Initial hypoxemia and oxygen requirement are documented, but acute respiratory failure is not clearly diagnosed; do not code respiratory failure without physician documentation.",
     "ICD-9 procedure coding for nebulization and therapeutic infusions is estimate-based from ward orders and may vary by local coding convention.",
     "Missing admit/discharge date for LOS (used as guidance only).",
-    "— ผลนี้แสดงในโหมดสาธิต — การสร้างสรุปจริงจากระบบจะใช้เครดิตตามบัญชีของคุณ",
+    "— ผลนี้แสดงในโหมดสาธิต — การสร้างสรุปจริงจากระบบจะใช้โควตาตามบัญชีของคุณ",
   ],
   meta: {
     losDays: 3,
