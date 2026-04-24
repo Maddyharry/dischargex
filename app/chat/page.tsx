@@ -1493,7 +1493,9 @@ export default function ChartSummaryConsultChatPage() {
             <p className={`${showMobileTools ? "block" : "hidden"} mt-1 text-[11px] text-slate-500`}>
               ทั้งสองโหมดคุยได้ทุกเรื่องในแชทเดียวกัน ต่างกันที่โครงคำตอบเริ่มต้น
             </p>
-            <div className="mt-2 hidden flex-wrap items-center gap-2 text-[11px] text-slate-300 sm:flex">
+            <div
+              className={`mt-2 ${showMobileTools ? "flex" : "hidden"} flex-wrap items-center gap-2 text-[11px] text-slate-300`}
+            >
               <span className="text-slate-500">ลัดไปหน้าอื่น:</span>
               <a href="/app" className="rounded-full border border-slate-700 px-2 py-0.5 hover:border-cyan-500/50 hover:text-cyan-200">
                 Discharge Summary
@@ -1550,7 +1552,6 @@ export default function ChartSummaryConsultChatPage() {
                       ) : (
                         <>
                           <div className="w-full rounded-2xl border border-white/10 bg-slate-800/90 px-3 py-2 text-[15px] leading-relaxed whitespace-pre-wrap text-slate-100 shadow-sm sm:text-sm md:max-w-[94%]">
-                            <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-cyan-300">Assistant</div>
                             <ChatMessageBody content={m.content} />
                           </div>
                           <div className="mt-1 hidden text-[10px] text-slate-500 sm:block">

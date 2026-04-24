@@ -515,7 +515,7 @@ export default function ProfilePage() {
                         </div>
                         <div className="mt-3 flex items-center justify-between text-sm">
                           <p className="font-medium text-slate-300">เวลาในรอบ</p>
-                          <p className="font-semibold text-violet-200">{timePercent}%</p>
+                          <p className="font-semibold text-violet-200">{usage.daysLeftInMonth ?? 0} วัน</p>
                         </div>
                         <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-800">
                           <div

@@ -235,7 +235,7 @@ export function Header() {
                         <div className="space-y-1">
                           <div className="flex items-center justify-between">
                             <span className="text-slate-300">เวลาในรอบ</span>
-                            <span className="font-semibold text-violet-200">{timePercent}%</span>
+                            <span className="font-semibold text-violet-200">{usage.daysLeftInMonth ?? 0} วัน</span>
                           </div>
                           <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-700">
                             <div className="h-full bg-violet-400" style={{ width: `${timePercent}%` }} />
