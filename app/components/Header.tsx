@@ -128,22 +128,6 @@ export function Header() {
           <Link href={session?.user ? "/chat" : "/"} className="shrink-0 text-lg font-semibold text-white">
             Discharge<span className="text-cyan-400">X</span>
           </Link>
-          {status !== "loading" && session?.user && usage && (
-            <div
-              className="hidden min-w-0 md:block"
-              title={`คงเหลือ ${usage.remaining} หน่วย — รอบนี้ใช้ ${usage.used} จาก ${usage.total}${
-                usage.extraCredits > 0 ? ` — โควตาเสริม ${usage.extraCredits}` : ""
-              }`}
-            >
-              <div className="max-w-[min(100%,22rem)] truncate rounded-lg border border-emerald-500/35 bg-emerald-950/35 px-2.5 py-1 text-[11px] leading-snug text-emerald-100/95 sm:text-xs">
-                <span className="font-semibold text-white">คงเหลือ {usage.remaining}</span>
-                <span className="text-slate-400"> · ใช้ {usage.used}/{usage.total}</span>
-                {usage.extraCredits > 0 ? (
-                  <span className="text-cyan-300/95"> · เสริม {usage.extraCredits}</span>
-                ) : null}
-              </div>
-            </div>
-          )}
         </div>
 
         <nav className="flex min-w-0 shrink-0 items-center justify-end gap-1 sm:gap-2">

@@ -74,6 +74,20 @@ function isSummaryCommandText(text: string) {
   return /ช่วยสรุปเป็นเฉพาะกลุ่ม diagnosis|ช่วยสรุปเคสแบบ opd ไทย|ช่วยสรุปแบบ soap/i.test(text);
 }
 
+function extractUrls(text: string) {
+  const matches = text.match(/https?:\/\/[^\s)]+/g) || [];
+  return Array.from(new Set(matches));
+}
+
+function getUrlHostLabel(rawUrl: string) {
+  try {
+    const url = new URL(rawUrl);
+    return url.hostname.replace(/^www\./, "");
+  } catch {
+    return "reference";
+  }
+}
+
 function renderInlineCitations(line: string) {
   const parts = line.split(/(\[R\d+\])/g);
   return parts.map((part, idx) => {
@@ -89,15 +103,24 @@ function renderInlineCitations(line: string) {
       <span key={`${part}-${idx}`}>
         {urlParts.map((chunk, urlIdx) => {
           if (/^https?:\/\/[^\s)]+$/.test(chunk)) {
+            const host = getUrlHostLabel(chunk);
             return (
               <a
                 key={`${chunk}-${urlIdx}`}
                 href={chunk}
                 target="_blank"
                 rel="noreferrer"
-                className="underline decoration-cyan-400/70 underline-offset-2 hover:text-cyan-200"
+                className="mx-0.5 inline-flex items-center gap-1 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 text-[11px] text-cyan-200 hover:bg-cyan-500/20"
+                title={chunk}
               >
-                {chunk}
+                <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M14 3h7v7" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M10 14 21 3" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M21 14v7h-7" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M3 10V3h7" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="m3 3 7 7" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                <span>{host}</span>
               </a>
             );
           }
@@ -128,6 +151,34 @@ function ChatMessageBody({ content }: { content: string }) {
           <div key={`text-${blockIdx}`} className="space-y-1">
             {lines.map((line, idx) => {
               const clean = line.trim();
+              if (/^referencesource\s*:/i.test(clean)) {
+                const urls = extractUrls(clean);
+                if (!urls.length) return null;
+                return (
+                  <div key={`${clean}-${idx}`} className="mt-1 rounded-lg border border-cyan-500/20 bg-cyan-500/5 p-2">
+                    <div className="mb-1 text-[11px] font-medium text-cyan-200">แหล่งอ้างอิง</div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {urls.map((url, refIdx) => (
+                        <a
+                          key={`${url}-${refIdx}`}
+                          href={url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 text-[11px] text-cyan-100 hover:bg-cyan-500/20"
+                          title={url}
+                        >
+                          <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M14 3h7v7" strokeLinecap="round" strokeLinejoin="round" />
+                            <path d="M10 14 21 3" strokeLinecap="round" strokeLinejoin="round" />
+                            <path d="M5 12v7h7" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                          <span>{`Ref ${refIdx + 1}: ${getUrlHostLabel(url)}`}</span>
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                );
+              }
               if (/^[-*]\s+/.test(clean)) {
                 return (
                   <div key={`${clean}-${idx}`} className="flex items-start gap-2">
@@ -227,15 +278,6 @@ export default function ChartSummaryConsultChatPage() {
   useEffect(() => {
     setMobileComposerOpen(false);
   }, [activeId]);
-
-  useEffect(() => {
-    if (!mobileComposerOpen) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, [mobileComposerOpen]);
 
   useEffect(() => {
     if (!mobileComposerOpen) return;
@@ -1705,14 +1747,8 @@ export default function ChartSummaryConsultChatPage() {
             {mobileComposerOpen ? (
               <>
                 <div
-                  className="fixed inset-0 z-[60] bg-black/50"
-                  onClick={() => setMobileComposerOpen(false)}
-                  aria-hidden
-                />
-                <div
                   className="fixed inset-x-0 bottom-0 z-[70] max-h-[85dvh] overflow-y-auto rounded-t-2xl border border-white/10 bg-[#0a1424] p-3 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_-12px_48px_rgba(0,0,0,0.45)]"
                   role="dialog"
-                  aria-modal="true"
                   aria-labelledby="mobile-chat-composer-title"
                   onClick={(e) => e.stopPropagation()}
                 >

@@ -380,7 +380,7 @@ export default function ProfilePage() {
           <div className="text-sm text-slate-300">กำลังโหลด...</div>
         ) : (
           <div className="space-y-6">
-            <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+            <section className="hidden rounded-3xl border border-white/10 bg-white/[0.03] p-6">
               <h2 className="text-lg font-semibold text-white">ข้อมูลบัญชี</h2>
               <div className="mt-4 space-y-4">
                 <div>
@@ -645,9 +645,7 @@ export default function ProfilePage() {
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <h2 className="text-lg font-semibold text-white">Notification Center</h2>
-                  <p className="mt-1 text-xs text-slate-400">
-                    แจ้งเตือนโบนัส/สถานะ feedback และเหตุการณ์สำคัญของบัญชี
-                  </p>
+                  <p className="mt-1 text-xs text-slate-400">แจ้งเตือนสถานะ feedback และเหตุการณ์สำคัญของบัญชี</p>
                 </div>
                 <button
                   type="button"

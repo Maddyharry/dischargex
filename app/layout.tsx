@@ -4,7 +4,7 @@ import { Providers } from "./providers";
 import { Header } from "./components/Header";
 import { FeedbackProvider } from "./context/FeedbackContext";
 import { FeedbackWidget } from "./components/FeedbackWidget";
-import { SiteFooter } from "./components/SiteFooter";
+import { LayoutFooter } from "./components/LayoutFooter";
 import { WebAnalyticsTracker } from "./components/WebAnalyticsTracker";
 
 export const metadata: Metadata = {
@@ -56,7 +56,7 @@ export default function RootLayout({
             <WebAnalyticsTracker />
             <Header />
             {children}
-            <SiteFooter />
+            <LayoutFooter />
             <FeedbackWidget />
           </FeedbackProvider>
         </Providers>
