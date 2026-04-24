@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 
 type UsageInfo = {
   plan: string;
@@ -85,6 +85,17 @@ export function Header() {
 
   const displayName = session?.user?.name || session?.user?.email || "บัญชี";
   const isAdmin = (session?.user as { role?: string })?.role === "admin";
+  const usagePercent = useMemo(() => {
+    if (!usage || usage.total <= 0) return 0;
+    return Math.max(0, Math.min(100, Math.round((usage.used / usage.total) * 100)));
+  }, [usage]);
+  const timePercent = useMemo(() => {
+    if (!usage || usage.daysLeftInMonth === undefined) return 0;
+    const now = new Date();
+    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    if (daysInMonth <= 0) return 0;
+    return Math.max(0, Math.min(100, 100 - Math.round((usage.daysLeftInMonth / daysInMonth) * 100)));
+  }, [usage]);
 
   async function handleSignOut() {
     try {
@@ -211,12 +222,27 @@ export function Header() {
                       {displayName}
                     </p>
                     {usage && (
-                      <div className="mt-1.5 space-y-1.5 text-xs text-slate-400">
+                      <div className="mt-1.5 space-y-2 text-xs text-slate-400">
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="text-slate-300">การใช้งาน</span>
+                            <span className="font-semibold text-cyan-200">{usagePercent}%</span>
+                          </div>
+                          <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-700">
+                            <div className="h-full bg-cyan-400" style={{ width: `${usagePercent}%` }} />
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="text-slate-300">เวลาในรอบ</span>
+                            <span className="font-semibold text-violet-200">{timePercent}%</span>
+                          </div>
+                          <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-700">
+                            <div className="h-full bg-violet-400" style={{ width: `${timePercent}%` }} />
+                          </div>
+                        </div>
                         <p>
-                          แผน{" "}
-                          <span className="text-slate-300">
-                            {formatPlanName(usage.plan)}
-                          </span>
+                          แผน <span className="text-slate-300">{formatPlanName(usage.plan)}</span>
                           {usage.nextCreditRefreshAt && (
                             <>
                               {" · "}
@@ -227,12 +253,6 @@ export function Header() {
                                   timeStyle: "short",
                                 })}
                               </span>
-                            </>
-                          )}
-                          {usage.daysLeftInMonth !== undefined && (
-                            <>
-                              {" · "}
-                              <span className="text-slate-500">เหลืออีก {usage.daysLeftInMonth} วัน</span>
                             </>
                           )}
                         </p>

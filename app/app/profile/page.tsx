@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { THAI_PROVINCES, validateBirthDateBE, validateThaiPhone } from "@/lib/thai-input";
@@ -148,6 +148,17 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const usagePercent = useMemo(() => {
+    if (!usage || usage.total <= 0) return 0;
+    return Math.max(0, Math.min(100, Math.round((usage.used / usage.total) * 100)));
+  }, [usage]);
+  const timePercent = useMemo(() => {
+    if (!usage || usage.daysLeftInMonth === undefined) return 0;
+    const now = new Date();
+    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    if (daysInMonth <= 0) return 0;
+    return Math.max(0, Math.min(100, 100 - Math.round((usage.daysLeftInMonth / daysInMonth) * 100)));
+  }, [usage]);
 
   useEffect(() => {
     if (sessionStatus !== "authenticated") return;
@@ -493,24 +504,25 @@ export default function ProfilePage() {
                     {usage ? (
                       <div className="mt-1">
                         <div className="flex items-center justify-between text-sm">
-                          <p className="font-medium text-emerald-300">
-                            ใช้งานไป {usage.used}/{usage.total} เคส
-                          </p>
-                          <p className="font-semibold text-cyan-200">
-                            {usage.total > 0 ? Math.min(100, Math.round((usage.used / usage.total) * 100)) : 0}%
-                          </p>
+                          <p className="font-medium text-emerald-300">การใช้งาน</p>
+                          <p className="font-semibold text-cyan-200">{usagePercent}%</p>
                         </div>
                         <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-800">
                           <div
                             className="h-full bg-cyan-400 transition-all"
-                            style={{
-                              width: `${
-                                usage.total > 0 ? Math.min(100, Math.round((usage.used / usage.total) * 100)) : 0
-                              }%`,
-                            }}
+                            style={{ width: `${usagePercent}%` }}
                           />
                         </div>
-                        <p className="mt-1 text-xs text-slate-500">คงเหลือ {usage.remaining} เคสในรอบนี้</p>
+                        <div className="mt-3 flex items-center justify-between text-sm">
+                          <p className="font-medium text-slate-300">เวลาในรอบ</p>
+                          <p className="font-semibold text-violet-200">{timePercent}%</p>
+                        </div>
+                        <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-800">
+                          <div
+                            className="h-full bg-violet-400 transition-all"
+                            style={{ width: `${timePercent}%` }}
+                          />
+                        </div>
                       </div>
                     ) : (
                       <p className="mt-1 text-sm font-medium text-slate-400">-</p>

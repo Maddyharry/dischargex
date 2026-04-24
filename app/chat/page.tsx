@@ -1388,7 +1388,7 @@ export default function ChartSummaryConsultChatPage() {
                 </p>
               </div>
             </div>
-            <div className="mt-2 flex items-center justify-between gap-2 text-xs sm:hidden">
+            <div className="mt-2 flex items-center justify-between gap-2 text-xs">
               <span className="text-slate-400">
                 {assistantMode === "opd_demo" ? "OPD" : "Coding"} · {mode === "fast" ? "Fast" : "Precise"}
               </span>
@@ -1400,7 +1400,7 @@ export default function ChartSummaryConsultChatPage() {
                 {showMobileTools ? "ซ่อนตั้งค่า" : "ตั้งค่า"}
               </button>
             </div>
-            <div className="mt-2 hidden flex-wrap items-center gap-2 text-xs sm:flex">
+            <div className={`mt-2 ${showMobileTools ? "flex" : "hidden"} flex-wrap items-center gap-2 text-xs`}>
               <button
                 type="button"
                 onClick={() => setAssistantMode("coding")}
@@ -1437,7 +1437,9 @@ export default function ChartSummaryConsultChatPage() {
                 </span>
               ) : null}
             </div>
-            <div className="mt-2 hidden flex-wrap items-center gap-2 text-[11px] text-slate-300 sm:flex">
+            <div
+              className={`mt-2 ${showMobileTools ? "flex" : "hidden"} flex-wrap items-center gap-2 text-[11px] text-slate-300`}
+            >
               <span className="text-slate-500">สไตล์ตอบ:</span>
               <select
                 value={chatStyle.responseLength}
@@ -1483,12 +1485,12 @@ export default function ChartSummaryConsultChatPage() {
               </select>
               <span className="text-slate-500">ระบบจะจำรายผู้ใช้ให้อัตโนมัติ</span>
             </div>
-            <p className="mt-1 hidden text-xs text-slate-400 sm:block">
+            <p className={`${showMobileTools ? "block" : "hidden"} mt-1 text-xs text-slate-400`}>
               {assistantMode === "opd_demo"
                 ? "โหมด OPD รวม: ซักประวัติ/ตรวจร่างกาย/DDx/แผนรักษา + RDU โดยต้องเช็กข้อบ่งชี้ยาฆ่าเชื้อ และชื่อโรคให้ใส่ (ICD-10: ...)"
                 : "ถามโรค/แนวทางลง diagnosis และการบันทึกสรุป โดยอิงชุดความรู้ในระบบและอ้างอิงเอกสารมาตรฐานเป็น [R#] (ไม่ใช่คำแนะทางการรักษาแทนแพทย์)"}
             </p>
-            <p className="mt-1 hidden text-[11px] text-slate-500 sm:block">
+            <p className={`${showMobileTools ? "block" : "hidden"} mt-1 text-[11px] text-slate-500`}>
               ทั้งสองโหมดคุยได้ทุกเรื่องในแชทเดียวกัน ต่างกันที่โครงคำตอบเริ่มต้น
             </p>
             <div className="mt-2 hidden flex-wrap items-center gap-2 text-[11px] text-slate-300 sm:flex">
@@ -1504,53 +1506,9 @@ export default function ChartSummaryConsultChatPage() {
               </a>
             </div>
             {assistantMode === "coding" ? (
-              <p className="mt-1 hidden text-xs text-slate-500 sm:block">
+              <p className={`${showMobileTools ? "block" : "hidden"} mt-1 text-xs text-slate-500`}>
                 [R#] คือเลขเอกสารอ้างอิง เช่น [R2] = เอกสารลำดับที่ 2 ในชุดมาตรฐานของระบบ
               </p>
-            ) : null}
-            {showMobileTools ? (
-              <div className="mt-2 rounded-xl border border-slate-700/70 bg-slate-950/40 p-2 sm:hidden">
-                <div className="mb-2 flex flex-wrap items-center gap-2 text-xs">
-                  <button
-                    type="button"
-                    onClick={() => setAssistantMode("coding")}
-                    className={`rounded-full px-3 py-1 ${assistantMode === "coding" ? "bg-cyan-500/25 text-cyan-100" : "bg-slate-800 text-slate-300"}`}
-                  >
-                    Coding
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setAssistantMode("opd_demo")}
-                    className={`rounded-full px-3 py-1 ${assistantMode === "opd_demo" ? "bg-violet-500/25 text-violet-100" : "bg-slate-800 text-slate-300"}`}
-                  >
-                    OPD
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setMode("fast")}
-                    className={`rounded-full px-3 py-1 ${mode === "fast" ? "bg-cyan-500/25 text-cyan-100" : "bg-slate-800 text-slate-300"}`}
-                  >
-                    Fast
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setMode("precise")}
-                    className={`rounded-full px-3 py-1 ${mode === "precise" ? "bg-cyan-500/25 text-cyan-100" : "bg-slate-800 text-slate-300"}`}
-                  >
-                    Precise
-                  </button>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setShowPromptSuggestions((prev) => !prev)}
-                  className="w-full rounded-full border border-slate-700 bg-slate-900/70 px-3 py-1 text-xs text-slate-300"
-                >
-                  {showPromptSuggestions ? "ซ่อนตัวอย่าง prompt" : "แสดงตัวอย่าง prompt"}
-                </button>
-                <p className="mt-2 text-center text-[10px] leading-snug text-slate-500">
-                  ข้อความถูกปกปิดข้อมูลระบุตัวก่อนส่ง AI
-                </p>
-              </div>
             ) : null}
           </div>
           <div
