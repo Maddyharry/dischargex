@@ -1265,7 +1265,7 @@ export default function ChartSummaryConsultChatPage() {
   );
 
   return (
-    <main className="min-h-[calc(100dvh-3.5rem)] overflow-y-auto bg-[#081120] text-slate-100 md:h-[calc(100dvh-3.5rem)] md:min-h-0 md:overflow-hidden">
+    <main className="min-h-[100dvh] overflow-y-auto bg-[#081120] text-slate-100 md:h-[100dvh] md:min-h-0 md:overflow-hidden">
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-2 px-2 py-2 md:h-full md:min-h-0 md:grid md:grid-cols-[170px_minmax(0,1fr)] md:gap-3 md:px-4 md:py-3">
         <div className="flex items-center gap-2 md:hidden">
           <button
@@ -1520,7 +1520,7 @@ export default function ChartSummaryConsultChatPage() {
               const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 72;
               setStickToBottom(nearBottom);
             }}
-            className="mt-2 min-h-0 flex-1 overflow-y-auto rounded-lg border border-slate-700/60 bg-slate-950/40 p-2 pb-28 sm:mt-3 sm:rounded-xl sm:p-3 sm:pb-3 md:flex-1"
+            className="mt-2 min-h-0 flex-1 overflow-y-auto rounded-lg border border-slate-700/60 bg-slate-950/40 p-2 pb-28 sm:mt-3 sm:rounded-xl sm:p-3 sm:pb-28 md:flex-1"
           >
             {active?.messages.length ? (
               <div className="space-y-3">
@@ -1528,8 +1528,8 @@ export default function ChartSummaryConsultChatPage() {
                   <div key={`${m.role}-${idx}`}>
                     <div className={`flex ${m.role === "user" ? "justify-end" : "justify-start"} gap-2`}>
                       {m.role === "user" ? (
-                        <div className="flex max-w-[min(92%,28rem)] flex-row-reverse items-start gap-0.5 sm:gap-1">
-                          <div className="min-w-0 flex-1 rounded-2xl bg-cyan-700/70 px-3 py-2 text-[15px] leading-relaxed whitespace-pre-wrap text-white shadow-sm sm:text-sm">
+                        <div className="flex max-w-[min(92%,30rem)] flex-row-reverse items-start gap-0.5 sm:gap-1">
+                          <div className="min-w-0 flex-1 px-1 py-0.5 text-[15px] leading-relaxed whitespace-pre-wrap text-cyan-100 sm:text-sm">
                             <ChatMessageBody content={m.content} />
                           </div>
                           <button
@@ -1551,7 +1551,7 @@ export default function ChartSummaryConsultChatPage() {
                         </div>
                       ) : (
                         <>
-                          <div className="w-full rounded-2xl border border-white/10 bg-slate-800/90 px-3 py-2 text-[15px] leading-relaxed whitespace-pre-wrap text-slate-100 shadow-sm sm:text-sm md:max-w-[94%]">
+                          <div className="w-full px-1 py-0.5 text-[15px] leading-relaxed whitespace-pre-wrap text-slate-100 sm:text-sm md:max-w-[94%]">
                             <ChatMessageBody content={m.content} />
                           </div>
                           <div className="mt-1 hidden text-[10px] text-slate-500 sm:block">
@@ -1647,7 +1647,7 @@ export default function ChartSummaryConsultChatPage() {
                 ))}
                 {loading ? (
                   <div>
-                    <div className="mr-8 flex items-center gap-2 rounded-2xl border border-white/10 bg-slate-800/90 px-3 py-2 text-sm text-slate-100">
+                    <div className="mr-8 flex items-center gap-2 px-1 py-1 text-sm text-slate-100">
                       <span className="inline-flex gap-1">
                         <span className="h-2 w-2 animate-bounce rounded-full bg-cyan-300 [animation-delay:-0.3s]" />
                         <span className="h-2 w-2 animate-bounce rounded-full bg-cyan-300 [animation-delay:-0.15s]" />
@@ -1699,14 +1699,14 @@ export default function ChartSummaryConsultChatPage() {
             onChange={(e) => onPickImages(e.target.files)}
             className="hidden"
           />
-          <div className="mt-2 hidden shrink-0 border-t border-white/10 bg-[#081120]/95 pt-2 pb-3 backdrop-blur sm:block">
+          <div className="mt-2 hidden shrink-0 border-t border-white/10 bg-[#081120]/95 pt-2 pb-3 backdrop-blur">
             {renderComposerInner(textareaRef)}
           </div>
-          <div className="sm:hidden">
+          <div>
             {mobileComposerOpen ? (
               <>
                 <div
-                  className="fixed inset-x-0 bottom-0 z-[70] max-h-[85dvh] overflow-y-auto rounded-t-2xl border border-white/10 bg-[#0a1424] p-3 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_-12px_48px_rgba(0,0,0,0.45)]"
+                  className="fixed inset-x-0 bottom-0 z-[70] max-h-[85dvh] overflow-y-auto rounded-t-2xl border border-white/10 bg-[#0a1424] p-3 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_-12px_48px_rgba(0,0,0,0.45)] sm:bottom-4 sm:left-1/2 sm:right-auto sm:max-h-[78dvh] sm:w-[min(920px,calc(100%-1rem))] sm:-translate-x-1/2 sm:rounded-2xl"
                   role="dialog"
                   aria-labelledby="mobile-chat-composer-title"
                   onClick={(e) => e.stopPropagation()}
@@ -1733,7 +1733,7 @@ export default function ChartSummaryConsultChatPage() {
               <button
                 type="button"
                 onClick={() => setMobileComposerOpen(true)}
-                className="fixed left-3 right-3 z-50 mx-auto flex max-w-lg items-center gap-2 rounded-2xl border border-white/15 bg-[#0c1624]/95 py-3 pl-4 pr-3 text-left shadow-xl shadow-black/40 backdrop-blur-md bottom-[max(0.75rem,env(safe-area-inset-bottom))]"
+                className="fixed left-3 right-3 z-50 mx-auto flex max-w-lg items-center gap-2 rounded-2xl border border-white/15 bg-[#0c1624]/95 py-3 pl-4 pr-3 text-left shadow-xl shadow-black/40 backdrop-blur-md bottom-[max(0.75rem,env(safe-area-inset-bottom))] sm:left-1/2 sm:right-auto sm:w-[min(920px,calc(100%-2rem))] sm:max-w-none sm:-translate-x-1/2"
                 aria-haspopup="dialog"
               >
                 <span className="min-w-0 flex-1 truncate text-sm text-slate-300">
