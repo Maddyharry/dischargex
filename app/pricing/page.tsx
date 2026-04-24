@@ -53,6 +53,11 @@ function MobilePlanPicker(props: {
         onChange={(e) => props.onChange(e.target.value)}
         className="w-full rounded-2xl border border-slate-600 bg-slate-950 px-3 py-3 text-sm text-slate-100 outline-none focus:border-cyan-500"
       >
+        <optgroup label="ทดลองใช้ (ไม่ชำระผ่าน Stripe)">
+          <option value="__trial" disabled>
+            Trial 0฿ — ~20 แชท/วัน · ~2 สรุปชาร์จ/วัน · ทดลอง 14 วัน (สมัครแล้วใช้ได้)
+          </option>
+        </optgroup>
         <optgroup label="รายเดือน">
           {PLAN_SELECT_OPTIONS.monthly.map((option) => (
             <option key={option.value} value={option.value}>
@@ -322,7 +327,9 @@ function PricingPageContent() {
             เลือกแพ็กเกจตามปริมาณงาน
           </h1>
           <p className="mt-3 max-w-2xl text-sm text-slate-400 md:text-base">
-            โปรโมชั่นช่วงเปิดตัว: จ่ายแบบรายเดือนหรือรายปี และแสดงโควตาการใช้งานแบบเข้าใจง่ายเป็นจำนวนโดยประมาณต่อวัน
+            โปรโมชั่นช่วงเปิดตัว: จ่ายแบบรายเดือนหรือรายปี — ตัวเลขต่อวันด้านล่างเป็น{" "}
+            <span className="text-slate-300">เพดาน Fair Use โดยประมาณ</span> (ไม่ได้รับประกันจำนวนข้อความต่อเดือน)
+            และยังมี <span className="text-slate-300">เพดานการใช้งานรายเดือน</span> ของระบบแยกต่างหาก
           </p>
           <p className="mt-2 text-xs text-slate-500">
             ราคาอัปเดตล่าสุดในหน้านี้เสมอ — หากมีแคมเปญใหม่ ระบบจะแสดงที่หน้านี้ก่อนช่องทางอื่น
@@ -387,6 +394,8 @@ function PricingPageContent() {
               <ul className="mt-4 space-y-2 text-sm text-slate-200">
                 <li>- ไม่มีผูกมัด</li>
                 <li>- ใช้ได้ 1 ครั้งต่อบัญชี</li>
+                <li>- จำกัด Fair Use: AI Chat ~20 ครั้ง/วัน · สรุปชาร์จ ~2 เคส/วัน</li>
+                <li>- มีเพดานการใช้งานรายเดือนของระบบ (โควตา token โดยประมาณ)</li>
               </ul>
             </div>
 
@@ -417,7 +426,7 @@ function PricingPageContent() {
                   : "ใช้งานแบบรายเดือน 30 วัน"}
               </p>
               <ul className="mt-4 space-y-2 text-sm text-slate-200">
-                <li>- คุย AI ได้ประมาณ 40 ครั้ง/วัน</li>
+                <li>- AI Chat ~40 ครั้ง/วัน (1 ครั้ง = ส่งข้อความแล้วได้คำตอบจาก AI 1 ครั้ง)</li>
                 <li>- สร้างสรุปชาร์จได้ประมาณ 4 เคส/วัน</li>
                 <li>- Principal / Comorbidity / Complication</li>
                 <li>- แนะนำ ICD-10 / ICD-9</li>
@@ -455,7 +464,7 @@ function PricingPageContent() {
                   : "ใช้งานแบบรายเดือน 30 วัน"}
               </p>
               <ul className="mt-4 space-y-2 text-sm text-slate-100">
-                <li>- คุย AI ได้ประมาณ 140 ครั้ง/วัน</li>
+                <li>- AI Chat ~140 ครั้ง/วัน (1 ครั้ง = ส่งข้อความแล้วได้คำตอบจาก AI 1 ครั้ง)</li>
                 <li>- สร้างสรุปชาร์จได้ประมาณ 14 เคส/วัน</li>
                 <li>- Diagnosis ครบ + Admit / Discharge</li>
                 <li>- Investigations, Treatment, Outcome, Home medication</li>
@@ -490,7 +499,7 @@ function PricingPageContent() {
                   : "ใช้งานแบบรายเดือน 30 วัน"}
               </p>
               <ul className="mt-4 space-y-2 text-sm text-slate-100">
-                <li>- คุย AI ได้ประมาณ 420 ครั้ง/วัน</li>
+                <li>- AI Chat ~420 ครั้ง/วัน (1 ครั้ง = ส่งข้อความแล้วได้คำตอบจาก AI 1 ครั้ง)</li>
                 <li>- สร้างสรุปชาร์จได้ประมาณ 42 เคส/วัน</li>
                 <li>- ทุกอย่างใน Standard</li>
                 <li>- วิเคราะห์เชิงลึกมากขึ้นสำหรับเคสซับซ้อน</li>
@@ -532,7 +541,7 @@ function PricingPageContent() {
               </thead>
               <tbody className="divide-y divide-white/10 text-slate-300 [&>tr]:transition [&>tr:hover]:bg-white/[0.03]">
                 <tr>
-                  <td className="px-4 py-3">คุย AI ได้ประมาณต่อวัน</td>
+                  <td className="px-4 py-3">AI Chat ข้อความ→คำตอบ (โดยประมาณ/วัน)</td>
                   <td className={`px-4 py-3 ${selectedPlanTier === "basic" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>~40 ครั้ง</td>
                   <td className={`px-4 py-3 ${selectedPlanTier === "standard" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>~140 ครั้ง</td>
                   <td className={`px-4 py-3 ${selectedPlanTier === "pro" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>~420 ครั้ง</td>
@@ -578,8 +587,8 @@ function PricingPageContent() {
               </tbody>
             </table>
           </div>
-          <p className="mt-2 text-xs text-slate-500">
-            ความสามารถที่แสดงเป็นตัวเลขโดยประมาณต่อวันตามการใช้งานจริงและนโยบาย Fair Use ของระบบ
+          <p className="mt-2 text-xs leading-relaxed text-slate-500">
+            ตัวเลขต่อวันเป็นเพดาน Fair Use ที่ระบบใช้จริง — ไม่ได้แปลงมาจาก token ทีละข้อความโดยตรง ผู้ใช้งานหนักอาจถึงเพดานรายเดือนก่อนตัวเลขต่อวัน
             <br />
             ทดลองใช้ (Trial) รวมฟีเจอร์ &quot;แนะนำเติม chart / AdjRW ประมาณการ&quot; เช่นเดียวกับ Pro ในขอบเขตที่ระบบกำหนด
           </p>

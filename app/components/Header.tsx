@@ -28,6 +28,8 @@ function formatPlanName(plan: string): string {
       return "Pro Monthly";
     case "pro_yearly":
       return "Pro Yearly";
+    case "trial":
+      return "Trial";
     default:
       return plan;
   }
@@ -186,7 +188,7 @@ export function Header() {
           </Link>
           <Link
             href="/pricing"
-            className="hidden shrink-0 rounded-lg px-2.5 py-2 text-sm text-slate-300 hover:bg-white/5 hover:text-white sm:inline"
+            className="shrink-0 rounded-lg px-2 py-2 text-xs text-slate-300 hover:bg-white/5 hover:text-white sm:px-2.5 sm:text-sm"
           >
             แพ็กเกจ
           </Link>
@@ -266,6 +268,13 @@ export function Header() {
                       onClick={() => setMenuOpen(false)}
                     >
                       Knowledge
+                    </Link>
+                    <Link
+                      href="/pricing"
+                      className="block px-4 py-2.5 text-sm text-slate-200 hover:bg-slate-800 hover:text-white"
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      แพ็กเกจ
                     </Link>
                     <Link
                       href="/app"
