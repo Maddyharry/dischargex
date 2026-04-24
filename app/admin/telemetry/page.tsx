@@ -95,6 +95,10 @@ export default function AdminTelemetryPage() {
   const [error, setError] = useState<string | null>(null);
   const [autoRun, setAutoRun] = useState<AutoImproveRun | null>(null);
   const [autoBusy, setAutoBusy] = useState(false);
+  const [copilotQuestion, setCopilotQuestion] = useState("");
+  const [copilotReply, setCopilotReply] = useState<string | null>(null);
+  const [copilotLoading, setCopilotLoading] = useState(false);
+  const [copilotError, setCopilotError] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -199,34 +203,29 @@ export default function AdminTelemetryPage() {
     [data]
   );
 
-  const copyDigestPrompt = useCallback(async () => {
-    if (!data) return;
-    const w = data.webAnalytics;
-    const lines = [
-      "ฉันเป็นแอดมิน DischargeX กำลังดู Telemetry dashboard — ช่วยตีความสั้นๆ ว่าควรโฟกัสปรับผลิตภัณฑ์/การตลาดอะไรก่อน (ตอบเป็นหัวข้อ bullet ภาษาไทย):",
-      "",
-      `ช่วงสรุป: ${data.periodDays} วัน`,
-      `Events (หลังตัด admin): ${data.totalTelemetry} (ตัด admin ${data.excludedAdminTelemetry ?? 0} แถว)`,
-      `Feedback helpful / not helpful: ${data.feedback.helpful} / ${data.feedback.notHelpful} (acceptance ${
-        data.feedback.acceptanceRate == null ? "-" : `${(data.feedback.acceptanceRate * 100).toFixed(1)}%`
-      })`,
-      `Token cost รวม (ประมาณ THB): ${(data.tokenCostTotal || 0).toFixed(2)}`,
-      w
-        ? `Funnel: landing ${w.landing.views} views · pricing ${w.pricing.views} · chat page ${w.chat.views} · purchases ${w.business.purchases}`
-        : "",
-      w
-        ? `Trial signups: ${w.business.trialSignups} · Trial active: ${w.business.trialActiveUsers} · Unique purchasers: ${w.business.uniquePurchasers}`
-        : "",
-      "",
-      "ขอ 3 ข้อที่ควรทำต่อ และ 1 คำถามที่ควรไปตรวจสอบเพิ่มในระบบ/จากผู้ใช้",
-    ].filter(Boolean);
-    const text = lines.join("\n");
+  const askTelemetryCopilot = useCallback(async () => {
+    if (!data || !copilotQuestion.trim()) return;
+    setCopilotLoading(true);
+    setCopilotError(null);
     try {
-      await navigator.clipboard.writeText(text);
-    } catch {
-      window.prompt("คัดลอกข้อความนี้ไปวางใน AI Chat:", text);
+      const res = await fetch("/api/admin/telemetry-copilot", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          question: copilotQuestion.trim(),
+          digest: { ...data },
+        }),
+      });
+      const j = (await res.json()) as { ok?: boolean; reply?: string; error?: string };
+      if (!res.ok || !j.ok) throw new Error(j.error || "คำขอล้มเหลว");
+      setCopilotReply(typeof j.reply === "string" ? j.reply : "");
+    } catch (e) {
+      setCopilotError(e instanceof Error ? e.message : "เกิดข้อผิดพลาด");
+      setCopilotReply(null);
+    } finally {
+      setCopilotLoading(false);
     }
-  }, [data]);
+  }, [data, copilotQuestion]);
 
   return (
     <main className="min-h-screen bg-[#081120] text-slate-100">
@@ -280,6 +279,55 @@ export default function AdminTelemetryPage() {
               <StatCard label="Token Cost (THB)" value={(data.tokenCostTotal || 0).toFixed(2)} />
             </section>
 
+            <section className="rounded-2xl border border-violet-600/50 bg-gradient-to-br from-violet-950/40 to-slate-950/60 p-4">
+              <h2 className="text-sm font-semibold text-violet-100">ผู้ช่วยวิเคราะห์ Telemetry (เฉพาะแอดมิน)</h2>
+              <p className="mt-1 text-xs leading-relaxed text-slate-400">
+                ส่ง digest ชุดเดียวกับที่แสดงบนหน้านี้ไปให้โมเดล — ถามเรื่องจุดควรพัฒนาเว็บ / conversion / ให้ลูกค้าพร้อมจ่าย ไม่ใช่แชททั่วไปของผู้ใช้ปลายทาง
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {[
+                  "จากตัวเลขนี้ ควรปรับหน้าเว็บหรือ flow ไหนก่อนเพื่อให้คนพร้อมจ่ายมากขึ้น?",
+                  "ช่วงนี้คอขวดอยู่ที่ funnel ขั้นไหน และควรทดสอบอะไรก่อน?",
+                  "ถ้าต้องเลือก 3 งาน dev สำหรับสัปดาห์หน้า จะเลือกอะไรและเพราะอะไร?",
+                ].map((q) => (
+                  <button
+                    key={q}
+                    type="button"
+                    onClick={() => setCopilotQuestion(q)}
+                    className="max-w-full rounded-full border border-violet-500/35 bg-violet-950/50 px-3 py-1.5 text-left text-[11px] text-violet-100 hover:border-violet-400/50 hover:bg-violet-900/40"
+                  >
+                    {q}
+                  </button>
+                ))}
+              </div>
+              <textarea
+                value={copilotQuestion}
+                onChange={(e) => setCopilotQuestion(e.target.value)}
+                rows={3}
+                placeholder="ถามเชิง growth / product จากข้อมูลบนหน้านี้..."
+                className="mt-3 w-full resize-y rounded-xl border border-slate-600 bg-slate-950/80 px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-600 focus:border-violet-500"
+              />
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  disabled={copilotLoading || !copilotQuestion.trim()}
+                  onClick={() => void askTelemetryCopilot()}
+                  className="rounded-xl border border-violet-500/60 bg-violet-600/30 px-4 py-2 text-sm font-medium text-violet-50 hover:bg-violet-600/45 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {copilotLoading ? "กำลังวิเคราะห์..." : "วิเคราะห์"}
+                </button>
+                <span className="text-[11px] text-slate-500">ใช้ OPENAI_API_KEY · โมเดล OPENAI_ADMIN_TELEMETRY_MODEL หรือ OPENAI_CHAT_MODEL</span>
+              </div>
+              {copilotError ? (
+                <div className="mt-3 rounded-lg border border-red-800/50 bg-red-950/40 px-3 py-2 text-sm text-red-200">{copilotError}</div>
+              ) : null}
+              {copilotReply ? (
+                <div className="mt-3 rounded-xl border border-slate-700/80 bg-slate-950/80 px-3 py-3 text-sm leading-relaxed text-slate-200 whitespace-pre-wrap">
+                  {copilotReply}
+                </div>
+              ) : null}
+            </section>
+
             <section className="rounded-2xl border border-slate-600/80 bg-slate-900/40 p-4">
               <h2 className="text-sm font-semibold text-white">รู้ว่าควรปรับอะไร — อ่านยังไง</h2>
               <ul className="mt-2 list-disc space-y-1 pl-5 text-sm leading-relaxed text-slate-300">
@@ -300,22 +348,6 @@ export default function AdminTelemetryPage() {
                   กับสัปดาห์ก่อน จะเห็นว่าอะไรเปลี่ยนจริง
                 </li>
               </ul>
-              <div className="mt-4 flex flex-wrap items-center gap-2 rounded-xl border border-cyan-800/50 bg-cyan-950/25 px-3 py-3">
-                <p className="min-w-0 flex-1 text-xs leading-relaxed text-cyan-100/90">
-                  แชท AI ในหน้านี้ยังไม่ฝัง — ใช้{" "}
-                  <Link href="/chat" className="font-medium text-cyan-300 underline hover:text-cyan-200">
-                    AI Chat
-                  </Link>{" "}
-                  แทน แล้ววางตัวเลขสรุปจากปุ่มคัดลอกด้านขวา
-                </p>
-                <button
-                  type="button"
-                  onClick={() => void copyDigestPrompt()}
-                  className="shrink-0 rounded-lg border border-cyan-500/50 bg-cyan-600/25 px-3 py-2 text-xs font-medium text-cyan-100 hover:bg-cyan-600/35"
-                >
-                  คัดลอก prompt ตีความ
-                </button>
-              </div>
             </section>
 
             <section className="grid gap-4 lg:grid-cols-2">
