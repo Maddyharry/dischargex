@@ -115,7 +115,24 @@ export async function POST(req: NextRequest) {
   if (!sourceName || !content) {
     return NextResponse.json({ ok: false, error: "Missing sourceName/content" }, { status: 400 });
   }
+  if (content.length < 120) {
+    return NextResponse.json({ ok: false, error: "Content too short for ingestion" }, { status: 400 });
+  }
   const checksum = createHash("sha256").update(content).digest("hex");
+  const existing = await prisma.knowledgeDocument.findFirst({
+    where: { checksum },
+    select: { id: true, isActive: true, sourceName: true, version: true, createdAt: true },
+  });
+  if (existing) {
+    return NextResponse.json({
+      ok: true,
+      documentId: existing.id,
+      chunks: 0,
+      pendingReview: !existing.isActive,
+      duplicate: true,
+      existing,
+    });
+  }
   const document = await prisma.knowledgeDocument.create({
     data: {
       sourceName,

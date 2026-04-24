@@ -43,6 +43,10 @@ function PricingPageContent() {
     toPlanId: string | null;
   } | null>(null);
   const [quoteError, setQuoteError] = React.useState<string | null>(null);
+  const [checkoutStatus, setCheckoutStatus] = React.useState<{
+    state: "idle" | "loading" | "confirmed" | "pending" | "failed";
+    message: string | null;
+  }>({ state: "idle", message: null });
 
   const [addCreditsOption, setAddCreditsOption] = React.useState(0);
   const submitSuccess =
@@ -59,6 +63,67 @@ function PricingPageContent() {
   React.useEffect(() => {
     setSelectedPlanRequested(defaultPlanRequested);
   }, [defaultPlanRequested]);
+
+  React.useEffect(() => {
+    if (!submitSuccess || !isLoggedIn) {
+      setCheckoutStatus({ state: "idle", message: null });
+      return;
+    }
+
+    let cancelled = false;
+    const controller = new AbortController();
+
+    setCheckoutStatus({
+      state: "loading",
+      message: "กำลังตรวจสอบสถานะการชำระเงินกับระบบสมาชิก...",
+    });
+
+    fetch("/api/usage", { cache: "no-store", signal: controller.signal })
+      .then(async (response) => {
+        const text = await response.text();
+        const data = text ? (JSON.parse(text) as Record<string, unknown>) : {};
+        if (!response.ok || !data.ok) {
+          throw new Error(
+            typeof data.error === "string" ? data.error : "ตรวจสอบสถานะการชำระเงินไม่สำเร็จ"
+          );
+        }
+        if (cancelled) return;
+
+        const status = String(data.subscriptionStatus || "");
+        const plan = String(data.plan || "");
+        const remaining = Number(data.remaining || 0);
+        const isProvisioned =
+          status === "active" || (plan !== "trial" && Number.isFinite(remaining) && remaining > 0);
+
+        setCheckoutStatus(
+          isProvisioned
+            ? {
+                state: "confirmed",
+                message: "สิทธิ์ใช้งานถูกอัปเดตแล้ว คุณเริ่มใช้งานต่อได้ทันที",
+              }
+            : {
+                state: "pending",
+                message:
+                  "Stripe รับชำระสำเร็จแล้ว แต่ระบบสมาชิกยังอัปเดตไม่เสร็จ หากเพิ่งชำระไปให้รอสักครู่แล้วรีเฟรชอีกครั้ง",
+              }
+        );
+      })
+      .catch((error) => {
+        if (cancelled || String(error?.name || "") === "AbortError") return;
+        setCheckoutStatus({
+          state: "failed",
+          message:
+            error instanceof Error
+              ? error.message
+              : "ตรวจสอบสถานะการชำระเงินไม่สำเร็จ กรุณาลองรีเฟรชอีกครั้ง",
+        });
+      });
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [submitSuccess, isLoggedIn]);
 
   React.useEffect(() => {
     if (!isLoggedIn) return;
@@ -133,6 +198,27 @@ function PricingPageContent() {
               <br />
               หากยังไม่เห็นการเปลี่ยนแปลง ลองรีเฟรชหน้าแอปหรือล็อกอินใหม่
             </p>
+            <div
+              className={`mt-4 rounded-2xl px-4 py-3 text-sm ${
+                checkoutStatus.state === "confirmed"
+                  ? "border border-emerald-500/40 bg-emerald-900/20 text-emerald-100"
+                  : checkoutStatus.state === "failed"
+                  ? "border border-rose-500/40 bg-rose-900/20 text-rose-100"
+                  : "border border-amber-500/40 bg-amber-900/20 text-amber-100"
+              }`}
+            >
+              <div className="font-medium">
+                {checkoutStatus.state === "confirmed"
+                  ? "ยืนยันจากระบบสมาชิกแล้ว"
+                  : checkoutStatus.state === "failed"
+                  ? "ตรวจสอบสถานะล่าสุดไม่สำเร็จ"
+                  : "กำลังตรวจสอบสถานะล่าสุดจาก backend"}
+              </div>
+              <div className="mt-1 text-xs text-current/90">
+                {checkoutStatus.message ||
+                  "ระบบกำลังตรวจสอบสิทธิ์ใช้งานล่าสุดจากฝั่ง server เพื่อยืนยันผลหลังชำระเงิน"}
+              </div>
+            </div>
             <div className="mt-5 flex flex-wrap justify-center gap-3">
               <Link
                 href="/app"

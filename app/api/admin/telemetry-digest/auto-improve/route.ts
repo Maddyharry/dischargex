@@ -21,6 +21,10 @@ function allowCron(req: NextRequest) {
 }
 
 export async function GET() {
+  const session = await getServerSession(authOptions);
+  if (!isAdmin(session)) {
+    return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
+  }
   const row = await prisma.appSetting.findUnique({ where: { key: AUTO_IMPROVE_KEY } });
   if (!row?.value) return NextResponse.json({ ok: true, lastRun: null });
   try {
@@ -52,10 +56,22 @@ export async function POST(req: NextRequest) {
   let helpful = 0;
   let notHelpful = 0;
   const rejectReasons: Record<string, number> = {};
+  const modeStats: Record<string, { helpful: number; notHelpful: number }> = {};
   for (const row of rows) {
-    if (row.message === "specialist_chat_feedback:helpful") helpful += 1;
+    let assistantMode = "unknown";
+    try {
+      const payload = row.payload ? (JSON.parse(row.payload) as { assistantMode?: string }) : null;
+      assistantMode = String(payload?.assistantMode || "unknown");
+    } catch {}
+    if (row.message === "specialist_chat_feedback:helpful") {
+      helpful += 1;
+      modeStats[assistantMode] = modeStats[assistantMode] || { helpful: 0, notHelpful: 0 };
+      modeStats[assistantMode].helpful += 1;
+    }
     if (row.message.startsWith("specialist_chat_feedback:not_helpful")) {
       notHelpful += 1;
+      modeStats[assistantMode] = modeStats[assistantMode] || { helpful: 0, notHelpful: 0 };
+      modeStats[assistantMode].notHelpful += 1;
       const reason = row.message.split(":")[2] || "unspecified";
       rejectReasons[reason] = (rejectReasons[reason] || 0) + 1;
     }
@@ -72,6 +88,12 @@ export async function POST(req: NextRequest) {
     topReasons.some(([r]) => r === "insufficient_evidence") ? "เพิ่ม retrieval จาก whitelist ให้ครอบคลุมเคสนอกคลัง" : null,
     topReasons.some(([r]) => r === "not_specific") ? "เพิ่ม prompt ให้บอกเกณฑ์ขั้นต่ำและ next test แบบเฉพาะเคส" : null,
     totalTokenCostThb > 200 ? "ปรับ default เป็น Fast mode และจำกัด context/history ใน chat API" : null,
+    modeStats.opd_demo && modeStats.opd_demo.notHelpful > modeStats.opd_demo.helpful
+      ? "OPD chat acceptance ต่ำ: เพิ่ม deterministic OPD guardrails และบังคับ missing-data prompts ให้ชัดก่อนสรุป"
+      : null,
+    modeStats.coding && modeStats.coding.notHelpful > modeStats.coding.helpful
+      ? "Coding chat acceptance ต่ำ: ลดคำตอบกว้าง ๆ และเพิ่ม evidence-first checklist ให้เข้มขึ้น"
+      : null,
   ].filter(Boolean) as string[];
 
   const run = {
@@ -82,6 +104,12 @@ export async function POST(req: NextRequest) {
     acceptanceRate,
     tokenCostThb: Number(totalTokenCostThb.toFixed(2)),
     topRejectReasons: topReasons.map(([reason, count]) => ({ reason, count })),
+    modeBreakdown: Object.entries(modeStats).map(([mode, stat]) => ({
+      mode,
+      helpful: stat.helpful,
+      notHelpful: stat.notHelpful,
+      acceptanceRate: stat.helpful + stat.notHelpful > 0 ? stat.helpful / (stat.helpful + stat.notHelpful) : null,
+    })),
     suggestedActions,
   };
 

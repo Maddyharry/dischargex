@@ -80,6 +80,12 @@ type AutoImproveRun = {
   acceptanceRate: number;
   tokenCostThb: number;
   topRejectReasons: Array<{ reason: string; count: number }>;
+  modeBreakdown?: Array<{
+    mode: string;
+    helpful: number;
+    notHelpful: number;
+    acceptanceRate: number | null;
+  }>;
   suggestedActions: string[];
 };
 
@@ -267,6 +273,19 @@ export default function AdminTelemetryPage() {
                   <div className="text-xs text-slate-300">
                     Suggestions: {autoRun.suggestedActions.length ? autoRun.suggestedActions.join(" | ") : "ไม่มี"}
                   </div>
+                  {autoRun.modeBreakdown?.length ? (
+                    <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                      {autoRun.modeBreakdown.map((row) => (
+                        <div key={row.mode} className="rounded-lg border border-cyan-900/60 bg-slate-950/40 px-3 py-2 text-xs">
+                          <div className="font-medium text-cyan-100">{row.mode}</div>
+                          <div className="mt-1 text-slate-300">helpful {row.helpful} / not helpful {row.notHelpful}</div>
+                          <div className="text-slate-400">
+                            acceptance {row.acceptanceRate == null ? "-" : `${(row.acceptanceRate * 100).toFixed(1)}%`}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
               ) : (
                 <p className="mt-2 text-sm text-slate-400">ยังไม่เคยรัน auto-improve</p>

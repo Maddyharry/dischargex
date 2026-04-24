@@ -416,6 +416,18 @@ function mergeUniqueWarnings(base: string[], extras: string[]) {
   }
 }
 
+function uniqueWarningsList(messages: string[]) {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of messages) {
+    const msg = String(raw || "").trim();
+    if (!msg || seen.has(msg)) continue;
+    seen.add(msg);
+    out.push(msg);
+  }
+  return out;
+}
+
 function overlapsIcd10(a: string, b: string) {
   const A = new Set(normalizeIcd10List(a));
   const B = new Set(normalizeIcd10List(b));
@@ -1841,7 +1853,8 @@ export async function POST(req: Request) {
       warnings.push("Missing admit/discharge date for LOS (used as guidance only).");
     }
 
-    const diagnosis_confidence = computeDiagnosisConfidence(normalized, warnings);
+    const finalWarnings = uniqueWarningsList(warnings);
+    const diagnosis_confidence = computeDiagnosisConfidence(normalized, finalWarnings);
 
     if (isBasicPlan) {
       normalized = normalized.map((b) =>
@@ -1940,7 +1953,7 @@ export async function POST(req: Request) {
     return json({
       result: {
         blocks: normalized,
-        warnings,
+        warnings: finalWarnings,
         meta: {
           losDays: isBasicPlan ? null : (losDays ?? null),
           adjrw: includeAdjrwMeta ? adjrwEstimate : null,
@@ -1955,10 +1968,10 @@ export async function POST(req: Request) {
       },
     });
   } catch (err: unknown) {
+    console.error("summarize_route_failed", err);
     return json(
       {
         error: err instanceof Error ? err.message : "Internal Server Error",
-        raw: String(err instanceof Error ? err.stack || err.message : err || ""),
       },
       500
     );

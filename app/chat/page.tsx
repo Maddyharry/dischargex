@@ -37,7 +37,6 @@ type PendingStreamRequest = {
   images?: UploadedImage[];
   appendToExistingAssistant?: boolean;
 };
-const CHAT_STORAGE_KEY = "dischargex_chat_threads_v1";
 const CHAT_MODE_KEY = "dischargex_chat_mode_v1";
 const ASSISTANT_MODE_KEY = "dischargex_assistant_mode_v1";
 const DEFAULT_CHAT_STYLE_PROFILE: ChatStyleProfile = {
@@ -72,6 +71,19 @@ type UploadedImage = {
 
 function isSummaryCommandText(text: string) {
   return /ช่วยสรุปเป็นเฉพาะกลุ่ม diagnosis|ช่วยสรุปเคสแบบ opd ไทย|ช่วยสรุปแบบ soap/i.test(text);
+}
+
+function buildSummaryContextFromThread(messages: ChatMessage[]) {
+  const relevant = messages.filter((m) => !isSummaryCommandText(m.content));
+  const userFirst = relevant
+    .filter((m) => m.role === "user")
+    .slice(-80)
+    .map((m) => `ผู้ใช้: ${m.content}`);
+  const fallback = relevant
+    .slice(-36)
+    .map((m) => `${m.role === "user" ? "ผู้ใช้" : "ผู้ช่วย"}: ${m.content}`);
+  const primaryLines = userFirst.length ? userFirst : fallback;
+  return primaryLines.join("\n").slice(-9000);
 }
 
 function extractUrls(text: string) {
@@ -227,7 +239,6 @@ export default function ChartSummaryConsultChatPage() {
   >({});
   const [mode, setMode] = useState<ChatMode>("fast");
   const [assistantMode, setAssistantMode] = useState<AssistantMode>("coding");
-  const [storageReady, setStorageReady] = useState(false);
   const [composerHint, setComposerHint] = useState("");
   const [canRetryStream, setCanRetryStream] = useState(false);
   const [isStopping, setIsStopping] = useState(false);
@@ -254,6 +265,7 @@ export default function ChartSummaryConsultChatPage() {
   const [stickToBottom, setStickToBottom] = useState(true);
   const [mobileComposerOpen, setMobileComposerOpen] = useState(false);
   const sheetTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const mobileQuickTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const composerPopupRef = useRef<HTMLDivElement | null>(null);
   const composerTriggerRef = useRef<HTMLButtonElement | null>(null);
 
@@ -307,7 +319,6 @@ export default function ChartSummaryConsultChatPage() {
 
   useEffect(() => {
     try {
-      const raw = localStorage.getItem(CHAT_STORAGE_KEY);
       const savedMode = localStorage.getItem(CHAT_MODE_KEY);
       const savedAssistantMode = localStorage.getItem(ASSISTANT_MODE_KEY);
       if (savedMode === "fast" || savedMode === "precise") setMode(savedMode);
@@ -316,36 +327,18 @@ export default function ChartSummaryConsultChatPage() {
       } else if (savedAssistantMode === "opd_rdu") {
         setAssistantMode("opd_demo");
       }
-      if (!raw) return;
-      const parsed = JSON.parse(raw) as { threads?: Thread[]; activeId?: string };
-      if (Array.isArray(parsed.threads) && parsed.threads.length > 0) {
-        setThreads(parsed.threads);
-        const nextActive = parsed.activeId && parsed.threads.some((t) => t.id === parsed.activeId)
-          ? parsed.activeId
-          : parsed.threads[0].id;
-        setActiveId(nextActive);
-      }
     } catch {
-      // ignore corrupt local storage
-    } finally {
-      setStorageReady(true);
+      // ignore storage failures
     }
   }, []);
 
   useEffect(() => {
-    if (!storageReady) return;
-    localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify({ threads, activeId }));
-  }, [threads, activeId, storageReady]);
-
-  useEffect(() => {
-    if (!storageReady) return;
     localStorage.setItem(CHAT_MODE_KEY, mode);
-  }, [mode, storageReady]);
+  }, [mode]);
 
   useEffect(() => {
-    if (!storageReady) return;
     localStorage.setItem(ASSISTANT_MODE_KEY, assistantMode);
-  }, [assistantMode, storageReady]);
+  }, [assistantMode]);
 
   useEffect(() => {
     let cancelled = false;
@@ -446,16 +439,16 @@ export default function ChartSummaryConsultChatPage() {
   }, []);
 
   useEffect(() => {
-    const el = sheetTextareaRef.current;
-    if (!el) return;
-    if (typeof el.getBoundingClientRect === "function" && el.getBoundingClientRect().height === 0) return;
-    el.style.height = "auto";
-    const nextHeight = Math.min(el.scrollHeight, 180);
-    el.style.height = `${Math.max(56, nextHeight)}px`;
+    for (const el of [textareaRef.current, sheetTextareaRef.current, mobileQuickTextareaRef.current]) {
+      if (!el) continue;
+      if (typeof el.getBoundingClientRect === "function" && el.getBoundingClientRect().height === 0) continue;
+      el.style.height = "auto";
+      const nextHeight = Math.min(el.scrollHeight, 180);
+      el.style.height = `${Math.max(56, nextHeight)}px`;
+    }
   }, [input, mobileComposerOpen]);
 
   useEffect(() => {
-    if (!storageReady) return;
     if (cloudInitRef.current) return;
     cloudInitRef.current = true;
     let cancelled = false;
@@ -496,7 +489,7 @@ export default function ChartSummaryConsultChatPage() {
     return () => {
       cancelled = true;
     };
-  }, [storageReady]);
+  }, []);
 
   useEffect(() => {
     if (!cloudSyncReady) return;
@@ -893,15 +886,14 @@ export default function ChartSummaryConsultChatPage() {
   async function sendSummary(kind: SummaryKind) {
     const basePrompt = buildSummaryPrompt(kind);
     const threadMessages = active?.messages || [];
-    const caseContextLines = threadMessages
-      .filter((m) => !isSummaryCommandText(m.content))
-      .map((m) => `${m.role === "user" ? "ผู้ใช้" : "ผู้ช่วย"}: ${m.content}`)
-      .slice(-120);
-    const fullThreadContext = caseContextLines.join("\n").slice(-14000);
+    const fullThreadContext = buildSummaryContextFromThread(threadMessages);
     const prompt = fullThreadContext
       ? `${basePrompt}\n\nข้อมูลเคสจากบทสนทนาทั้งหมดในแชทนี้ (ใช้เป็นบริบทหลัก):\n${fullThreadContext}`
       : basePrompt;
-    const summaryHistory = threadMessages.slice(-200).map((m) => ({ role: m.role, content: m.content }));
+    const summaryHistory = threadMessages
+      .filter((m) => !isSummaryCommandText(m.content))
+      .slice(-40)
+      .map((m) => ({ role: m.role, content: m.content }));
     setComposerHint(
       kind === "diagnosis"
         ? "กำลังสรุป diagnosis..."
@@ -994,7 +986,10 @@ export default function ChartSummaryConsultChatPage() {
     setInput(message.content);
     setComposerHint("แก้ข้อความแล้วกดส่งเพื่อถามใหม่");
     if (typeof window !== "undefined" && window.matchMedia("(max-width: 639px)").matches) {
-      setMobileComposerOpen(true);
+      setMobileComposerOpen(false);
+      requestAnimationFrame(() => {
+        mobileQuickTextareaRef.current?.focus();
+      });
     }
   }
 
@@ -1277,6 +1272,99 @@ export default function ChartSummaryConsultChatPage() {
     </>
   );
 
+  const renderMobileQuickComposer = () => (
+    <>
+      {composerHint ? <div className="mb-1 text-[11px] text-cyan-300">{composerHint}</div> : null}
+      {pendingImages.length ? (
+        <div className="mb-2 flex flex-wrap gap-2">
+          {pendingImages.map((img) => (
+            <span
+              key={img.id}
+              className="inline-flex items-center gap-2 rounded-full border border-slate-600 bg-slate-900/80 px-2 py-1 text-[11px] text-slate-200"
+            >
+              <img src={img.dataUrl} alt={img.name} className="h-6 w-6 rounded object-cover ring-1 ring-slate-600" />
+              <span>{img.name}</span>
+              <button
+                type="button"
+                onClick={() => removePendingImage(img.id)}
+                className="text-rose-300 hover:text-rose-200"
+                title="เธฅเธเธฃเธนเธเธเธตเน"
+              >
+                ร—
+              </button>
+            </span>
+          ))}
+        </div>
+      ) : null}
+      <div className="relative">
+        <textarea
+          ref={mobileQuickTextareaRef}
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onFocus={() => {
+            requestAnimationFrame(() => {
+              mobileQuickTextareaRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+            });
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              void sendMessage();
+            }
+          }}
+          rows={2}
+          className="w-full max-h-[180px] min-h-[56px] resize-none overflow-y-auto rounded-xl border border-slate-700 bg-slate-900/80 px-3 py-2.5 pr-[9.5rem] text-sm leading-relaxed outline-none focus:border-cyan-500"
+          placeholder={
+            assistantMode === "opd_demo"
+              ? "เน€เธฅเนเธฒเน€เธเธช เธซเธฃเธทเธญเนเธเธเธฃเธนเธ EKG/X-rayโ€ฆ"
+              : "เธ–เธฒเธก diagnosis / เนเธเธเธฃเธนเธเธ•เธฃเธงเธเน€เธเธทเนเธญเธเนเธงเธขเธญเนเธฒเธเน€เธเธทเนเธญเธเธ•เนเธโ€ฆ"
+          }
+        />
+        <div className="absolute right-1.5 bottom-2 flex items-center gap-0.5">
+          <button
+            type="button"
+            onClick={() => setMobileComposerOpen(true)}
+            disabled={loading}
+            className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-slate-600 bg-slate-900/80 text-slate-200 disabled:opacity-50"
+            title="เปิดเครื่องมือเพิ่มเติม"
+            aria-label="เปิดเครื่องมือเพิ่มเติม"
+          >
+            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <path d="M12 5v.01M12 12v.01M12 19v.01" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            onClick={() => imageInputRef.current?.click()}
+            disabled={loading}
+            className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-slate-600 bg-slate-900/80 text-slate-200 disabled:opacity-50"
+            title="เน€เธฅเธทเธญเธเธฃเธนเธเธเธฒเธเน€เธเธฃเธทเนเธญเธ"
+            aria-label="เน€เธฅเธทเธญเธเธฃเธนเธเธเธฒเธเน€เธเธฃเธทเนเธญเธ"
+          >
+            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+              <path d="M16 3h5v5" />
+              <path d="m21 3-9 9" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            onClick={() => void sendMessage()}
+            disabled={loading || (!input.trim() && !pendingImages.length)}
+            className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-cyan-600 text-white hover:bg-cyan-500 disabled:opacity-50"
+            title={loading ? "เธเธณเธฅเธฑเธเธ•เธญเธ..." : "เธชเนเธ"}
+            aria-label={loading ? "เธเธณเธฅเธฑเธเธ•เธญเธ..." : "เธชเนเธ"}
+          >
+            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M22 2 11 13" />
+              <path d="m22 2-7 20-4-9-9-4 20-7Z" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </>
+  );
+
   return (
     <main className="min-h-[100dvh] overflow-y-auto bg-[#081120] text-slate-100 md:h-[100dvh] md:min-h-0 md:overflow-hidden">
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-2 px-2 py-2 md:h-full md:min-h-0 md:grid md:grid-cols-[220px_minmax(0,1fr)] md:gap-3 md:px-4 md:py-3">
@@ -1533,7 +1621,7 @@ export default function ChartSummaryConsultChatPage() {
               const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 72;
               setStickToBottom(nearBottom);
             }}
-            className="mt-2 min-h-0 flex-1 overflow-y-auto rounded-lg border border-slate-700/60 bg-slate-950/40 p-2 pb-28 sm:mt-3 sm:rounded-xl sm:p-3 sm:pb-28 md:flex-1"
+            className="mt-2 min-h-0 flex-1 overflow-y-auto rounded-lg border border-slate-700/60 bg-slate-950/40 p-2 pb-40 sm:mt-3 sm:rounded-xl sm:p-3 sm:pb-28 md:flex-1"
           >
             {active?.messages.length ? (
               <div className="space-y-3">
@@ -1567,7 +1655,7 @@ export default function ChartSummaryConsultChatPage() {
                           <div className="w-full px-1 py-0.5 text-[15px] leading-relaxed whitespace-pre-wrap text-slate-100 sm:text-sm md:max-w-[94%]">
                             <ChatMessageBody content={m.content} />
                           </div>
-                          <div className="mt-1 hidden text-[10px] text-slate-500 sm:block">
+                          <div className="mt-1 text-[10px] text-slate-500">
                             source:{" "}
                             {m.answerSource === "mixed"
                               ? "mixed (internal+external)"
@@ -1712,6 +1800,12 @@ export default function ChartSummaryConsultChatPage() {
             onChange={(e) => onPickImages(e.target.files)}
             className="hidden"
           />
+          <div className="mt-2 hidden shrink-0 border-t border-white/10 bg-[#081120]/95 pt-2 pb-3 backdrop-blur sm:block">
+            {renderComposerInner(textareaRef)}
+          </div>
+          <div className="sticky bottom-0 z-30 -mx-2 mt-3 shrink-0 border-t border-white/10 bg-[#081120]/95 px-2 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-10px_30px_rgba(8,17,32,0.35)] backdrop-blur sm:hidden">
+            {renderMobileQuickComposer()}
+          </div>
           <div>
             {mobileComposerOpen ? (
               <>
@@ -1733,7 +1827,7 @@ export default function ChartSummaryConsultChatPage() {
                 ref={composerTriggerRef}
                 type="button"
                 onClick={() => setMobileComposerOpen(true)}
-                className="absolute inset-x-2 bottom-2 z-50 mx-auto flex items-center gap-2 rounded-2xl border border-white/15 bg-[#0c1624]/95 py-3 pl-4 pr-3 text-left shadow-xl shadow-black/40 backdrop-blur-md"
+                className="hidden fixed left-3 right-3 z-50 mx-auto max-w-lg items-center gap-2 rounded-2xl border border-white/15 bg-[#0c1624]/95 py-3 pl-4 pr-3 text-left shadow-xl shadow-black/40 backdrop-blur-md bottom-[max(0.75rem,env(safe-area-inset-bottom))] sm:left-1/2 sm:right-auto sm:w-[min(920px,calc(100%-2rem))] sm:max-w-none sm:-translate-x-1/2"
                 aria-haspopup="dialog"
               >
                 <span className="min-w-0 flex-1 truncate text-sm text-slate-300">

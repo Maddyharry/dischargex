@@ -17,6 +17,7 @@ import {
 import { deidentify } from "@/lib/deidentify";
 import { estimateTokenBillingThb, getPlanTokenBudgetThb, readUsageSummary } from "@/lib/token-billing";
 import { extractIcd10Candidates, retrieveExternalEvidence } from "@/lib/reference-retriever";
+import { analyzeOpdCase } from "@/lib/chartAssist/analyzeCase";
 
 export const runtime = "nodejs";
 
@@ -775,6 +776,47 @@ function buildConversationSummary(history: ChatHistoryItem[]) {
     .join("\n");
 }
 
+function compactHistoryForPrompt(history: ChatHistoryItem[], maxItems: number, maxCharsPerItem: number) {
+  return history.slice(-maxItems).map((item) => ({
+    role: item.role,
+    content: item.content.replace(/\s+/g, " ").trim().slice(0, maxCharsPerItem),
+  }));
+}
+
+function buildFocusedSourceContext(history: ChatHistoryItem[], currentMessage: string) {
+  return [...history.filter((h) => h.role === "user").slice(-18).map((h) => h.content), currentMessage]
+    .filter(Boolean)
+    .join("\n")
+    .slice(-6000);
+}
+
+function buildOpdRuleContextBlock(sourceContext: string) {
+  const trimmed = sourceContext.trim();
+  if (!trimmed) return "";
+  const analysis = analyzeOpdCase(trimmed.slice(-6000), null);
+  const nextQuestions = analysis.assistantBundle.nextStepSuggestions.slice(0, 5);
+  const dxIdeas = analysis.assistantBundle.diagnosisIdeas.slice(0, 4);
+  const redFlags = analysis.assistantBundle.redFlags.slice(0, 5);
+  const disposition = analysis.dispositionSuggestions.slice(0, 4);
+  const contradictions = analysis.clinicalContradictions.slice(0, 4);
+  return [
+    "OPD_RULE_CONTEXT (deterministic guardrails from rule engine):",
+    `- VISIT_MODE: ${analysis.mode}`,
+    `- VISIT_REASON: ${analysis.visitModeReason}`,
+    `- PRIMARY_IMPRESSION: ${analysis.assistantBundle.provisionalAssessment || "none"}`,
+    dxIdeas.length ? `- DIAGNOSIS_IDEAS: ${dxIdeas.join(" | ")}` : "",
+    nextQuestions.length ? `- ASK_OR_EXAM_NEXT: ${nextQuestions.join(" | ")}` : "",
+    redFlags.length ? `- RED_FLAGS: ${redFlags.join(" | ")}` : "",
+    disposition.length ? `- DISPOSITION_HINTS: ${disposition.join(" | ")}` : "",
+    contradictions.length ? `- CONTRADICTIONS_TO_RESOLVE: ${contradictions.join(" | ")}` : "",
+    analysis.structuredNote.diagnosis ? `- STRUCTURED_DIAGNOSIS_DRAFT: ${analysis.structuredNote.diagnosis}` : "",
+    analysis.structuredNote.differential ? `- STRUCTURED_DDX_DRAFT: ${analysis.structuredNote.differential}` : "",
+    analysis.structuredNote.plan ? `- STRUCTURED_PLAN_DRAFT: ${analysis.structuredNote.plan}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
 function compactKnowledgeSummaries(items: Awaited<ReturnType<typeof getMergedKnowledge>>) {
   return items.map((d) => ({
     slug: d.slug,
@@ -1118,13 +1160,12 @@ export async function POST(req: NextRequest) {
     const summaryIntent = detectSummaryIntent(messageForModel, assistantMode);
     const mandatorySummaryTemplate = buildMandatorySummaryTemplate(summaryIntent);
     const forceSummaryTemplate = summaryIntent !== "none";
-    const historyForPrompt = forceSummaryTemplate ? rawHistory.slice(-120) : recentHistory;
-    const summarySourceContext = [
-      ...rawHistory.filter((h) => h.role === "user").map((h) => h.content),
-      messageForModel,
-    ]
-      .filter(Boolean)
-      .join("\n");
+    const historyForPrompt = forceSummaryTemplate
+      ? compactHistoryForPrompt(rawHistory, 40, 320)
+      : compactHistoryForPrompt(recentHistory, recentHistory.length, 260);
+    const summarySourceContext = buildFocusedSourceContext(rawHistory, messageForModel);
+    const opdRuleContextBlock =
+      assistantMode === "opd_demo" ? buildOpdRuleContextBlock(summarySourceContext || messageForModel) : "";
 
     const prompt = [
       "KNOWLEDGE_SUMMARY (primary quick guidance):",
@@ -1139,6 +1180,7 @@ export async function POST(req: NextRequest) {
       "RDU_COMMON_ICD10_CANDIDATES:",
       JSON.stringify(OPD_RDU_COMMON_ICD10),
       "",
+      ...(opdRuleContextBlock ? [opdRuleContextBlock, ""] : []),
       ...(caseSummaryPattern ? [caseSummaryPattern, ""] : []),
       ...(criticalScenarioBlock ? [criticalScenarioBlock, ""] : []),
       ...(mandatorySummaryTemplate ? [mandatorySummaryTemplate, ""] : []),
@@ -1291,7 +1333,12 @@ export async function POST(req: NextRequest) {
                       outputTokens: usage.outputTokens,
                       totalTokens: usage.totalTokens,
                       estimatedCostThb: usage.estimatedCostThb,
-                      payload: JSON.stringify({ promptVariant: variant }),
+                      payload: JSON.stringify({
+                        promptVariant: variant,
+                        assistantMode,
+                        intent,
+                        summaryIntent,
+                      }),
                     },
                   });
                 } catch (error) {
@@ -1312,6 +1359,9 @@ export async function POST(req: NextRequest) {
                         source: "specialist_chat",
                         role: "user",
                         promptVariant: variant,
+                        assistantMode,
+                        intent,
+                        summaryIntent,
                         deidentifiedBeforeModel: true,
                       }),
                       category: "other",
@@ -1326,6 +1376,10 @@ export async function POST(req: NextRequest) {
                         source: "specialist_chat",
                         role: "assistant",
                         promptVariant: variant,
+                        assistantMode,
+                        intent,
+                        summaryIntent,
+                        answerSource,
                         isBot: true,
                         tokenUsage: usage,
                       }),
@@ -1346,6 +1400,8 @@ export async function POST(req: NextRequest) {
                   historyCount: historyForPrompt.length,
                   usedConversationSummary: Boolean(conversationSummary),
                   intent,
+                  assistantMode,
+                  summaryIntent,
                   plan: normalizedPlan,
                   promptVariant: variant,
                   tokenUsage: usage,
@@ -1455,7 +1511,12 @@ export async function POST(req: NextRequest) {
             outputTokens: usage.outputTokens,
             totalTokens: usage.totalTokens,
             estimatedCostThb: usage.estimatedCostThb,
-            payload: JSON.stringify({ promptVariant: variant }),
+            payload: JSON.stringify({
+              promptVariant: variant,
+              assistantMode,
+              intent,
+              summaryIntent,
+            }),
           },
         });
       } catch (error) {
@@ -1476,6 +1537,9 @@ export async function POST(req: NextRequest) {
               source: "specialist_chat",
               role: "user",
               promptVariant: variant,
+              assistantMode,
+              intent,
+              summaryIntent,
               deidentifiedBeforeModel: true,
             }),
             category: "other",
@@ -1490,6 +1554,10 @@ export async function POST(req: NextRequest) {
               source: "specialist_chat",
               role: "assistant",
               promptVariant: variant,
+              assistantMode,
+              intent,
+              summaryIntent,
+              answerSource,
               isBot: true,
               tokenUsage: usage,
             }),
@@ -1510,6 +1578,8 @@ export async function POST(req: NextRequest) {
         historyCount: historyForPrompt.length,
         usedConversationSummary: Boolean(conversationSummary),
         intent,
+        assistantMode,
+        summaryIntent,
         plan: normalizedPlan,
         promptVariant: variant,
         tokenUsage: usage,

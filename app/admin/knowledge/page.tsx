@@ -38,8 +38,10 @@ export default function AdminKnowledgePage() {
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploadSource, setUploadSource] = useState("");
+  const [uploadVersion, setUploadVersion] = useState("");
   const [uploadContent, setUploadContent] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [uploadNotice, setUploadNotice] = useState<string | null>(null);
   const [pendingGaps, setPendingGaps] = useState<PendingGap[]>([]);
   const [pendingDocuments, setPendingDocuments] = useState<PendingDocument[]>([]);
   const [actingId, setActingId] = useState("");
@@ -81,18 +83,37 @@ export default function AdminKnowledgePage() {
   async function uploadKnowledge() {
     if (!uploadSource.trim() || !uploadContent.trim()) return;
     setUploading(true);
+    setUploadNotice(null);
     try {
-      await fetch("/api/admin/knowledge", {
+      const res = await fetch("/api/admin/knowledge", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           sourceName: uploadSource.trim(),
+          version: uploadVersion.trim() || undefined,
           content: uploadContent.trim(),
           sourceType: "manual",
         }),
       });
+      const data = (await res.json()) as {
+        ok?: boolean;
+        error?: string;
+        duplicate?: boolean;
+        existing?: { sourceName?: string; version?: string | null };
+      };
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error || "อัปโหลดไม่สำเร็จ");
+      }
+      setUploadNotice(
+        data.duplicate
+          ? `พบเอกสารซ้ำในระบบแล้ว: ${data.existing?.sourceName || uploadSource.trim()}${data.existing?.version ? ` (${data.existing.version})` : ""}`
+          : "อัปโหลดเข้า pending review แล้ว"
+      );
       setUploadContent("");
+      setUploadVersion("");
       await loadAll();
+    } catch (error) {
+      setUploadNotice(error instanceof Error ? error.message : "อัปโหลดไม่สำเร็จ");
     } finally {
       setUploading(false);
     }
@@ -309,12 +330,19 @@ export default function AdminKnowledgePage() {
             placeholder="ชื่อเอกสาร เช่น guideline_acute_diarrhea_2026"
             className="mt-3 w-full rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2 text-sm"
           />
+          <input
+            value={uploadVersion}
+            onChange={(e) => setUploadVersion(e.target.value)}
+            placeholder="version หรือปีอ้างอิง เช่น 2026 หรือ v1.2"
+            className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2 text-sm"
+          />
           <textarea
             value={uploadContent}
             onChange={(e) => setUploadContent(e.target.value)}
             placeholder="วางเนื้อหาเอกสารที่ต้องการ ingest"
             className="mt-2 h-32 w-full rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2 text-sm"
           />
+          {uploadNotice ? <div className="mt-2 text-xs text-cyan-100">{uploadNotice}</div> : null}
           <button
             onClick={() => void uploadKnowledge()}
             disabled={uploading}
