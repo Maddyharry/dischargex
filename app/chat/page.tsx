@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 
 type ChatMessage = {
   role: "user" | "assistant";
@@ -202,6 +202,8 @@ export default function ChartSummaryConsultChatPage() {
   const activeIdRef = useRef<string>(activeId);
   const cloudInitRef = useRef(false);
   const [stickToBottom, setStickToBottom] = useState(true);
+  const [mobileComposerOpen, setMobileComposerOpen] = useState(false);
+  const sheetTextareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const active = useMemo(
     () => threads.find((t) => t.id === activeId) ?? threads[0],
@@ -221,6 +223,27 @@ export default function ChartSummaryConsultChatPage() {
     if (!el) return;
     el.scrollTop = el.scrollHeight;
   }, [activeId]);
+
+  useEffect(() => {
+    setMobileComposerOpen(false);
+  }, [activeId]);
+
+  useEffect(() => {
+    if (!mobileComposerOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [mobileComposerOpen]);
+
+  useEffect(() => {
+    if (!mobileComposerOpen) return;
+    const id = requestAnimationFrame(() => {
+      sheetTextareaRef.current?.focus();
+    });
+    return () => cancelAnimationFrame(id);
+  }, [mobileComposerOpen]);
 
   useEffect(() => {
     threadsRef.current = threads;
@@ -368,12 +391,13 @@ export default function ChartSummaryConsultChatPage() {
   }, []);
 
   useEffect(() => {
-    const el = textareaRef.current;
+    const el = sheetTextareaRef.current ?? textareaRef.current;
     if (!el) return;
+    if (typeof el.getBoundingClientRect === "function" && el.getBoundingClientRect().height === 0) return;
     el.style.height = "auto";
     const nextHeight = Math.min(el.scrollHeight, 180);
     el.style.height = `${Math.max(56, nextHeight)}px`;
-  }, [input]);
+  }, [input, mobileComposerOpen]);
 
   useEffect(() => {
     if (!storageReady) return;
@@ -726,6 +750,7 @@ export default function ChartSummaryConsultChatPage() {
     await sendPreparedMessage(text, attachments, undefined, {
       displayContent: imageOnly ? IMAGE_ONLY_DISPLAY_LINE : undefined,
     });
+    setMobileComposerOpen(false);
   }
 
   function buildSummaryPrompt(kind: SummaryKind) {
@@ -830,6 +855,7 @@ export default function ChartSummaryConsultChatPage() {
         : "กำลังสรุป SOAP..."
     );
     await sendPreparedMessage(prompt, undefined, summaryHistory);
+    setMobileComposerOpen(false);
   }
 
   async function regenerateLastAnswer() {
@@ -912,6 +938,9 @@ export default function ChartSummaryConsultChatPage() {
     if (!message || message.role !== "user") return;
     setInput(message.content);
     setComposerHint("แก้ข้อความแล้วกดส่งเพื่อถามใหม่");
+    if (typeof window !== "undefined" && window.matchMedia("(max-width: 639px)").matches) {
+      setMobileComposerOpen(true);
+    }
   }
 
   async function rateAssistantMessage(
@@ -985,9 +1014,217 @@ export default function ChartSummaryConsultChatPage() {
           "ช่วยแยก differential และบอกเกณฑ์ที่ต้องมีก่อนลงวินิจฉัย",
         ];
 
+  const renderComposerInner = (textRef: RefObject<HTMLTextAreaElement | null>) => (
+    <>
+      {composerHint ? <div className="mb-1 text-[11px] text-cyan-300">{composerHint}</div> : null}
+      {pendingImages.length ? (
+        <div className="mb-2 flex flex-wrap gap-2">
+          {pendingImages.map((img) => (
+            <span
+              key={img.id}
+              className="inline-flex items-center gap-2 rounded-full border border-slate-600 bg-slate-900/80 px-2 py-1 text-[11px] text-slate-200"
+            >
+              <img src={img.dataUrl} alt={img.name} className="h-6 w-6 rounded object-cover ring-1 ring-slate-600" />
+              <span>{img.name}</span>
+              <button
+                type="button"
+                onClick={() => removePendingImage(img.id)}
+                className="text-rose-300 hover:text-rose-200"
+                title="ลบรูปนี้"
+              >
+                ×
+              </button>
+            </span>
+          ))}
+        </div>
+      ) : null}
+      <div className="relative">
+        <textarea
+          ref={textRef}
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              void sendMessage();
+            }
+          }}
+          rows={2}
+          className="w-full max-h-[180px] min-h-[56px] resize-none overflow-y-auto rounded-xl border border-slate-700 bg-slate-900/80 px-3 py-2.5 pr-[7.25rem] sm:pr-36 text-sm leading-relaxed outline-none focus:border-cyan-500"
+          placeholder={
+            assistantMode === "opd_demo"
+              ? "เล่าเคส หรือแนบรูป EKG/X-ray…"
+              : "ถาม diagnosis / แนบรูปตรวจเพื่อช่วยอ่านเบื้องต้น…"
+          }
+        />
+        <div className="absolute right-1.5 bottom-2 flex items-center gap-0.5 sm:right-2 sm:gap-1">
+          <button
+            type="button"
+            onClick={() => imageInputRef.current?.click()}
+            disabled={loading}
+            className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-slate-600 bg-slate-900/80 text-slate-200 disabled:opacity-50 sm:h-8 sm:w-8"
+            title="เลือกรูปจากเครื่อง"
+            aria-label="เลือกรูปจากเครื่อง"
+          >
+            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+              <path d="M16 3h5v5" />
+              <path d="m21 3-9 9" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            onClick={() => cameraInputRef.current?.click()}
+            disabled={loading}
+            className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-slate-600 bg-slate-900/80 text-slate-200 disabled:opacity-50 sm:h-8 sm:w-8"
+            title="ถ่ายรูป"
+            aria-label="ถ่ายรูป"
+          >
+            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round">
+              <path d="M14.5 4h-5L8 7H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-1.5-3z" />
+              <circle cx="12" cy="13" r="3" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            onClick={toggleMic}
+            disabled={loading}
+            className={`inline-flex h-7 w-7 items-center justify-center rounded-lg border disabled:opacity-50 sm:h-8 sm:w-8 ${
+              isListening
+                ? "border-rose-500 bg-rose-600/20 text-rose-100"
+                : "border-slate-600 bg-slate-900/80 text-slate-200"
+            }`}
+            title={isListening ? "หยุดไมค์" : isMicSupported ? "เริ่มไมค์" : "อนุญาตไมค์"}
+            aria-label={isListening ? "หยุดไมค์" : isMicSupported ? "เริ่มไมค์" : "อนุญาตไมค์"}
+          >
+            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <rect x="9" y="3" width="6" height="11" rx="3" />
+              <path d="M5 11a7 7 0 0 0 14 0" />
+              <path d="M12 18v3" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            onClick={() => void sendMessage()}
+            disabled={loading || (!input.trim() && !pendingImages.length)}
+            className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-cyan-600 text-white hover:bg-cyan-500 disabled:opacity-50 sm:h-8 sm:w-8"
+            title={loading ? "กำลังตอบ..." : "ส่ง"}
+            aria-label={loading ? "กำลังตอบ..." : "ส่ง"}
+          >
+            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M22 2 11 13" />
+              <path d="m22 2-7 20-4-9-9-4 20-7Z" />
+            </svg>
+          </button>
+        </div>
+      </div>
+      <div className="mt-1 hidden text-[11px] text-slate-500 sm:block">
+        ระบบปกปิดข้อมูลระบุตัวผู้ป่วยอัตโนมัติก่อนส่งไป AI (เช่น ชื่อ, เลขบัตร, HN, AN)
+      </div>
+      <div className="mt-2 hidden sm:block">
+        <button
+          type="button"
+          onClick={() => setShowPromptSuggestions((prev) => !prev)}
+          className="rounded-full border border-slate-700 bg-slate-900/70 px-3 py-1 text-xs text-slate-300 hover:border-cyan-500/50"
+        >
+          {showPromptSuggestions ? "ซ่อนตัวอย่าง prompt" : "แสดงตัวอย่าง prompt"}
+        </button>
+        {showPromptSuggestions ? (
+          <div className="mt-2 grid max-h-32 gap-2 overflow-y-auto rounded-xl border border-slate-700/70 bg-slate-950/40 p-2 sm:grid-cols-2">
+            {quickPrompts.map((quick) => (
+              <button
+                key={quick}
+                type="button"
+                onClick={() => setInput(quick)}
+                className="rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2 text-left text-xs leading-relaxed text-slate-200 hover:border-cyan-500/50"
+              >
+                {quick}
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </div>
+      <div className="mt-2 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
+        {assistantMode === "coding" ? (
+          <button
+            type="button"
+            onClick={() => void sendSummary("diagnosis")}
+            disabled={loading || !active?.messages.length}
+            className="w-full rounded-full border border-sky-700 bg-sky-900/40 px-3 py-1 text-xs text-sky-200 hover:bg-sky-800/50 disabled:opacity-50 sm:w-auto"
+          >
+            สรุป diagnosis
+          </button>
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={() => void sendSummary("opd_case")}
+              disabled={loading || !active?.messages.length}
+              className="w-full rounded-full border border-sky-700 bg-sky-900/40 px-3 py-1 text-xs text-sky-200 hover:bg-sky-800/50 disabled:opacity-50 sm:w-auto"
+            >
+              สรุปเคส OPD
+            </button>
+            <button
+              type="button"
+              onClick={() => void sendSummary("opd_soap")}
+              disabled={loading || !active?.messages.length}
+              className="w-full rounded-full border border-teal-700 bg-teal-900/40 px-3 py-1 text-xs text-teal-200 hover:bg-teal-800/50 disabled:opacity-50 sm:w-auto"
+            >
+              สรุป SOAP
+            </button>
+          </>
+        )}
+        <button
+          type="button"
+          onClick={() => void regenerateLastAnswer()}
+          disabled={loading || !active?.messages.some((m) => m.role === "user")}
+          className="w-full rounded-full border border-emerald-700 bg-emerald-900/40 px-3 py-1 text-xs text-emerald-200 hover:bg-emerald-800/50 disabled:opacity-50 sm:w-auto"
+        >
+          Regenerate answer
+        </button>
+        <button
+          type="button"
+          onClick={stopStreaming}
+          disabled={!loading}
+          className="hidden w-full rounded-full border border-rose-700 bg-rose-900/40 px-3 py-1 text-xs text-rose-200 hover:bg-rose-800/50 disabled:opacity-50 sm:block sm:w-auto"
+        >
+          {isStopping ? "Stopping..." : "Stop generating"}
+        </button>
+        <button
+          type="button"
+          onClick={() => void retryStreamFromLastChunk()}
+          disabled={loading || !canRetryStream}
+          className="hidden w-full rounded-full border border-indigo-700 bg-indigo-900/40 px-3 py-1 text-xs text-indigo-200 hover:bg-indigo-800/50 disabled:opacity-50 sm:block sm:w-auto"
+        >
+          Retry stream
+        </button>
+        {loading ? (
+          <button
+            type="button"
+            onClick={stopStreaming}
+            disabled={!loading}
+            className="w-full rounded-full border border-rose-700 bg-rose-900/40 px-3 py-1 text-xs text-rose-200 hover:bg-rose-800/50 disabled:opacity-50 sm:hidden"
+          >
+            {isStopping ? "Stopping..." : "Stop"}
+          </button>
+        ) : null}
+        {canRetryStream ? (
+          <button
+            type="button"
+            onClick={() => void retryStreamFromLastChunk()}
+            disabled={loading || !canRetryStream}
+            className="w-full rounded-full border border-indigo-700 bg-indigo-900/40 px-3 py-1 text-xs text-indigo-200 hover:bg-indigo-800/50 disabled:opacity-50 sm:hidden"
+          >
+            Retry
+          </button>
+        ) : null}
+      </div>
+    </>
+  );
+
   return (
-    <main className="fixed inset-x-0 bottom-0 top-14 z-10 flex min-h-0 flex-col overflow-hidden bg-[#081120] text-slate-100 md:static md:z-auto md:h-[calc(100dvh-3.5rem)] md:min-h-[calc(100dvh-3.5rem)] md:overflow-hidden">
-      <div className="mx-auto flex h-full min-h-0 w-full max-w-7xl flex-1 flex-col gap-2 px-2 py-2 md:h-full md:grid md:grid-cols-[170px_minmax(0,1fr)] md:gap-3 md:px-4 md:py-3">
+    <main className="min-h-[calc(100dvh-3.5rem)] overflow-y-auto bg-[#081120] text-slate-100 md:h-[calc(100dvh-3.5rem)] md:min-h-0 md:overflow-hidden">
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-2 px-2 py-2 md:h-full md:min-h-0 md:grid md:grid-cols-[170px_minmax(0,1fr)] md:gap-3 md:px-4 md:py-3">
         <div className="flex items-center gap-2 md:hidden">
           <button
             type="button"
@@ -1092,7 +1329,7 @@ export default function ChartSummaryConsultChatPage() {
           </div>
         </aside>
 
-        <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-white/10 bg-white/[0.03] p-2 sm:rounded-2xl sm:p-3 md:h-full">
+        <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-white/10 bg-white/[0.03] p-2 max-sm:overflow-visible sm:rounded-2xl sm:p-3 md:h-full md:overflow-hidden">
           <div className="shrink-0">
             <div className="flex items-center gap-2 sm:gap-3">
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-cyan-500/20 text-sm text-cyan-200 sm:h-9 sm:w-9">
@@ -1281,7 +1518,7 @@ export default function ChartSummaryConsultChatPage() {
               const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 72;
               setStickToBottom(nearBottom);
             }}
-            className="mt-2 min-h-0 flex-1 overflow-y-auto rounded-lg border border-slate-700/60 bg-slate-950/40 p-2 sm:mt-3 sm:rounded-xl sm:p-3 md:flex-1"
+            className="mt-2 min-h-0 flex-1 overflow-y-auto rounded-lg border border-slate-700/60 bg-slate-950/40 p-2 pb-28 sm:mt-3 sm:rounded-xl sm:p-3 sm:pb-3 md:flex-1"
           >
             {active?.messages.length ? (
               <div className="space-y-3">
@@ -1445,232 +1682,87 @@ export default function ChartSummaryConsultChatPage() {
               </button>
             </div>
           ) : null}
-          <div className="mt-2 shrink-0 border-t border-white/10 bg-[#081120]/95 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] backdrop-blur md:pb-3">
-            <div>
-              {composerHint ? <div className="mb-1 text-[11px] text-cyan-300">{composerHint}</div> : null}
-              {pendingImages.length ? (
-                <div className="mb-2 flex flex-wrap gap-2">
-                  {pendingImages.map((img) => (
-                    <span
-                      key={img.id}
-                      className="inline-flex items-center gap-2 rounded-full border border-slate-600 bg-slate-900/80 px-2 py-1 text-[11px] text-slate-200"
-                    >
-                      <img
-                        src={img.dataUrl}
-                        alt={img.name}
-                        className="h-6 w-6 rounded object-cover ring-1 ring-slate-600"
-                      />
-                      <span>{img.name}</span>
-                      <button
-                        type="button"
-                        onClick={() => removePendingImage(img.id)}
-                        className="text-rose-300 hover:text-rose-200"
-                        title="ลบรูปนี้"
-                      >
-                        ×
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              ) : null}
-              <input
-                ref={imageInputRef}
-                type="file"
-                accept="image/*"
-                multiple
-                onChange={(e) => onPickImages(e.target.files)}
-                className="hidden"
-              />
-              <input
-                ref={cameraInputRef}
-                type="file"
-                accept="image/*"
-                capture="environment"
-                onChange={(e) => onPickImages(e.target.files)}
-                className="hidden"
-              />
-              <div className="relative">
-                <textarea
-                  ref={textareaRef}
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      void sendMessage();
-                    }
-                  }}
-                  rows={2}
-                  className="w-full max-h-[180px] min-h-[56px] resize-none overflow-y-auto rounded-xl border border-slate-700 bg-slate-900/80 px-3 py-2.5 pr-[7.25rem] sm:pr-36 text-sm leading-relaxed outline-none focus:border-cyan-500"
-                  placeholder={
-                    assistantMode === "opd_demo"
-                      ? "เล่าเคส หรือแนบรูป EKG/X-ray…"
-                      : "ถาม diagnosis / แนบรูปตรวจเพื่อช่วยอ่านเบื้องต้น…"
-                  }
+          <input
+            ref={imageInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={(e) => onPickImages(e.target.files)}
+            className="hidden"
+          />
+          <input
+            ref={cameraInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onChange={(e) => onPickImages(e.target.files)}
+            className="hidden"
+          />
+          <div className="mt-2 hidden shrink-0 border-t border-white/10 bg-[#081120]/95 pt-2 pb-3 backdrop-blur sm:block">
+            {renderComposerInner(textareaRef)}
+          </div>
+          <div className="sm:hidden">
+            {mobileComposerOpen ? (
+              <>
+                <div
+                  className="fixed inset-0 z-[60] bg-black/50"
+                  onClick={() => setMobileComposerOpen(false)}
+                  aria-hidden
                 />
-                <div className="absolute right-1.5 bottom-2 flex items-center gap-0.5 sm:right-2 sm:gap-1">
-                  <button
-                    type="button"
-                    onClick={() => imageInputRef.current?.click()}
-                    disabled={loading}
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-slate-600 bg-slate-900/80 text-slate-200 disabled:opacity-50 sm:h-8 sm:w-8"
-                    title="เลือกรูปจากเครื่อง"
-                    aria-label="เลือกรูปจากเครื่อง"
-                  >
-                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                      <path d="M16 3h5v5" />
-                      <path d="m21 3-9 9" />
-                    </svg>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => cameraInputRef.current?.click()}
-                    disabled={loading}
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-slate-600 bg-slate-900/80 text-slate-200 disabled:opacity-50 sm:h-8 sm:w-8"
-                    title="ถ่ายรูป"
-                    aria-label="ถ่ายรูป"
-                  >
-                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round">
-                      <path d="M14.5 4h-5L8 7H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-1.5-3z" />
-                      <circle cx="12" cy="13" r="3" />
-                    </svg>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={toggleMic}
-                    disabled={loading}
-                    className={`inline-flex h-7 w-7 items-center justify-center rounded-lg border disabled:opacity-50 sm:h-8 sm:w-8 ${
-                      isListening
-                        ? "border-rose-500 bg-rose-600/20 text-rose-100"
-                        : "border-slate-600 bg-slate-900/80 text-slate-200"
-                    }`}
-                    title={isListening ? "หยุดไมค์" : isMicSupported ? "เริ่มไมค์" : "อนุญาตไมค์"}
-                    aria-label={isListening ? "หยุดไมค์" : isMicSupported ? "เริ่มไมค์" : "อนุญาตไมค์"}
-                  >
-                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                      <rect x="9" y="3" width="6" height="11" rx="3" />
-                      <path d="M5 11a7 7 0 0 0 14 0" />
-                      <path d="M12 18v3" />
-                    </svg>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void sendMessage()}
-                    disabled={loading || (!input.trim() && !pendingImages.length)}
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-cyan-600 text-white hover:bg-cyan-500 disabled:opacity-50 sm:h-8 sm:w-8"
-                    title={loading ? "กำลังตอบ..." : "ส่ง"}
-                    aria-label={loading ? "กำลังตอบ..." : "ส่ง"}
-                  >
-                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M22 2 11 13" />
-                      <path d="m22 2-7 20-4-9-9-4 20-7Z" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-            </div>
-            <div className="mt-1 hidden text-[11px] text-slate-500 sm:block">
-              ระบบปกปิดข้อมูลระบุตัวผู้ป่วยอัตโนมัติก่อนส่งไป AI (เช่น ชื่อ, เลขบัตร, HN, AN)
-            </div>
-            <div className="mt-2 hidden sm:block">
-              <button
-                type="button"
-                onClick={() => setShowPromptSuggestions((prev) => !prev)}
-                className="rounded-full border border-slate-700 bg-slate-900/70 px-3 py-1 text-xs text-slate-300 hover:border-cyan-500/50"
-              >
-                {showPromptSuggestions ? "ซ่อนตัวอย่าง prompt" : "แสดงตัวอย่าง prompt"}
-              </button>
-              {showPromptSuggestions ? (
-                <div className="mt-2 grid max-h-32 gap-2 overflow-y-auto rounded-xl border border-slate-700/70 bg-slate-950/40 p-2 sm:grid-cols-2">
-                  {quickPrompts.map((quick) => (
+                <div
+                  className="fixed inset-x-0 bottom-0 z-[70] max-h-[85dvh] overflow-y-auto rounded-t-2xl border border-white/10 bg-[#0a1424] p-3 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_-12px_48px_rgba(0,0,0,0.45)]"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="mobile-chat-composer-title"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="mb-3 flex items-center justify-between gap-2">
+                    <span id="mobile-chat-composer-title" className="text-sm font-semibold text-slate-100">
+                      พิมพ์ข้อความ
+                    </span>
                     <button
-                      key={quick}
                       type="button"
-                      onClick={() => setInput(quick)}
-                      className="rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2 text-left text-xs leading-relaxed text-slate-200 hover:border-cyan-500/50"
+                      onClick={() => setMobileComposerOpen(false)}
+                      className="rounded-lg p-2 text-slate-400 hover:bg-white/10 hover:text-slate-100"
+                      aria-label="ปิด"
                     >
-                      {quick}
+                      <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M18 6 6 18M6 6l12 12" strokeLinecap="round" />
+                      </svg>
                     </button>
-                  ))}
+                  </div>
+                  {renderComposerInner(sheetTextareaRef)}
                 </div>
-              ) : null}
-            </div>
-            <div className="mt-2 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
-              {assistantMode === "coding" ? (
-                <button
-                  type="button"
-                  onClick={() => void sendSummary("diagnosis")}
-                  disabled={loading || !active?.messages.length}
-                  className="w-full rounded-full border border-sky-700 bg-sky-900/40 px-3 py-1 text-xs text-sky-200 hover:bg-sky-800/50 disabled:opacity-50 sm:w-auto"
-                >
-                  สรุป diagnosis
-                </button>
-              ) : (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => void sendSummary("opd_case")}
-                    disabled={loading || !active?.messages.length}
-                    className="w-full rounded-full border border-sky-700 bg-sky-900/40 px-3 py-1 text-xs text-sky-200 hover:bg-sky-800/50 disabled:opacity-50 sm:w-auto"
-                  >
-                    สรุปเคส OPD
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void sendSummary("opd_soap")}
-                    disabled={loading || !active?.messages.length}
-                    className="w-full rounded-full border border-teal-700 bg-teal-900/40 px-3 py-1 text-xs text-teal-200 hover:bg-teal-800/50 disabled:opacity-50 sm:w-auto"
-                  >
-                    สรุป SOAP
-                  </button>
-                </>
-              )}
+              </>
+            ) : (
               <button
                 type="button"
-                onClick={() => void regenerateLastAnswer()}
-                disabled={loading || !active?.messages.some((m) => m.role === "user")}
-                className="w-full rounded-full border border-emerald-700 bg-emerald-900/40 px-3 py-1 text-xs text-emerald-200 hover:bg-emerald-800/50 disabled:opacity-50 sm:w-auto"
+                onClick={() => setMobileComposerOpen(true)}
+                className="fixed left-3 right-3 z-50 mx-auto flex max-w-lg items-center gap-2 rounded-2xl border border-white/15 bg-[#0c1624]/95 py-3 pl-4 pr-3 text-left shadow-xl shadow-black/40 backdrop-blur-md bottom-[max(0.75rem,env(safe-area-inset-bottom))]"
+                aria-haspopup="dialog"
               >
-                Regenerate answer
-              </button>
-              <button
-                type="button"
-                onClick={stopStreaming}
-                disabled={!loading}
-                className="hidden w-full rounded-full border border-rose-700 bg-rose-900/40 px-3 py-1 text-xs text-rose-200 hover:bg-rose-800/50 disabled:opacity-50 sm:block sm:w-auto"
-              >
-                {isStopping ? "Stopping..." : "Stop generating"}
-              </button>
-              <button
-                type="button"
-                onClick={() => void retryStreamFromLastChunk()}
-                disabled={loading || !canRetryStream}
-                className="hidden w-full rounded-full border border-indigo-700 bg-indigo-900/40 px-3 py-1 text-xs text-indigo-200 hover:bg-indigo-800/50 disabled:opacity-50 sm:block sm:w-auto"
-              >
-                Retry stream
-              </button>
-              {loading ? (
-                <button
-                  type="button"
-                  onClick={stopStreaming}
-                  disabled={!loading}
-                  className="w-full rounded-full border border-rose-700 bg-rose-900/40 px-3 py-1 text-xs text-rose-200 hover:bg-rose-800/50 disabled:opacity-50 sm:hidden"
+                <span className="min-w-0 flex-1 truncate text-sm text-slate-300">
+                  {input.trim()
+                    ? input.trim().slice(0, 160) + (input.trim().length > 160 ? "…" : "")
+                    : "แตะเพื่อพิมพ์ — แนบรูปหรือใช้ไมค์"}
+                </span>
+                {pendingImages.length > 0 ? (
+                  <span className="shrink-0 rounded-full bg-cyan-500/25 px-2 py-0.5 text-xs font-medium text-cyan-100">
+                    {pendingImages.length} ภาพ
+                  </span>
+                ) : null}
+                <svg
+                  className="h-5 w-5 shrink-0 text-cyan-400/90"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  aria-hidden
                 >
-                  {isStopping ? "Stopping..." : "Stop"}
-                </button>
-              ) : null}
-              {canRetryStream ? (
-                <button
-                  type="button"
-                  onClick={() => void retryStreamFromLastChunk()}
-                  disabled={loading || !canRetryStream}
-                  className="w-full rounded-full border border-indigo-700 bg-indigo-900/40 px-3 py-1 text-xs text-indigo-200 hover:bg-indigo-800/50 disabled:opacity-50 sm:hidden"
-                >
-                  Retry
-                </button>
-              ) : null}
-            </div>
+                  <path d="m18 15-6-6-6 6" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+            )}
           </div>
         </section>
       </div>
