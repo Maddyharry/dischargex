@@ -380,7 +380,7 @@ export default function ProfilePage() {
           <div className="text-sm text-slate-300">กำลังโหลด...</div>
         ) : (
           <div className="space-y-6">
-            <section className="hidden rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+            <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
               <h2 className="text-lg font-semibold text-white">ข้อมูลบัญชี</h2>
               <div className="mt-4 space-y-4">
                 <div>
@@ -490,11 +490,31 @@ export default function ProfilePage() {
                   </div>
                   <div>
                     <label className="text-xs text-slate-400">สถานะการใช้งาน (รอบปัจจุบัน)</label>
-                    <p className="mt-1 text-sm font-medium text-emerald-300">
-                      {usage != null
-                        ? `รอบนี้ใช้งานไปประมาณ ${usage.used} เคส`
-                        : "-"}
-                    </p>
+                    {usage ? (
+                      <div className="mt-1">
+                        <div className="flex items-center justify-between text-sm">
+                          <p className="font-medium text-emerald-300">
+                            ใช้งานไป {usage.used}/{usage.total} เคส
+                          </p>
+                          <p className="font-semibold text-cyan-200">
+                            {usage.total > 0 ? Math.min(100, Math.round((usage.used / usage.total) * 100)) : 0}%
+                          </p>
+                        </div>
+                        <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-800">
+                          <div
+                            className="h-full bg-cyan-400 transition-all"
+                            style={{
+                              width: `${
+                                usage.total > 0 ? Math.min(100, Math.round((usage.used / usage.total) * 100)) : 0
+                              }%`,
+                            }}
+                          />
+                        </div>
+                        <p className="mt-1 text-xs text-slate-500">คงเหลือ {usage.remaining} เคสในรอบนี้</p>
+                      </div>
+                    ) : (
+                      <p className="mt-1 text-sm font-medium text-slate-400">-</p>
+                    )}
                     {usage?.nextCreditRefreshAt ? (
                       <p className="mt-0.5 text-xs text-slate-500">
                         ระบบจะรีเซ็ตโควตาประมาณ{" "}

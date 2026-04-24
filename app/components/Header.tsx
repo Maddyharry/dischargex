@@ -212,13 +212,6 @@ export function Header() {
                     </p>
                     {usage && (
                       <div className="mt-1.5 space-y-1.5 text-xs text-slate-400">
-                        <p className="md:hidden text-[11px] leading-snug">
-                          <span className="font-medium text-white">คงเหลือ {usage.remaining}</span>
-                          <span> · ใช้ {usage.used}/{usage.total}</span>
-                          {usage.extraCredits > 0 ? (
-                            <span className="text-cyan-300/90"> · เสริม {usage.extraCredits}</span>
-                          ) : null}
-                        </p>
                         <p>
                           แผน{" "}
                           <span className="text-slate-300">
