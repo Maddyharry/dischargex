@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Providers } from "./providers";
-import { LayoutHeader } from "./components/LayoutHeader";
+import { Header } from "./components/Header";
 import { FeedbackProvider } from "./context/FeedbackContext";
 import { FeedbackWidget } from "./components/FeedbackWidget";
 import { LayoutFooter } from "./components/LayoutFooter";
@@ -54,7 +54,7 @@ export default function RootLayout({
         <Providers>
           <FeedbackProvider>
             <WebAnalyticsTracker />
-            <LayoutHeader />
+            <Header />
             {children}
             <LayoutFooter />
             <FeedbackWidget />

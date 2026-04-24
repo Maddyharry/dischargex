@@ -241,7 +241,6 @@ export default function ChartSummaryConsultChatPage() {
   const [chatStyle, setChatStyle] = useState<ChatStyleProfile>(DEFAULT_CHAT_STYLE_PROFILE);
   const [chatStyleReady, setChatStyleReady] = useState(false);
   const messagesRef = useRef<HTMLDivElement | null>(null);
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -255,6 +254,8 @@ export default function ChartSummaryConsultChatPage() {
   const [stickToBottom, setStickToBottom] = useState(true);
   const [mobileComposerOpen, setMobileComposerOpen] = useState(false);
   const sheetTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const composerPopupRef = useRef<HTMLDivElement | null>(null);
+  const composerTriggerRef = useRef<HTMLButtonElement | null>(null);
 
   const active = useMemo(
     () => threads.find((t) => t.id === activeId) ?? threads[0],
@@ -285,6 +286,18 @@ export default function ChartSummaryConsultChatPage() {
       sheetTextareaRef.current?.focus();
     });
     return () => cancelAnimationFrame(id);
+  }, [mobileComposerOpen]);
+
+  useEffect(() => {
+    if (!mobileComposerOpen) return;
+    function handleOutsideClick(event: MouseEvent) {
+      const target = event.target as Node;
+      if (composerPopupRef.current?.contains(target)) return;
+      if (composerTriggerRef.current?.contains(target)) return;
+      setMobileComposerOpen(false);
+    }
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
   }, [mobileComposerOpen]);
 
   useEffect(() => {
@@ -433,7 +446,7 @@ export default function ChartSummaryConsultChatPage() {
   }, []);
 
   useEffect(() => {
-    const el = sheetTextareaRef.current ?? textareaRef.current;
+    const el = sheetTextareaRef.current;
     if (!el) return;
     if (typeof el.getBoundingClientRect === "function" && el.getBoundingClientRect().height === 0) return;
     el.style.height = "auto";
@@ -1266,7 +1279,7 @@ export default function ChartSummaryConsultChatPage() {
 
   return (
     <main className="min-h-[100dvh] overflow-y-auto bg-[#081120] text-slate-100 md:h-[100dvh] md:min-h-0 md:overflow-hidden">
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-2 px-2 py-2 md:h-full md:min-h-0 md:grid md:grid-cols-[170px_minmax(0,1fr)] md:gap-3 md:px-4 md:py-3">
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-2 px-2 py-2 md:h-full md:min-h-0 md:grid md:grid-cols-[220px_minmax(0,1fr)] md:gap-3 md:px-4 md:py-3">
         <div className="flex items-center gap-2 md:hidden">
           <button
             type="button"
@@ -1371,7 +1384,7 @@ export default function ChartSummaryConsultChatPage() {
           </div>
         </aside>
 
-        <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-white/10 bg-white/[0.03] p-2 max-sm:overflow-visible sm:rounded-2xl sm:p-3 md:h-full md:overflow-hidden">
+        <section className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-white/10 bg-white/[0.03] p-2 max-sm:overflow-visible sm:rounded-2xl sm:p-3 md:h-full md:overflow-hidden">
           <div className="shrink-0">
             <div className="flex items-center gap-2 sm:gap-3">
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-cyan-500/20 text-sm text-cyan-200 sm:h-9 sm:w-9">
@@ -1529,7 +1542,7 @@ export default function ChartSummaryConsultChatPage() {
                     <div className={`flex ${m.role === "user" ? "justify-end" : "justify-start"} gap-2`}>
                       {m.role === "user" ? (
                         <div className="flex max-w-[min(92%,30rem)] flex-row-reverse items-start gap-0.5 sm:gap-1">
-                          <div className="min-w-0 flex-1 px-1 py-0.5 text-[15px] leading-relaxed whitespace-pre-wrap text-cyan-100 sm:text-sm">
+                          <div className="min-w-0 flex-1 rounded-2xl bg-cyan-700/35 px-3 py-2 text-[15px] leading-relaxed whitespace-pre-wrap text-cyan-100 sm:text-sm">
                             <ChatMessageBody content={m.content} />
                           </div>
                           <button
@@ -1699,41 +1712,28 @@ export default function ChartSummaryConsultChatPage() {
             onChange={(e) => onPickImages(e.target.files)}
             className="hidden"
           />
-          <div className="mt-2 hidden shrink-0 border-t border-white/10 bg-[#081120]/95 pt-2 pb-3 backdrop-blur">
-            {renderComposerInner(textareaRef)}
-          </div>
           <div>
             {mobileComposerOpen ? (
               <>
                 <div
-                  className="fixed inset-x-0 bottom-0 z-[70] max-h-[85dvh] overflow-y-auto rounded-t-2xl border border-white/10 bg-[#0a1424] p-3 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_-12px_48px_rgba(0,0,0,0.45)] sm:bottom-4 sm:left-1/2 sm:right-auto sm:max-h-[78dvh] sm:w-[min(920px,calc(100%-1rem))] sm:-translate-x-1/2 sm:rounded-2xl"
+                  ref={composerPopupRef}
+                  className="absolute inset-x-2 bottom-2 z-[70] max-h-[78dvh] overflow-y-auto rounded-2xl border border-white/10 bg-[#0a1424] p-3 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_-12px_48px_rgba(0,0,0,0.45)]"
                   role="dialog"
                   aria-labelledby="mobile-chat-composer-title"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <div className="mb-3 flex items-center justify-between gap-2">
-                    <span id="mobile-chat-composer-title" className="text-sm font-semibold text-slate-100">
-                      พิมพ์ข้อความ
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setMobileComposerOpen(false)}
-                      className="rounded-lg p-2 text-slate-400 hover:bg-white/10 hover:text-slate-100"
-                      aria-label="ปิด"
-                    >
-                      <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M18 6 6 18M6 6l12 12" strokeLinecap="round" />
-                      </svg>
-                    </button>
+                  <div className="mb-3 text-sm font-semibold text-slate-100" id="mobile-chat-composer-title">
+                    พิมพ์ข้อความ
                   </div>
                   {renderComposerInner(sheetTextareaRef)}
                 </div>
               </>
             ) : (
               <button
+                ref={composerTriggerRef}
                 type="button"
                 onClick={() => setMobileComposerOpen(true)}
-                className="fixed left-3 right-3 z-50 mx-auto flex max-w-lg items-center gap-2 rounded-2xl border border-white/15 bg-[#0c1624]/95 py-3 pl-4 pr-3 text-left shadow-xl shadow-black/40 backdrop-blur-md bottom-[max(0.75rem,env(safe-area-inset-bottom))] sm:left-1/2 sm:right-auto sm:w-[min(920px,calc(100%-2rem))] sm:max-w-none sm:-translate-x-1/2"
+                className="absolute inset-x-2 bottom-2 z-50 mx-auto flex items-center gap-2 rounded-2xl border border-white/15 bg-[#0c1624]/95 py-3 pl-4 pr-3 text-left shadow-xl shadow-black/40 backdrop-blur-md"
                 aria-haspopup="dialog"
               >
                 <span className="min-w-0 flex-1 truncate text-sm text-slate-300">
