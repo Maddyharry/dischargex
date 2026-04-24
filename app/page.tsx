@@ -101,7 +101,7 @@ export default function Home() {
 
             <p className="mx-auto mt-6 max-w-2xl text-pretty text-base leading-relaxed text-slate-300/95 md:text-lg md:leading-relaxed">
               ผู้ช่วยงานสรุปเวชระเบียนและ coding ในบริบท สปสช:
-              สรุป discharge summary จากข้อความเคส, แนะนำสิ่งที่ควรประเมินก่อนลงวินิจฉัย
+              สรุปชาร์จจากข้อความเคส, แนะนำสิ่งที่ควรประเมินก่อนลงวินิจฉัย
               และช่วยเช็กความครบถ้วนของข้อมูลก่อนใช้งานจริง
             </p>
 
@@ -239,12 +239,12 @@ export default function Home() {
               </Link>
             </div>
             <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-              <h3 className="text-base font-semibold text-white">Discharge Summary Workspace</h3>
+              <h3 className="text-base font-semibold text-white">หน้าสรุปชาร์จ</h3>
               <p className="mt-2 text-sm leading-relaxed text-slate-300">
                 วางข้อความจากเวชระเบียนเพื่อสร้างสรุปชาร์จแบบเป็นบล็อก ช่วยทบทวน coding/ICD และคัดลอกผลไปใช้งาน
               </p>
               <Link href="/app" className="mt-3 inline-block text-sm text-cyan-300 underline underline-offset-2 hover:text-cyan-200">
-                ไป Discharge Summary
+                ไปสรุปชาร์จ
               </Link>
             </div>
             <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">

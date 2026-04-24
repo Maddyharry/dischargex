@@ -13,7 +13,7 @@ const conversionCopy: SeoCatalog = {
     title:
       "DischargeX — ผู้ช่วยสรุปชาร์จตามแนวทาง สปสช พร้อม ICD-10 review สำหรับงาน IPD",
     description:
-      "เครื่องมือ AI สำหรับแพทย์และทีมเวชระเบียนไทย: ช่วยสรุป discharge summary, แนะนำหลักฐานที่ควรประเมินก่อนลงวินิจฉัย, และทบทวน coding ICD-10/Thai DRG โดยปกปิดข้อมูลระบุตัวก่อนส่ง AI",
+      "เครื่องมือ AI สำหรับแพทย์และทีมเวชระเบียนไทย: ช่วยสรุปชาร์จ, แนะนำหลักฐานที่ควรประเมินก่อนลงวินิจฉัย, และทบทวน coding ICD-10/Thai DRG โดยปกปิดข้อมูลระบุตัวก่อนส่ง AI",
   },
   pricing: {
     title:
@@ -32,13 +32,13 @@ const conversionCopy: SeoCatalog = {
 const technicalCopy: SeoCatalog = {
   home: {
     title:
-      "DischargeX | AI Clinical Documentation Support สำหรับ Discharge Summary และ ICD-10 Review",
+      "DischargeX | AI Clinical Documentation Support สำหรับสรุปชาร์จและ ICD-10 Review",
     description:
-      "ระบบช่วยงานเอกสารคลินิกสำหรับโรงพยาบาลไทย: สร้าง draft discharge summary, แนะนำ criteria ของ diagnosis เชิงหลักฐาน และช่วยทบทวน ICD-10/Thai DRG ใน workflow เวชระเบียน",
+      "ระบบช่วยงานเอกสารคลินิกสำหรับโรงพยาบาลไทย: สร้าง draft สรุปชาร์จ, แนะนำ criteria ของ diagnosis เชิงหลักฐาน และช่วยทบทวน ICD-10/Thai DRG ใน workflow เวชระเบียน",
   },
   pricing: {
     title:
-      "DischargeX Pricing | แพ็กเกจโควตา AI สำหรับ Discharge Summary และ Coding Review",
+      "DischargeX Pricing | แพ็กเกจโควตา AI สำหรับสรุปชาร์จและ Coding Review",
     description:
       "เปรียบเทียบแพ็กเกจ Trial, Basic, Standard, Pro ของ DischargeX ตามจำนวนโควตาและระดับการช่วยทบทวน diagnosis/ICD-10 สำหรับงาน IPD",
   },
@@ -55,7 +55,7 @@ const thaiBrandCopy: SeoCatalog = {
     title:
       "DischargeX — AI สำหรับสรุปชาร์จของแพทย์ไทยและทีมเวชระเบียน",
     description:
-      "ช่วยสรุป discharge summary จัดโครงวินิจฉัย และช่วยทบทวน ICD-10 ในงาน IPD ของโรงพยาบาลไทย ใช้งานง่ายและตรวจทานต่อได้จริง",
+      "ช่วยสรุปชาร์จ จัดโครงวินิจฉัย และช่วยทบทวน ICD-10 ในงาน IPD ของโรงพยาบาลไทย ใช้งานง่ายและตรวจทานต่อได้จริง",
   },
   pricing: {
     title:

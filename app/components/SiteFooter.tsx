@@ -19,7 +19,7 @@ export function SiteFooter() {
           <div className="space-y-3 text-sm leading-relaxed">
             <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">English</div>
             <p lang="en">
-              DischargeX supports discharge summary drafting and coding review.
+              DischargeX supports charge summary drafting and coding review.
               <br />
               Based on publicly available coding principles and reference materials.
               <br />

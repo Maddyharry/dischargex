@@ -14,9 +14,8 @@ export const metadata: Metadata = {
     template: "%s | DischargeX",
   },
   description:
-    "เครื่องมือช่วยสรุป discharge summary และทบทวนการจัดโครง coding (ICD-10 / Thai DRG) สำหรับแพทย์และผู้รับผิดชอบเวชระเบียนโรงพยาบาลไทย — ไม่ใช่การจัดกลุ่มอย่างเป็นทางการ",
+    "เครื่องมือช่วยสรุปชาร์จและทบทวนการจัดโครง coding (ICD-10 / Thai DRG) สำหรับแพทย์และผู้รับผิดชอบเวชระเบียนโรงพยาบาลไทย — ไม่ใช่การจัดกลุ่มอย่างเป็นทางการ",
   keywords: [
-    "Discharge summary",
     "ICD-10",
     "Thai DRG",
     "เวชระเบียน",

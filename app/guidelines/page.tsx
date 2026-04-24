@@ -104,14 +104,14 @@ export default function GuidelinesPage() {
                 <span className="font-medium text-slate-100">เข้าสู่ระบบ</span> — ล็อกอินด้วย Google หรืออีเมล/รหัสผ่านจากหน้า Login
               </li>
               <li>
-                <span className="font-medium text-slate-100">เริ่มจาก AI Chat หรือเข้า Workspace</span> — เริ่มคุยเคสที่{" "}
+                <span className="font-medium text-slate-100">เริ่มจาก AI Chat หรือเข้าหน้าสรุปชาร์จ</span> — เริ่มคุยเคสที่{" "}
                 <Link href="/chat" className="text-cyan-300 underline hover:text-cyan-200">/chat</Link>{" "}
                 เพื่อถามแนวทางก่อน แล้วค่อยเข้า{" "}
                 <Link href="/app" className="text-cyan-300 underline hover:text-cyan-200">/app</Link>{" "}
-                เพื่อสร้าง Discharge Summary
+                เพื่อสร้างสรุปชาร์จ
               </li>
               <li>
-                <span className="font-medium text-slate-100">วางข้อความ</span> — Copy ข้อความจาก doctor order sheet หรือเวชระเบียนมา Paste ในช่อง &quot;Clinical Input Workspace&quot; (ช่อง Lab / อื่นๆ เป็น optional)
+                <span className="font-medium text-slate-100">วางข้อความ</span> — Copy ข้อความจาก doctor order sheet หรือเวชระเบียนมา Paste ในช่องกรอกเคส (Clinical input) (ช่อง Lab / อื่นๆ เป็น optional)
               </li>
               <li>
                 <span className="font-medium text-slate-100">กดสร้างสรุป</span> — กดปุ่ม &quot;สร้างสรุป&quot; รอสักครู่ ระบบจะเติมผลลัพธ์ลงในช่องต่างๆ
@@ -137,7 +137,7 @@ export default function GuidelinesPage() {
               คำถามที่พบบ่อย (FAQ)
             </h2>
             <p className="mt-2 text-sm text-slate-400">
-              รวมคำถามที่ผู้ใช้มักค้นหาเกี่ยวกับ AI สรุปชาร์จ, discharge summary และการทบทวน ICD-10
+              รวมคำถามที่ผู้ใช้มักค้นหาเกี่ยวกับ AI สรุปชาร์จและการทบทวน ICD-10
             </p>
             <div className="mt-5 space-y-4">
               <details className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
@@ -193,7 +193,7 @@ export default function GuidelinesPage() {
             <ul className="mt-4 space-y-3 text-sm leading-6 text-slate-300 list-disc list-inside">
               <li><span className="font-medium text-slate-100">หน้าแรก</span> (<Link href="/" className="text-cyan-300 underline hover:text-cyan-200">/</Link>) — ดูภาพรวมว่าระบบมีอะไรและเริ่มจากจุดไหน</li>
               <li><span className="font-medium text-slate-100">AI Chat</span> (<Link href="/chat" className="text-cyan-300 underline hover:text-cyan-200">/chat</Link>) — ถาม diagnosis checklist, differential, และแนวทางบันทึกเคส</li>
-              <li><span className="font-medium text-slate-100">Discharge Summary</span> (<Link href="/app" className="text-cyan-300 underline hover:text-cyan-200">/app</Link>) — วางข้อความจาก chart เพื่อสร้างสรุปและทบทวน coding</li>
+              <li><span className="font-medium text-slate-100">สรุปชาร์จ</span> (<Link href="/app" className="text-cyan-300 underline hover:text-cyan-200">/app</Link>) — วางข้อความจาก chart เพื่อสร้างสรุปและทบทวน coding</li>
               <li><span className="font-medium text-slate-100">แพ็กเกจ/ราคา</span> (<Link href="/pricing" className="text-cyan-300 underline hover:text-cyan-200">/pricing</Link>) — ดูราคาอัปเดตล่าสุดและช่องทางชำระเงิน</li>
               <li><span className="font-medium text-slate-100">โปรไฟล์และแจ้งเตือน</span> (<Link href="/app/profile" className="text-cyan-300 underline hover:text-cyan-200">/app/profile</Link>) — ตรวจสถานะบัญชี แพ็กเกจ และการแจ้งเตือนจากทีม</li>
             </ul>
@@ -201,7 +201,7 @@ export default function GuidelinesPage() {
         </div>
 
         <p className="mt-10 text-center text-xs text-slate-500">
-          มีคำถามหรือข้อเสนอแนะ? ใช้ช่องแชทใน Workspace หรือติดต่อทีมงานได้ตามช่องทางที่แจ้งไว้
+          มีคำถามหรือข้อเสนอแนะ? ใช้ช่องแชทในหน้าสรุปชาร์จ หรือติดต่อทีมงานได้ตามช่องทางที่แจ้งไว้
         </p>
       </div>
     </main>

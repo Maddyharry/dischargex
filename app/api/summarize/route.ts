@@ -335,7 +335,7 @@ async function extractClinicalTextFromImages(openai: OpenAI, images: UploadedIma
         content: [
           {
             type: "input_text" as const,
-            text: "อ่านข้อความทางการแพทย์จากรูปให้มากที่สุด (ไทย/อังกฤษ) แล้วสรุปเป็น plain text สำหรับนำไปทำ discharge summary",
+            text: "อ่านข้อความทางการแพทย์จากรูปให้มากที่สุด (ไทย/อังกฤษ) แล้วสรุปเป็น plain text สำหรับนำไปทำสรุปชาร์จ",
           },
           ...images.map((img) => ({
             type: "input_image" as const,
@@ -1613,7 +1613,7 @@ export async function POST(req: Request) {
     if (mode === "generate" && todaySummaryCount >= summaryApproxLimit) {
       return json(
         {
-          error: `วันนี้คุณสร้าง Discharge Summary ครบโควตาโดยประมาณแล้ว (${summaryApproxLimit} เคส/วัน) ระบบจะรีเซ็ตอีกครั้งประมาณ ${formatBangkokDateTime(nextDailyResetAt)} หรือคุณสามารถซื้อแพ็กเพิ่มได้ที่หน้า /pricing`,
+          error: `วันนี้คุณสร้างสรุปชาร์จครบโควตาโดยประมาณแล้ว (${summaryApproxLimit} เคส/วัน) ระบบจะรีเซ็ตอีกครั้งประมาณ ${formatBangkokDateTime(nextDailyResetAt)} หรือคุณสามารถซื้อแพ็กเพิ่มได้ที่หน้า /pricing`,
         },
         429
       );

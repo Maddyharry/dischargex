@@ -30,7 +30,7 @@ export default function PrivacyPolicyPage() {
             verification.
           </p>
           <p>
-            Clinical text entered into the workspace is processed to generate draft summaries and coding
+            Clinical text entered for charge summary generation is processed to generate draft summaries and coding
             support. The system automatically redacts common identifiers (for example name, CID, HN/AN)
             before sending text to AI models, and users remain responsible for institutional compliance.
           </p>

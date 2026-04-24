@@ -23,6 +23,55 @@ const PLAN_SELECT_OPTIONS = {
   ],
 } as const;
 
+function billingViewFromPlanId(planId: string): "monthly" | "yearly" {
+  return planId.endsWith("_yearly") ? "yearly" : "monthly";
+}
+
+function tierToPlanId(tier: "basic" | "standard" | "pro", billing: "monthly" | "yearly") {
+  return `${tier}_${billing === "yearly" ? "yearly" : "monthly"}` as
+    | "basic_monthly"
+    | "basic_yearly"
+    | "standard_monthly"
+    | "standard_yearly"
+    | "pro_monthly"
+    | "pro_yearly";
+}
+
+function MobilePlanPicker(props: {
+  id: string;
+  value: string;
+  onChange: (planId: string) => void;
+}) {
+  return (
+    <div className="space-y-1">
+      <label htmlFor={props.id} className="text-xs font-medium text-slate-300">
+        เลือกแพ็กเกจ
+      </label>
+      <select
+        id={props.id}
+        value={props.value}
+        onChange={(e) => props.onChange(e.target.value)}
+        className="w-full rounded-2xl border border-slate-600 bg-slate-950 px-3 py-3 text-sm text-slate-100 outline-none focus:border-cyan-500"
+      >
+        <optgroup label="รายเดือน">
+          {PLAN_SELECT_OPTIONS.monthly.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </optgroup>
+        <optgroup label="รายปี">
+          {PLAN_SELECT_OPTIONS.yearly.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </optgroup>
+      </select>
+    </div>
+  );
+}
+
 function PricingPageContent() {
   const searchParams = useSearchParams();
   const { data: session, status: sessionStatus } = useSession();
@@ -51,6 +100,7 @@ function PricingPageContent() {
   const [addCreditsOption, setAddCreditsOption] = React.useState(0);
   const submitSuccess =
     searchParams.get("stripe") === "success" || searchParams.get("status") === "success";
+  const submitCancelled = searchParams.get("stripe") === "cancel";
   const hasPlan = (session?.user as { plan?: string } | undefined)?.plan;
   const isExistingPlan = hasPlan && hasPlan !== "trial";
   const defaultPlanRequested = billingView === "yearly" ? "standard_yearly" : "standard_monthly";
@@ -59,6 +109,11 @@ function PricingPageContent() {
     : selectedPlanRequested.startsWith("pro")
     ? "pro"
     : "standard";
+
+  function applyPlanFromPicker(planId: string) {
+    setBillingView(billingViewFromPlanId(planId));
+    setSelectedPlanRequested(planId);
+  }
 
   React.useEffect(() => {
     setSelectedPlanRequested(defaultPlanRequested);
@@ -208,6 +263,14 @@ function PricingPageContent() {
   return (
     <main className="min-h-screen bg-[#081120] text-slate-100">
       <div className="mx-auto max-w-5xl px-4 py-10 space-y-8">
+        {submitCancelled && (
+          <div className="rounded-3xl border border-amber-500/40 bg-amber-950/25 p-5 text-center">
+            <h2 className="text-lg font-semibold text-amber-200">ยกเลิกการชำระเงิน</h2>
+            <p className="mt-2 text-sm text-slate-300">
+              ยังไม่มีการตัดเงินจาก Stripe คุณสามารถตรวจสอบแพ็กเกจแล้วกดชำระใหม่ได้ทันที
+            </p>
+          </div>
+        )}
         {submitSuccess && (
           <div className="rounded-3xl border border-emerald-500/50 bg-emerald-950/30 p-6 text-center">
             <h2 className="text-xl font-semibold text-emerald-300">ชำระเงินสำเร็จ</h2>
@@ -242,7 +305,7 @@ function PricingPageContent() {
                 href="/app"
                 className="rounded-2xl bg-cyan-500 px-5 py-2.5 text-sm font-medium text-white hover:bg-cyan-600"
               >
-                ไปหน้าแอป (workspace)
+                ไปหน้าสรุปชาร์จ
               </Link>
               <Link
                 href="/"
@@ -304,6 +367,17 @@ function PricingPageContent() {
             </span>
           </div>
 
+          <div className="mt-4 md:hidden">
+            <MobilePlanPicker
+              id="pricing-plan-mobile-hero"
+              value={selectedPlanRequested}
+              onChange={applyPlanFromPicker}
+            />
+            <p className="mt-1 text-[11px] text-slate-500">
+              เลือกแพ็กจากรายการนี้ได้ทันที — ไม่ต้องเลื่อนลงไปที่ชำระเงิน
+            </p>
+          </div>
+
           <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
             <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5 shadow-sm transition hover:border-white/15">
               <h2 className="text-lg font-semibold text-white">Trial</h2>
@@ -317,7 +391,16 @@ function PricingPageContent() {
             </div>
 
             <div
-              className={`rounded-2xl p-5 shadow-sm transition ${
+              role="button"
+              tabIndex={0}
+              onClick={() => applyPlanFromPicker(tierToPlanId("basic", billingView))}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  applyPlanFromPicker(tierToPlanId("basic", billingView));
+                }
+              }}
+              className={`cursor-pointer rounded-2xl p-5 text-left shadow-sm transition ${
                 selectedPlanTier === "basic"
                   ? "border-2 border-cyan-400/70 bg-cyan-500/15 ring-2 ring-cyan-400/20"
                   : "border border-white/10 bg-white/[0.04] hover:border-white/15"
@@ -335,7 +418,7 @@ function PricingPageContent() {
               </p>
               <ul className="mt-4 space-y-2 text-sm text-slate-200">
                 <li>- คุย AI ได้ประมาณ 40 ครั้ง/วัน</li>
-                <li>- สร้าง Discharge Summary ได้ประมาณ 4 เคส/วัน</li>
+                <li>- สร้างสรุปชาร์จได้ประมาณ 4 เคส/วัน</li>
                 <li>- Principal / Comorbidity / Complication</li>
                 <li>- แนะนำ ICD-10 / ICD-9</li>
                 <li>- เหมาะสำหรับเริ่มใช้งานจริง</li>
@@ -343,7 +426,16 @@ function PricingPageContent() {
             </div>
 
             <div
-              className={`relative rounded-2xl p-5 shadow-sm transition ${
+              role="button"
+              tabIndex={0}
+              onClick={() => applyPlanFromPicker(tierToPlanId("standard", billingView))}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  applyPlanFromPicker(tierToPlanId("standard", billingView));
+                }
+              }}
+              className={`relative cursor-pointer rounded-2xl p-5 text-left shadow-sm transition ${
                 selectedPlanTier === "standard"
                   ? "border-2 border-cyan-400/70 bg-cyan-500/15 shadow-lg shadow-cyan-900/30 ring-2 ring-cyan-400/20"
                   : "border border-white/10 bg-white/[0.04] hover:border-white/15"
@@ -353,7 +445,7 @@ function PricingPageContent() {
                 แนะนำ
               </span>
               <h2 className="text-lg font-semibold text-white">Standard</h2>
-              <p className="mt-1 text-sm text-cyan-100">ครบ ใช้จริงทุกวัน — แพ็กหลักสำหรับทำ discharge summary</p>
+              <p className="mt-1 text-sm text-cyan-100">ครบ ใช้จริงทุกวัน — แพ็กหลักสำหรับทำสรุปชาร์จ</p>
               <p className="mt-4 text-3xl font-bold text-white">
                 {billingView === "yearly" ? "5,990฿" : "590฿"}
               </p>
@@ -364,15 +456,24 @@ function PricingPageContent() {
               </p>
               <ul className="mt-4 space-y-2 text-sm text-slate-100">
                 <li>- คุย AI ได้ประมาณ 140 ครั้ง/วัน</li>
-                <li>- สร้าง Discharge Summary ได้ประมาณ 14 เคส/วัน</li>
+                <li>- สร้างสรุปชาร์จได้ประมาณ 14 เคส/วัน</li>
                 <li>- Diagnosis ครบ + Admit / Discharge</li>
                 <li>- Investigations, Treatment, Outcome, Home medication</li>
-                <li>- เหมาะสำหรับทำ discharge summary จริง</li>
+                <li>- เหมาะสำหรับทำสรุปชาร์จจริง</li>
               </ul>
             </div>
 
             <div
-              className={`rounded-2xl p-5 shadow-sm transition ${
+              role="button"
+              tabIndex={0}
+              onClick={() => applyPlanFromPicker(tierToPlanId("pro", billingView))}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  applyPlanFromPicker(tierToPlanId("pro", billingView));
+                }
+              }}
+              className={`cursor-pointer rounded-2xl p-5 text-left shadow-sm transition ${
                 selectedPlanTier === "pro"
                   ? "border-2 border-cyan-400/70 bg-cyan-500/15 ring-2 ring-cyan-400/20"
                   : "border border-amber-400/40 bg-amber-500/10 hover:border-amber-400/50"
@@ -390,7 +491,7 @@ function PricingPageContent() {
               </p>
               <ul className="mt-4 space-y-2 text-sm text-slate-100">
                 <li>- คุย AI ได้ประมาณ 420 ครั้ง/วัน</li>
-                <li>- สร้าง Discharge Summary ได้ประมาณ 42 เคส/วัน</li>
+                <li>- สร้างสรุปชาร์จได้ประมาณ 42 เคส/วัน</li>
                 <li>- ทุกอย่างใน Standard</li>
                 <li>- วิเคราะห์เชิงลึกมากขึ้นสำหรับเคสซับซ้อน</li>
                 <li>- แนะนำเติมข้อความใน order sheet (รวมผล lab/รังสีในหน้า) เพื่อรองรับรหัส (AdjRW ประมาณการ ไม่รับประกันการเบิกจ่าย)</li>
@@ -437,7 +538,7 @@ function PricingPageContent() {
                   <td className={`px-4 py-3 ${selectedPlanTier === "pro" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>~420 ครั้ง</td>
                 </tr>
                 <tr>
-                  <td className="px-4 py-3">สร้าง Discharge Summary ได้ประมาณต่อวัน</td>
+                  <td className="px-4 py-3">สร้างสรุปชาร์จได้ประมาณต่อวัน</td>
                   <td className={`px-4 py-3 ${selectedPlanTier === "basic" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>~4 เคส</td>
                   <td className={`px-4 py-3 ${selectedPlanTier === "standard" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>~14 เคส</td>
                   <td className={`px-4 py-3 ${selectedPlanTier === "pro" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>~42 เคส</td>
@@ -449,7 +550,7 @@ function PricingPageContent() {
                   <td className={`px-4 py-3 ${selectedPlanTier === "pro" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>✓</td>
                 </tr>
                 <tr>
-                  <td className="px-4 py-3">สรุป Discharge Summary ครบส่วนหลัก</td>
+                  <td className="px-4 py-3">สรุปชาร์จครบส่วนหลัก</td>
                   <td className={`px-4 py-3 ${selectedPlanTier === "basic" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>-</td>
                   <td className={`px-4 py-3 ${selectedPlanTier === "standard" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>✓</td>
                   <td className={`px-4 py-3 ${selectedPlanTier === "pro" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>✓</td>
@@ -487,7 +588,7 @@ function PricingPageContent() {
               เริ่มที่ AI Chat
             </Link>
             <Link href="/app" className="rounded-xl border border-slate-600 px-3 py-2 text-xs text-slate-200 hover:bg-slate-800">
-              ไปหน้า Discharge Summary
+              ไปหน้าสรุปชาร์จ
             </Link>
             <Link href="/guidelines" className="rounded-xl border border-slate-600 px-3 py-2 text-xs text-slate-200 hover:bg-slate-800">
               ดูแนวทางใช้งาน
@@ -556,6 +657,16 @@ function PricingPageContent() {
             </div>
           )}
 
+          {requestType === "plan" ? (
+            <div className="mt-4 md:hidden">
+              <MobilePlanPicker
+                id="pricing-plan-mobile-stripe"
+                value={selectedPlanRequested}
+                onChange={applyPlanFromPicker}
+              />
+            </div>
+          ) : null}
+
           <div className="mt-6 grid gap-4 md:grid-cols-2">
             <div className="space-y-3 md:col-span-2">
               <label className="text-xs text-slate-300">ประเภทคำขอ</label>
@@ -582,13 +693,17 @@ function PricingPageContent() {
               </div>
 
               {requestType === "plan" ? (
-                <div className="space-y-1">
-                  <label className="text-xs text-slate-400">เลือกแพ็กเกจ</label>
+                <div className="hidden space-y-1 md:block">
+                  <label className="text-xs text-slate-400">เลือกแพ็กเกจ (ตามมุมมองรายเดือน/รายปีด้านบน)</label>
                   <select
                     name="planRequested"
                     required={requestType === "plan"}
                     value={selectedPlanRequested}
-                    onChange={(e) => setSelectedPlanRequested(e.target.value)}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setBillingView(billingViewFromPlanId(v));
+                      setSelectedPlanRequested(v);
+                    }}
                     className="w-full rounded-2xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-cyan-500"
                   >
                     {PLAN_SELECT_OPTIONS[billingView].map((option) => (

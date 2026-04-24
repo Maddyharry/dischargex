@@ -148,6 +148,8 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [stripeSuccess, setStripeSuccess] = useState(false);
+  const [portalReturned, setPortalReturned] = useState(false);
   const usagePercent = useMemo(() => {
     if (!usage || usage.total <= 0) return 0;
     return Math.max(0, Math.min(100, Math.round((usage.used / usage.total) * 100)));
@@ -159,6 +161,12 @@ export default function ProfilePage() {
     if (daysInMonth <= 0) return 0;
     return Math.max(0, Math.min(100, 100 - Math.round((usage.daysLeftInMonth / daysInMonth) * 100)));
   }, [usage]);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    setStripeSuccess(params.get("stripe") === "success");
+    setPortalReturned(params.get("billing") === "portal");
+  }, []);
 
   useEffect(() => {
     if (sessionStatus !== "authenticated") return;
@@ -338,14 +346,24 @@ export default function ProfilePage() {
             href="/app"
             className="rounded-2xl border border-slate-700 bg-slate-900/80 px-4 py-2 text-sm font-medium text-slate-100 transition hover:bg-slate-800"
           >
-            ← กลับไป Workspace
+            ← กลับไปสรุปชาร์จ
           </Link>
         </header>
+        {stripeSuccess ? (
+          <div className="rounded-2xl border border-emerald-500/40 bg-emerald-950/30 px-4 py-3 text-sm text-emerald-200">
+            ชำระเงินสำเร็จแล้ว ระบบกำลังซิงก์สิทธิ์ใช้งานล่าสุดให้บัญชีของคุณ
+          </div>
+        ) : null}
+        {portalReturned ? (
+          <div className="rounded-2xl border border-cyan-500/40 bg-cyan-950/30 px-4 py-3 text-sm text-cyan-200">
+            กลับมาจาก Stripe Billing Portal แล้ว หากเพิ่งเปลี่ยนแพ็กเกจ กรุณารอสักครู่แล้วรีเฟรชหน้านี้
+          </div>
+        ) : null}
 
         <section className="rounded-3xl border border-cyan-500/25 bg-cyan-950/35 p-6">
-          <h2 className="text-lg font-semibold text-white">การแนะนำ Workspace</h2>
+          <h2 className="text-lg font-semibold text-white">การแนะนำหน้าสรุปชาร์จ</h2>
           <p className="mt-2 text-sm leading-relaxed text-slate-300">
-            เคยจบหรือข้าม tutorial แล้วอยากลอง flow แบบทีละขั้นอีกครั้ง? กดด้านล่างแล้วไปที่ workspace
+            เคยจบหรือข้าม tutorial แล้วอยากลอง flow แบบทีละขั้นอีกครั้ง? กดด้านล่างแล้วไปที่หน้าสรุป Discharge
             — ระบบจะเปิดหน้าต่างแนะนำใหม่ (ไม่ต้องรอให้โหมดสาธิตขึ้นทุกครั้งที่เข้าเว็บ)
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
@@ -359,7 +377,7 @@ export default function ProfilePage() {
               href="/app"
               className="inline-flex items-center justify-center rounded-2xl border border-slate-600 bg-slate-900/90 px-5 py-2.5 text-sm font-medium text-slate-200 hover:bg-slate-800"
             >
-              ไป Workspace โดยไม่เริ่ม tutorial
+              ไปสรุปชาร์จโดยไม่เริ่ม tutorial
             </Link>
           </div>
         </section>

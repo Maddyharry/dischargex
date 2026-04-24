@@ -320,10 +320,10 @@ export default function ChartAssistLab() {
             </div>
           </section>
 
-          {/* CENTER — workspace */}
+          {/* CENTER — สรุปชาร์จ */}
           <section className="lg:col-span-5">
             <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
-              <div className="text-xs font-semibold text-slate-300">Clinical workspace</div>
+              <div className="text-xs font-semibold text-slate-300">ข้อมูลสรุปชาร์จ</div>
               <p className="mt-1 text-[11px] text-slate-500">
                 Persisted with case (local). Raw text for rules = timeline below (not these fields).
               </p>

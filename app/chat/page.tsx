@@ -1600,7 +1600,7 @@ export default function ChartSummaryConsultChatPage() {
             >
               <span className="text-slate-500">ลัดไปหน้าอื่น:</span>
               <a href="/app" className="rounded-full border border-slate-700 px-2 py-0.5 hover:border-cyan-500/50 hover:text-cyan-200">
-                Discharge Summary
+                สรุปชาร์จ
               </a>
               <a href="/pricing" className="rounded-full border border-slate-700 px-2 py-0.5 hover:border-cyan-500/50 hover:text-cyan-200">
                 ราคา/แพ็กเกจ

@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "เกี่ยวกับ DischargeX — เครื่องมือ AI ช่วยสรุปชาร์จและทบทวน coding",
   description:
-    "รู้จัก DischargeX: เครื่องมือช่วยสรุป discharge summary จัดโครง diagnosis และช่วยทบทวน coding สำหรับทีมแพทย์และเวชระเบียนในโรงพยาบาลไทย",
+    "รู้จัก DischargeX: เครื่องมือช่วยสรุปชาร์จ จัดโครง diagnosis และช่วยทบทวน coding สำหรับทีมแพทย์และเวชระเบียนในโรงพยาบาลไทย",
   alternates: { canonical: "/about" },
   openGraph: {
     title: "เกี่ยวกับ DischargeX",
@@ -19,7 +19,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "เกี่ยวกับ DischargeX",
     description:
-      "เครื่องมือ AI ช่วยสรุป discharge summary และช่วยทบทวน coding สำหรับโรงพยาบาลไทย",
+      "เครื่องมือ AI ช่วยสรุปชาร์จและช่วยทบทวน coding สำหรับโรงพยาบาลไทย",
   },
   robots: {
     index: true,
@@ -37,7 +37,7 @@ export default function AboutPage() {
         <h1 className="text-3xl font-semibold tracking-tight text-white">About DischargeX</h1>
         <div className="mt-8 space-y-6 text-sm leading-7 text-slate-300">
           <p>
-            DischargeX คือเครื่องมือช่วยสรุป discharge summary และทบทวนการจัดโครง coding สำหรับงานเวชระเบียนและงานสรุปชาร์จ
+            DischargeX คือเครื่องมือช่วยสรุปชาร์จและทบทวนการจัดโครง coding สำหรับงานเวชระเบียน
           </p>
           <p>
             ระบบช่วยดึงข้อมูลสำคัญจากข้อความในเวชระเบียน, จัดกลุ่มวินิจฉัยตามบทบาท, ค้นหารายการที่อาจตกหล่น

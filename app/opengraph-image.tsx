@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 
 export const alt =
-  "DischargeX — AI discharge summary and ICD-10 coding support for Thai physicians";
+  "DischargeX — AI สรุปชาร์จและการทบทวน ICD-10 สำหรับแพทย์ไทย";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -57,7 +57,7 @@ export default function OpenGraphImage() {
                 fontFamily: "ui-sans-serif, system-ui, sans-serif",
               }}
             >
-              IPD · Discharge summary · Thai DRG · ICD-10 review
+              IPD · สรุปชาร์จ · Thai DRG · ICD-10 review
             </span>
           </div>
         </div>
@@ -75,10 +75,10 @@ export default function OpenGraphImage() {
             }}
           >
             <span style={{ fontSize: 13, color: "#64748b", letterSpacing: 2, textTransform: "uppercase" }}>
-              Clinical workspace
+              สรุปชาร์จ
             </span>
             <span style={{ fontSize: 22, color: "#e2e8f0", lineHeight: 1.35 }}>
-              AI-assisted discharge summary & coding structure for Thai hospital charts
+              AI ช่วยสรุปชาร์จและจัดโครง coding จากเวชระเบียน IPD ไทย
             </span>
           </div>
           <div

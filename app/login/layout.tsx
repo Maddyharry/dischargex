@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "เข้าสู่ระบบ DischargeX",
-  description: "เข้าสู่ระบบเพื่อใช้งาน DischargeX workspace",
+  description: "เข้าสู่ระบบเพื่อใช้งาน DischargeX — สรุปชาร์จและเครื่องมืออื่นๆ",
   alternates: { canonical: "/login" },
   robots: {
     index: false,

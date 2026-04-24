@@ -127,7 +127,7 @@ type WorkspacePanelKey =
   | "preprocessSummary"
   | "warnings";
 
-/** flow แบบเกม: intro → mock หน้าต่าง → workspace → สร้างสรุป → จบ */
+/** flow แบบเกม: intro → mock หน้าต่าง → สรุปชาร์จ → สร้างสรุป → จบ */
 type TutorialPhase =
   | "off"
   | "intro_modal"
@@ -269,7 +269,7 @@ function PageContent() {
 
   const [tutorialPhase, setTutorialPhase] = useState<TutorialPhase>("off");
   const [tutorialInit, setTutorialInit] = useState(false);
-  /** จำไว้ว่าเคยจบ/ข้าม tutorial แล้ว — ใช้ซ่อนการ์ดตัวอย่างใหญ่เพื่อให้ workspace รู้สึกเหมือนโหมดใช้งานจริง */
+  /** จำไว้ว่าเคยจบ/ข้าม tutorial แล้ว — ใช้ซ่อนการ์ดตัวอย่างใหญ่เพื่อให้หน้าสรุปชาร์จรู้สึกเหมือนโหมดใช้งานจริง */
   const [tutorialDonePersisted, setTutorialDonePersisted] = useState(false);
   const [mockPopupBlocked, setMockPopupBlocked] = useState(false);
   const orderSheetInputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -1547,7 +1547,7 @@ function PageContent() {
           <div className="grid gap-6 px-6 py-7 lg:grid-cols-[1.2fr_0.8fr] lg:px-8">
             <div className="space-y-4">
               <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-xs font-medium uppercase tracking-[0.18em] text-cyan-300">
-                Discharge summary · coding review
+                สรุปชาร์จ · ทบทวน coding
               </div>
 
               <div>
@@ -1555,7 +1555,7 @@ function PageContent() {
                   Discharge<span className="text-cyan-400">X</span>
                 </h1>
                 <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300 md:text-base">
-                  ช่วยสรุป discharge summary, จัดกลุ่มวินิจฉัย, และช่วยประเมินผลต่อการทบทวน coding และ AdjRW แบบประมาณการ
+                  ช่วยสรุปชาร์จ, จัดกลุ่มวินิจฉัย, และช่วยประเมินผลต่อการทบทวน coding และ AdjRW แบบประมาณการ
                   — ลดงานคัดลอกและจัดโครงข้อมูลใน workflow ของทีมแพทย์และผู้ตรวจรหัส
                 </p>
               </div>
@@ -1602,8 +1602,7 @@ function PageContent() {
             >
               <ol className="space-y-2 text-sm text-slate-200">
                 <li>
-                  1) Copy ข้อมูลทั้งหน้าจากระบบ order sheet (รวมบรรทัด lab / รังสีที่อยู่ในหน้านั้น) แล้ววางในช่อง Clinical
-                  Input Workspace
+                  1) Copy ข้อมูลทั้งหน้าจากระบบ order sheet (รวมบรรทัด lab / รังสีที่อยู่ในหน้านั้น) แล้ววางในช่องใส่ข้อมูลสรุปชาร์จ
                 </li>
                 <li>2) กดปุ่ม &quot;สร้างสรุป&quot; แล้วรอผลลัพธ์</li>
                 <li>3) ตรวจทานผลลัพธ์ก่อนคัดลอกไปใช้งานจริง</li>
@@ -1765,7 +1764,7 @@ function PageContent() {
                 </div>
               ) : null}
               <Card
-                title="Clinical Input Workspace"
+                title="ช่องใส่ข้อมูลสรุปชาร์จ"
                 subtitle="Paste หน้า order sheet — รวมผล lab / รังสีที่แสดงในหน้านั้นในช่องเดียวกัน (ระบบไม่แยกช่อง lab)"
               >
                 <div className="mb-3 flex flex-wrap items-center gap-2">

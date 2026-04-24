@@ -170,7 +170,7 @@ export function Header() {
             href="/app"
             className="hidden shrink-0 rounded-lg border border-slate-600/80 bg-slate-800/40 px-3 py-2 text-sm text-slate-200 transition hover:border-slate-500 hover:bg-slate-700/40 hover:text-white sm:inline-flex"
           >
-            Discharge Summary
+            สรุปชาร์จ
           </Link>
           <Link
             href="/guidelines"
@@ -272,7 +272,7 @@ export function Header() {
                       className="block px-4 py-2.5 text-sm text-slate-200 hover:bg-slate-800 hover:text-white"
                       onClick={() => setMenuOpen(false)}
                     >
-                      Workspace
+                      สรุปชาร์จ
                     </Link>
                     <Link
                       href="/app/history"

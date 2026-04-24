@@ -112,7 +112,7 @@ export async function POST(req: NextRequest) {
     if (!isAddCredits && activeSubscription && dbUser.stripeSubscriptionId) {
       const portal = await stripe.billingPortal.sessions.create({
         customer: customerId,
-        return_url: `${appOrigin}/pricing`,
+        return_url: `${appOrigin}/app/profile?billing=portal`,
       });
       return NextResponse.json({
         ok: true,
@@ -134,7 +134,7 @@ export async function POST(req: NextRequest) {
       ? await stripe.checkout.sessions.create({
           mode: "payment",
           customer: customerId,
-          success_url: `${appOrigin}/pricing?stripe=success`,
+          success_url: `${appOrigin}/app/profile?stripe=success`,
           cancel_url: `${appOrigin}/pricing?stripe=cancel`,
           line_items: [
             {
@@ -160,7 +160,7 @@ export async function POST(req: NextRequest) {
       : await stripe.checkout.sessions.create({
           mode: "subscription",
           customer: customerId,
-          success_url: `${appOrigin}/pricing?stripe=success`,
+          success_url: `${appOrigin}/app/profile?stripe=success`,
           cancel_url: `${appOrigin}/pricing?stripe=cancel`,
           line_items: [{ price: selectedPriceId, quantity: 1 }],
           metadata: {

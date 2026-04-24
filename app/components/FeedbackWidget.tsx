@@ -633,7 +633,7 @@ export function FeedbackWidget() {
                           onChange={(e) => setReportIncludeWorkspace(e.target.checked)}
                           className="h-4 w-4 rounded border-slate-600 bg-slate-800 text-cyan-500"
                         />
-                        แนบข้อมูล Workspace (order sheet และผลสรุปชาร์จ)
+                        แนบข้อมูลหน้าสรุปชาร์จ (order sheet และผลสรุป)
                       </label>
                     ) : null}
                     <div>

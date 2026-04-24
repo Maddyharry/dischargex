@@ -21,7 +21,7 @@ export const middleware = withAuth(
       authorized: ({ token, req }) => {
         const pathname = req.nextUrl.pathname;
 
-        /** Workspace แบบสาธิต — ไม่ต้องล็อกอิน (tutorial + mock API) */
+        /** สรุปชาร์จแบบสาธิต (/app/guest) — ไม่ต้องล็อกอิน (tutorial + mock API) */
         if (pathname === "/app/guest" || pathname.startsWith("/app/guest/")) {
           return true;
         }

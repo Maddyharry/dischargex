@@ -474,7 +474,7 @@ export default function AdminFeedbackPage() {
 
                       {payloadObj?.workspace ? (
                         <div>
-                          <div className="text-xs font-medium text-slate-400 mb-1">ข้อมูล Workspace ที่แนบ</div>
+                          <div className="text-xs font-medium text-slate-400 mb-1">ข้อมูลหน้าสรุปชาร์จที่แนบ</div>
                           <div className="rounded-xl bg-slate-950/80 border border-slate-700/80 p-3 space-y-3 text-sm max-h-96 overflow-y-auto">
                             {typeof (payloadObj.workspace as { orderSheet?: string }).orderSheet === "string" && (
                               <details>

@@ -243,7 +243,7 @@ function buildSystemPrompt(assistantMode: AssistantMode, variant: "A" | "B", sty
   }
 
   const baseSystem = [
-    "You are DischargeX clinical coding copilot for Thai discharge summary workflow.",
+    "You are DischargeX clinical coding copilot for Thai IPD charge-summary (สรุปชาร์จ) workflow.",
     "Always answer in Thai language.",
     "Behave like a helpful chat assistant, not a static document retriever.",
     "Use conversation context from CHAT_HISTORY and USER_MESSAGE before answering.",

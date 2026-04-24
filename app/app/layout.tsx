@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-/** Authenticated workspace: do not index clinical/product UI in search engines. */
+/** Authenticated app (/app): do not index clinical/product UI in search engines. */
 export const metadata: Metadata = {
   robots: {
     index: false,

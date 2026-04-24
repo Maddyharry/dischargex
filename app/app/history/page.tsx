@@ -89,7 +89,7 @@ export default function HistoryPage() {
             href="/app"
             className="rounded-2xl border border-slate-700 bg-slate-900/80 px-4 py-2 text-sm font-medium text-slate-100 transition hover:bg-slate-800"
           >
-            ← กลับไป Workspace
+            ← กลับไปสรุปชาร์จ
           </Link>
         </header>
 
