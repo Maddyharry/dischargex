@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 type Digest = {
   ok: boolean;
@@ -183,13 +183,60 @@ export default function AdminTelemetryPage() {
   const ctaToPurchaseRows = useMemo(() => data?.webAnalytics?.conversionInsights?.ctaToPurchase || [], [data]);
   const entryPath = useMemo(() => data?.webAnalytics?.conversionInsights?.entryPath || null, [data]);
 
+  const funnelViewSteps = useMemo(() => {
+    if (!data?.webAnalytics) return [];
+    const w = data.webAnalytics;
+    return [
+      { label: "Landing views", value: w.landing.views },
+      { label: "Pricing views", value: w.pricing.views },
+      { label: "Chat page views", value: w.chat.views },
+      { label: "Purchases", value: w.business.purchases },
+    ];
+  }, [data]);
+
+  const topEventBars = useMemo(
+    () => (data?.topEvents || []).map((e) => ({ label: e.event, value: e.count })),
+    [data]
+  );
+
+  const copyDigestPrompt = useCallback(async () => {
+    if (!data) return;
+    const w = data.webAnalytics;
+    const lines = [
+      "ฉันเป็นแอดมิน DischargeX กำลังดู Telemetry dashboard — ช่วยตีความสั้นๆ ว่าควรโฟกัสปรับผลิตภัณฑ์/การตลาดอะไรก่อน (ตอบเป็นหัวข้อ bullet ภาษาไทย):",
+      "",
+      `ช่วงสรุป: ${data.periodDays} วัน`,
+      `Events (หลังตัด admin): ${data.totalTelemetry} (ตัด admin ${data.excludedAdminTelemetry ?? 0} แถว)`,
+      `Feedback helpful / not helpful: ${data.feedback.helpful} / ${data.feedback.notHelpful} (acceptance ${
+        data.feedback.acceptanceRate == null ? "-" : `${(data.feedback.acceptanceRate * 100).toFixed(1)}%`
+      })`,
+      `Token cost รวม (ประมาณ THB): ${(data.tokenCostTotal || 0).toFixed(2)}`,
+      w
+        ? `Funnel: landing ${w.landing.views} views · pricing ${w.pricing.views} · chat page ${w.chat.views} · purchases ${w.business.purchases}`
+        : "",
+      w
+        ? `Trial signups: ${w.business.trialSignups} · Trial active: ${w.business.trialActiveUsers} · Unique purchasers: ${w.business.uniquePurchasers}`
+        : "",
+      "",
+      "ขอ 3 ข้อที่ควรทำต่อ และ 1 คำถามที่ควรไปตรวจสอบเพิ่มในระบบ/จากผู้ใช้",
+    ].filter(Boolean);
+    const text = lines.join("\n");
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      window.prompt("คัดลอกข้อความนี้ไปวางใน AI Chat:", text);
+    }
+  }, [data]);
+
   return (
     <main className="min-h-screen bg-[#081120] text-slate-100">
       <div className="mx-auto max-w-4xl space-y-6 px-4 py-8">
         <header className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl font-semibold text-white">Telemetry Dashboard</h1>
-            <p className="mt-1 text-sm text-slate-400">สรุป 7 วันล่าสุดเพื่อดู acceptance และพฤติกรรมการใช้งาน</p>
+            <p className="mt-1 text-sm text-slate-400">
+              สรุปช่วงล่าสุดเพื่อดู acceptance และพฤติกรรม — มีแผนภูมิแถบด้านล่างช่วยอ่านเทียบสัดส่วน
+            </p>
           </div>
           <div className="flex gap-2">
             <button
@@ -231,6 +278,65 @@ export default function AdminTelemetryPage() {
                 value={data.feedback.acceptanceRate == null ? "-" : `${(data.feedback.acceptanceRate * 100).toFixed(1)}%`}
               />
               <StatCard label="Token Cost (THB)" value={(data.tokenCostTotal || 0).toFixed(2)} />
+            </section>
+
+            <section className="rounded-2xl border border-slate-600/80 bg-slate-900/40 p-4">
+              <h2 className="text-sm font-semibold text-white">รู้ว่าควรปรับอะไร — อ่านยังไง</h2>
+              <ul className="mt-2 list-disc space-y-1 pl-5 text-sm leading-relaxed text-slate-300">
+                <li>
+                  <span className="font-medium text-slate-200">Acceptance rate ต่ำ / not helpful สูง</span> → ไล่ที่ Top
+                  reject reasons + prompt variant / mode (ด้านล่าง) แล้วปรับ prompt หรือ UX คำตอบ
+                </li>
+                <li>
+                  <span className="font-medium text-slate-200">Landing → Pricing หรือ Pricing → Purchase ต่ำ</span> →
+                  โฟกัสหน้าแรก ราคา ข้อความ CTA และ friction ก่อนชำระ
+                </li>
+                <li>
+                  <span className="font-medium text-slate-200">Token cost พุ่ง</span> → ดูแยกตาม source ว่าเป็นแชทหรือ
+                  สรุปชาร์จ แล้วเทียบกับยอดขาย/จำนวนผู้ใช้
+                </li>
+                <li>
+                  <span className="font-medium text-slate-200">ทำซ้ำทุกสัปดาห์</span> — Export CSV เก็บ snapshot แล้วเทียบ
+                  กับสัปดาห์ก่อน จะเห็นว่าอะไรเปลี่ยนจริง
+                </li>
+              </ul>
+              <div className="mt-4 flex flex-wrap items-center gap-2 rounded-xl border border-cyan-800/50 bg-cyan-950/25 px-3 py-3">
+                <p className="min-w-0 flex-1 text-xs leading-relaxed text-cyan-100/90">
+                  แชท AI ในหน้านี้ยังไม่ฝัง — ใช้{" "}
+                  <Link href="/chat" className="font-medium text-cyan-300 underline hover:text-cyan-200">
+                    AI Chat
+                  </Link>{" "}
+                  แทน แล้ววางตัวเลขสรุปจากปุ่มคัดลอกด้านขวา
+                </p>
+                <button
+                  type="button"
+                  onClick={() => void copyDigestPrompt()}
+                  className="shrink-0 rounded-lg border border-cyan-500/50 bg-cyan-600/25 px-3 py-2 text-xs font-medium text-cyan-100 hover:bg-cyan-600/35"
+                >
+                  คัดลอก prompt ตีความ
+                </button>
+              </div>
+            </section>
+
+            <section className="grid gap-4 lg:grid-cols-2">
+              <HorizontalBarChart title="ปริมาณเข้าชม & ซื้อ (แนว funnel)" rows={funnelViewSteps} maxItems={8} />
+              <HorizontalBarChart title="Top telemetry events" rows={topEventBars} maxItems={10} />
+              <HorizontalBarChart
+                title="Token cost ตาม source (THB)"
+                rows={tokenCostRows.map((r) => ({ label: r.source, value: r.amount }))}
+                maxItems={10}
+                formatValue={(n) => `${n.toFixed(2)} ฿`}
+              />
+              <HorizontalBarChart title="Reject reasons (จำนวน)" rows={rejectRows.map((r) => ({ label: r.reason, value: r.count }))} maxItems={10} />
+              <HorizontalBarChart
+                title="Feedback แชท (helpful vs not helpful)"
+                rows={[
+                  { label: "Helpful", value: data.feedback.helpful },
+                  { label: "Not helpful", value: data.feedback.notHelpful },
+                ]}
+                maxItems={2}
+                caption="แถบเปรียบเทียบสัดส่วนระหว่างสองค่านี้เท่านั้น"
+              />
             </section>
 
             <section className="grid gap-3 sm:grid-cols-3">
@@ -651,6 +757,47 @@ export default function AdminTelemetryPage() {
         ) : null}
       </div>
     </main>
+  );
+}
+
+function HorizontalBarChart(props: {
+  title: string;
+  rows: { label: string; value: number }[];
+  maxItems?: number;
+  formatValue?: (n: number) => string;
+  caption?: string;
+}) {
+  const maxItems = props.maxItems ?? 10;
+  const slice = props.rows.slice(0, maxItems);
+  const max = Math.max(1, ...slice.map((r) => r.value));
+  const fmt = props.formatValue ?? ((n: number) => String(n));
+  return (
+    <div className="rounded-2xl border border-slate-700/80 bg-slate-950/60 p-4">
+      {props.title ? <h2 className="text-sm font-semibold text-white">{props.title}</h2> : null}
+      <div className={props.title ? "mt-3 space-y-2.5" : "space-y-2.5"}>
+        {slice.length ? (
+          slice.map((row) => (
+            <div key={row.label}>
+              <div className="mb-0.5 flex items-center justify-between gap-2 text-xs">
+                <span className="min-w-0 truncate text-slate-300" title={row.label}>
+                  {row.label}
+                </span>
+                <span className="shrink-0 font-medium text-cyan-300">{fmt(row.value)}</span>
+              </div>
+              <div className="h-2 w-full overflow-hidden rounded-full bg-slate-800">
+                <div
+                  className="h-full min-w-0 rounded-full bg-gradient-to-r from-cyan-700 to-cyan-400"
+                  style={{ width: `${Math.min(100, (row.value / max) * 100)}%` }}
+                />
+              </div>
+            </div>
+          ))
+        ) : (
+          <p className="text-sm text-slate-500">ยังไม่มีข้อมูล</p>
+        )}
+      </div>
+      {props.caption ? <p className="mt-2 text-[11px] text-slate-500">{props.caption}</p> : null}
+    </div>
   );
 }
 
