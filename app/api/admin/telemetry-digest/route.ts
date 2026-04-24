@@ -40,6 +40,39 @@ function toCohortBucket(days: number) {
   return "D15+";
 }
 
+type AssistantModeBucket = "coding" | "opd_demo" | "unknown";
+
+function bucketAssistantMode(raw: unknown): AssistantModeBucket {
+  if (raw === "opd_demo") return "opd_demo";
+  if (raw === "coding") return "coding";
+  return "unknown";
+}
+
+type TelemetryPayload = {
+  assistantMode?: string;
+  promptVariant?: string;
+  blockKey?: string;
+  strategy?: string;
+  diagnosisKey?: string;
+  path?: string;
+  visitorId?: string;
+  sessionId?: string;
+  durationMs?: number;
+  ctaKey?: string;
+  abTest?: string;
+  abVariant?: string;
+};
+
+function emptySpecialistChatModeRow() {
+  return {
+    replies: 0,
+    helpful: 0,
+    notHelpful: 0,
+    tokenCostThb: 0,
+    rejectReasons: {} as Record<string, number>,
+  };
+}
+
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!isAdmin(session)) return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
@@ -60,7 +93,7 @@ export async function GET(req: NextRequest) {
   const filteredRows = rows.filter((row) => !row.userId || !adminUserIdSet.has(row.userId));
   const tokenRows = await prisma.tokenUsageLedger.findMany({
     where: { createdAt: { gte: since } },
-    select: { source: true, estimatedCostThb: true, userId: true },
+    select: { source: true, estimatedCostThb: true, userId: true, payload: true },
     take: 15000,
   });
   const filteredTokenRows = tokenRows.filter((row) => !row.userId || !adminUserIdSet.has(row.userId));
@@ -111,15 +144,34 @@ export async function GET(req: NextRequest) {
   const pricingViewUserIds = new Set<string>();
   const chatReplyByUser = new Map<string, Date[]>();
   const pricingViewByUser = new Map<string, Date[]>();
+  const specialistChatByMode: Record<AssistantModeBucket, ReturnType<typeof emptySpecialistChatModeRow>> = {
+    coding: emptySpecialistChatModeRow(),
+    opd_demo: emptySpecialistChatModeRow(),
+    unknown: emptySpecialistChatModeRow(),
+  };
 
   for (const row of filteredRows) {
     countByEvent.set(row.message, (countByEvent.get(row.message) || 0) + 1);
-    if (row.message === "specialist_chat_feedback:helpful") helpful += 1;
+    let p: TelemetryPayload | null = null;
+    try {
+      p = row.payload ? (JSON.parse(row.payload) as TelemetryPayload) : null;
+    } catch {
+      p = null;
+    }
+    const modeKey = bucketAssistantMode(p?.assistantMode);
+
+    if (row.message === "specialist_chat_feedback:helpful") {
+      helpful += 1;
+      specialistChatByMode[modeKey].helpful += 1;
+    }
     if (row.message.startsWith("specialist_chat_feedback:not_helpful")) {
       notHelpful += 1;
       const parts = row.message.split(":");
       const reason = parts[2] || "unspecified";
       rejectReasons[reason] = (rejectReasons[reason] || 0) + 1;
+      specialistChatByMode[modeKey].notHelpful += 1;
+      const rr = specialistChatByMode[modeKey].rejectReasons;
+      rr[reason] = (rr[reason] || 0) + 1;
     }
     if (row.message === "summary:strategy_changed") {
       decisionFunnel.strategy_changed += 1;
@@ -130,104 +182,103 @@ export async function GET(req: NextRequest) {
     } else if (row.message === "summary:undo_principal_alternative") {
       decisionFunnel.undo_principal_alternative += 1;
     }
-    if (row.message === "chat:specialist_chat_reply" && row.userId) {
-      const bucket = chatReplyByUser.get(row.userId) || [];
-      bucket.push(row.createdAt);
-      chatReplyByUser.set(row.userId, bucket);
+    if (row.message === "chat:specialist_chat_reply") {
+      specialistChatByMode[modeKey].replies += 1;
+      if (row.userId) {
+        const bucket = chatReplyByUser.get(row.userId) || [];
+        bucket.push(row.createdAt);
+        chatReplyByUser.set(row.userId, bucket);
+      }
     }
 
-    try {
-      const p = row.payload
-        ? (JSON.parse(row.payload) as {
-            promptVariant?: string;
-            blockKey?: string;
-            strategy?: string;
-            diagnosisKey?: string;
-            path?: string;
-            visitorId?: string;
-            sessionId?: string;
-            durationMs?: number;
-            ctaKey?: string;
-            abTest?: string;
-            abVariant?: string;
-          })
-        : null;
-      const v = p?.promptVariant;
-      if (v) {
-        variantStats[v] = variantStats[v] || { count: 0 };
-        variantStats[v].count += 1;
-      }
-      if (row.message === "summary:block_edited" && p?.blockKey) {
-        editedBlockCounts[p.blockKey] = (editedBlockCounts[p.blockKey] || 0) + 1;
-      }
-      if (p?.strategy) {
-        strategyUsage[p.strategy] = (strategyUsage[p.strategy] || 0) + 1;
-      }
-      if (row.message === "web:cta_click" && p?.ctaKey) {
-        ctaClicks[p.ctaKey] = (ctaClicks[p.ctaKey] || 0) + 1;
-        if (row.userId) {
-          if (!ctaClickUsersByKey.has(p.ctaKey)) ctaClickUsersByKey.set(p.ctaKey, new Set<string>());
-          ctaClickUsersByKey.get(p.ctaKey)!.add(row.userId);
-          const mapKey = `${p.ctaKey}::${row.userId}`;
-          const existing = ctaFirstClickAtByKeyUser.get(mapKey);
-          if (!existing || row.createdAt.getTime() < existing.getTime()) {
-            ctaFirstClickAtByKeyUser.set(mapKey, row.createdAt);
-          }
-        }
-        const clickVariant = String(p.abVariant || "");
-        if (
-          clickVariant &&
-          (p.ctaKey === "landing_hero_signup" || p.ctaKey === "landing_bottom_signup")
-        ) {
-          abSignupClicksByVariant[clickVariant] = (abSignupClicksByVariant[clickVariant] || 0) + 1;
+    const v = p?.promptVariant;
+    if (v) {
+      variantStats[v] = variantStats[v] || { count: 0 };
+      variantStats[v].count += 1;
+    }
+    if (row.message === "summary:block_edited" && p?.blockKey) {
+      editedBlockCounts[p.blockKey] = (editedBlockCounts[p.blockKey] || 0) + 1;
+    }
+    if (p?.strategy) {
+      strategyUsage[p.strategy] = (strategyUsage[p.strategy] || 0) + 1;
+    }
+    if (row.message === "web:cta_click" && p?.ctaKey) {
+      ctaClicks[p.ctaKey] = (ctaClicks[p.ctaKey] || 0) + 1;
+      if (row.userId) {
+        if (!ctaClickUsersByKey.has(p.ctaKey)) ctaClickUsersByKey.set(p.ctaKey, new Set<string>());
+        ctaClickUsersByKey.get(p.ctaKey)!.add(row.userId);
+        const mapKey = `${p.ctaKey}::${row.userId}`;
+        const existing = ctaFirstClickAtByKeyUser.get(mapKey);
+        if (!existing || row.createdAt.getTime() < existing.getTime()) {
+          ctaFirstClickAtByKeyUser.set(mapKey, row.createdAt);
         }
       }
-      if (row.message === "web:ab_variant_assigned") {
-        const variant = String(p?.abVariant || "");
-        if (variant) {
-          abAssignedByVariant[variant] = (abAssignedByVariant[variant] || 0) + 1;
-        }
+      const clickVariant = String(p.abVariant || "");
+      if (
+        clickVariant &&
+        (p.ctaKey === "landing_hero_signup" || p.ctaKey === "landing_bottom_signup")
+      ) {
+        abSignupClicksByVariant[clickVariant] = (abSignupClicksByVariant[clickVariant] || 0) + 1;
       }
-      const dx = String(p?.diagnosisKey || "").trim();
-      if (dx) {
-        diagnosisBehavior[dx] = diagnosisBehavior[dx] || { edit: 0, apply: 0, undo: 0, requestMore: 0 };
-        if (row.message === "summary:block_edited") diagnosisBehavior[dx].edit += 1;
-        if (row.message === "summary:apply_principal_alternative") diagnosisBehavior[dx].apply += 1;
-        if (row.message === "summary:undo_principal_alternative") diagnosisBehavior[dx].undo += 1;
-        if (row.message === "summary:request_more_alternatives") diagnosisBehavior[dx].requestMore += 1;
+    }
+    if (row.message === "web:ab_variant_assigned") {
+      const variant = String(p?.abVariant || "");
+      if (variant) {
+        abAssignedByVariant[variant] = (abAssignedByVariant[variant] || 0) + 1;
       }
-      if (row.message === "web:page_view") {
-        const path = normalizePath(p?.path);
-        pageViewByPath.set(path, (pageViewByPath.get(path) || 0) + 1);
-        const visitorId = String(p?.visitorId || "");
-        if (visitorId) {
-          if (!visitorSetByPath.has(path)) visitorSetByPath.set(path, new Set<string>());
-          visitorSetByPath.get(path)!.add(visitorId);
-        }
-        const sessionId = String(p?.sessionId || "");
-        if (sessionId) {
-          if (!sessionPageSets.has(sessionId)) sessionPageSets.set(sessionId, new Set<string>());
-          sessionPageSets.get(sessionId)!.add(path);
-        }
-        if (path.startsWith("/pricing") && row.userId) {
-          pricingViewUserIds.add(row.userId);
-          const pBucket = pricingViewByUser.get(row.userId) || [];
-          pBucket.push(row.createdAt);
-          pricingViewByUser.set(row.userId, pBucket);
-        }
+    }
+    const dx = String(p?.diagnosisKey || "").trim();
+    if (dx) {
+      diagnosisBehavior[dx] = diagnosisBehavior[dx] || { edit: 0, apply: 0, undo: 0, requestMore: 0 };
+      if (row.message === "summary:block_edited") diagnosisBehavior[dx].edit += 1;
+      if (row.message === "summary:apply_principal_alternative") diagnosisBehavior[dx].apply += 1;
+      if (row.message === "summary:undo_principal_alternative") diagnosisBehavior[dx].undo += 1;
+      if (row.message === "summary:request_more_alternatives") diagnosisBehavior[dx].requestMore += 1;
+    }
+    if (row.message === "web:page_view") {
+      const path = normalizePath(p?.path);
+      pageViewByPath.set(path, (pageViewByPath.get(path) || 0) + 1);
+      const visitorId = String(p?.visitorId || "");
+      if (visitorId) {
+        if (!visitorSetByPath.has(path)) visitorSetByPath.set(path, new Set<string>());
+        visitorSetByPath.get(path)!.add(visitorId);
       }
-      if (row.message === "web:page_leave") {
-        const path = normalizePath(p?.path);
-        const durationMs = Number(p?.durationMs || 0);
-        if (!Number.isFinite(durationMs) || durationMs < 0) continue;
+      const sessionId = String(p?.sessionId || "");
+      if (sessionId) {
+        if (!sessionPageSets.has(sessionId)) sessionPageSets.set(sessionId, new Set<string>());
+        sessionPageSets.get(sessionId)!.add(path);
+      }
+      if (path.startsWith("/pricing") && row.userId) {
+        pricingViewUserIds.add(row.userId);
+        const pBucket = pricingViewByUser.get(row.userId) || [];
+        pBucket.push(row.createdAt);
+        pricingViewByUser.set(row.userId, pBucket);
+      }
+    }
+    if (row.message === "web:page_leave") {
+      const path = normalizePath(p?.path);
+      const durationMs = Number(p?.durationMs || 0);
+      if (Number.isFinite(durationMs) && durationMs >= 0) {
         const bucket = pageLeaveByPath.get(path) || { totalMs: 0, count: 0 };
         bucket.totalMs += durationMs;
         bucket.count += 1;
         pageLeaveByPath.set(path, bucket);
       }
-    } catch {
-      // ignore payload parse failure
     }
+  }
+
+  for (const row of filteredTokenRows) {
+    if (row.source !== "specialist_chat") continue;
+    let tkMode: AssistantModeBucket = "unknown";
+    try {
+      if (row.payload) {
+        const tp = JSON.parse(row.payload) as { assistantMode?: string };
+        tkMode = bucketAssistantMode(tp?.assistantMode);
+      }
+    } catch {
+      tkMode = "unknown";
+    }
+    specialistChatByMode[tkMode].tokenCostThb += Number(row.estimatedCostThb || 0);
   }
 
   const events = [...countByEvent.entries()]
@@ -434,12 +485,29 @@ export async function GET(req: NextRequest) {
     });
   }
 
+  function specialistModeSnapshot(row: ReturnType<typeof emptySpecialistChatModeRow>) {
+    const rated = row.helpful + row.notHelpful;
+    return {
+      replies: row.replies,
+      helpful: row.helpful,
+      notHelpful: row.notHelpful,
+      acceptanceRate: rated > 0 ? row.helpful / rated : null,
+      tokenCostThb: Number(row.tokenCostThb.toFixed(4)),
+      rejectReasons: row.rejectReasons,
+    };
+  }
+
   return NextResponse.json({
     ok: true,
     periodDays,
     totalTelemetry: filteredRows.length,
     excludedAdminTelemetry: rows.length - filteredRows.length,
     topEvents: events,
+    specialistChatByMode: {
+      coding: specialistModeSnapshot(specialistChatByMode.coding),
+      opd_demo: specialistModeSnapshot(specialistChatByMode.opd_demo),
+      unknown: specialistModeSnapshot(specialistChatByMode.unknown),
+    },
     feedback: {
       helpful,
       notHelpful,

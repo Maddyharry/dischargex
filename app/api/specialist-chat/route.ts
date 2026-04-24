@@ -1045,6 +1045,27 @@ export async function POST(req: NextRequest) {
     if (!userMessageTrimmed && safeImages.length === 0) {
       return jsonUtf8({ ok: false, error: "กรุณาระบุข้อความหรือแนบรูป" }, 400);
     }
+
+    const session = await getServerSession(authOptions);
+    const dbUser = session?.user?.email
+      ? await prisma.user.findUnique({
+          where: { email: session.user.email },
+          select: { id: true, plan: true },
+        })
+      : null;
+    const userId = dbUser?.id ?? null;
+    if (!userId) {
+      return jsonUtf8(
+        {
+          ok: false,
+          error:
+            "กรุณาเข้าสู่ระบบก่อนใช้แชทผู้เชี่ยวชาญ เพื่อให้บันทึกการใช้งาน โควตา และ feedback ถูกต้องตามนโยบาย",
+          needLogin: true,
+        },
+        401
+      );
+    }
+
     const messageForPrompt =
       userMessageTrimmed || (safeImages.length > 0 ? IMAGE_ONLY_FALLBACK_USER_MESSAGE_TH : "");
     const messageForModel = deidentify(messageForPrompt);
@@ -1062,14 +1083,6 @@ export async function POST(req: NextRequest) {
       rawHistory.slice(0, Math.max(0, rawHistory.length - recentHistory.length))
     );
 
-    const session = await getServerSession(authOptions);
-    const dbUser = session?.user?.email
-      ? await prisma.user.findUnique({
-          where: { email: session.user.email },
-          select: { id: true, plan: true },
-        })
-      : null;
-    const userId = dbUser?.id ?? null;
     const identity = getRequestIdentity(
       userId,
       req.headers.get("x-forwarded-for"),

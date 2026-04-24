@@ -3,6 +3,23 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+type SpecialistChatModeStats = {
+  replies: number;
+  helpful: number;
+  notHelpful: number;
+  acceptanceRate: number | null;
+  tokenCostThb: number;
+  rejectReasons: Record<string, number>;
+};
+
+const SPECIALIST_CHAT_MODE_KEYS = ["coding", "opd_demo", "unknown"] as const;
+
+function specialistChatModeDisplayLabel(key: (typeof SPECIALIST_CHAT_MODE_KEYS)[number]) {
+  if (key === "coding") return "Coding (สรุปชาร์จ)";
+  if (key === "opd_demo") return "OPD demo";
+  return "ไม่ระบุโหมด";
+}
+
 type Digest = {
   ok: boolean;
   periodDays: number;
@@ -32,6 +49,11 @@ type Digest = {
   suggestedPromptTweaks?: string[];
   tokenCostBySource?: Record<string, number>;
   tokenCostTotal?: number;
+  specialistChatByMode?: {
+    coding: SpecialistChatModeStats;
+    opd_demo: SpecialistChatModeStats;
+    unknown: SpecialistChatModeStats;
+  };
   webAnalytics?: {
     topPages: Array<{ path: string; views: number; uniqueVisitors: number; avgDurationSec: number }>;
     landing: { path: string; views: number; uniqueVisitors: number; avgDurationSec: number };
@@ -72,6 +94,7 @@ type Digest = {
     };
   };
 };
+
 type AutoImproveRun = {
   generatedAt: string;
   periodDays: number;
@@ -187,6 +210,37 @@ export default function AdminTelemetryPage() {
   const ctaToPurchaseRows = useMemo(() => data?.webAnalytics?.conversionInsights?.ctaToPurchase || [], [data]);
   const entryPath = useMemo(() => data?.webAnalytics?.conversionInsights?.entryPath || null, [data]);
 
+  const specialistRepliesByModeBars = useMemo(() => {
+    const m = data?.specialistChatByMode;
+    if (!m) return [];
+    return SPECIALIST_CHAT_MODE_KEYS.map((key) => ({
+      label: specialistChatModeDisplayLabel(key),
+      value: m[key].replies,
+    }));
+  }, [data]);
+
+  const specialistTokenByModeBars = useMemo(() => {
+    const m = data?.specialistChatByMode;
+    if (!m) return [];
+    return SPECIALIST_CHAT_MODE_KEYS.map((key) => ({
+      label: specialistChatModeDisplayLabel(key),
+      value: m[key].tokenCostThb,
+    }));
+  }, [data]);
+
+  const specialistRatedByModeBars = useMemo(() => {
+    const m = data?.specialistChatByMode;
+    if (!m) return [];
+    return SPECIALIST_CHAT_MODE_KEYS.flatMap((key) => {
+      const row = m[key];
+      const base = specialistChatModeDisplayLabel(key);
+      return [
+        { label: `${base} · helpful`, value: row.helpful },
+        { label: `${base} · not helpful`, value: row.notHelpful },
+      ];
+    });
+  }, [data]);
+
   const funnelViewSteps = useMemo(() => {
     if (!data?.webAnalytics) return [];
     const w = data.webAnalytics;
@@ -282,7 +336,7 @@ export default function AdminTelemetryPage() {
             <section className="rounded-2xl border border-violet-600/50 bg-gradient-to-br from-violet-950/40 to-slate-950/60 p-4">
               <h2 className="text-sm font-semibold text-violet-100">ผู้ช่วยวิเคราะห์ Telemetry (เฉพาะแอดมิน)</h2>
               <p className="mt-1 text-xs leading-relaxed text-slate-400">
-                ส่ง digest ชุดเดียวกับที่แสดงบนหน้านี้ไปให้โมเดล — ถามเรื่องจุดควรพัฒนาเว็บ / conversion / ให้ลูกค้าพร้อมจ่าย ไม่ใช่แชททั่วไปของผู้ใช้ปลายทาง
+                ส่ง digest ชุดเดียวกับที่แสดงบนหน้านี้ไปให้โมเดล (รวมสถิติแชทแยกโหมด Coding / OPD) — ถามเรื่องจุดควรพัฒนาเว็บ / conversion / ให้ลูกค้าพร้อมจ่าย ไม่ใช่แชททั่วไปของผู้ใช้ปลายทาง
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 {[
@@ -333,7 +387,7 @@ export default function AdminTelemetryPage() {
               <ul className="mt-2 list-disc space-y-1 pl-5 text-sm leading-relaxed text-slate-300">
                 <li>
                   <span className="font-medium text-slate-200">Acceptance rate ต่ำ / not helpful สูง</span> → ไล่ที่ Top
-                  reject reasons + prompt variant / mode (ด้านล่าง) แล้วปรับ prompt หรือ UX คำตอบ
+                  reject reasons + prompt variant และดูแยกโหมด Coding vs OPD (ด้านล่าง) แล้วปรับ prompt หรือ UX คำตอบ
                 </li>
                 <li>
                   <span className="font-medium text-slate-200">Landing → Pricing หรือ Pricing → Purchase ต่ำ</span> →
@@ -370,6 +424,62 @@ export default function AdminTelemetryPage() {
                 caption="แถบเปรียบเทียบสัดส่วนระหว่างสองค่านี้เท่านั้น"
               />
             </section>
+
+            {data.specialistChatByMode ? (
+              <section className="rounded-2xl border border-emerald-700/50 bg-emerald-950/25 p-4">
+                <h2 className="text-sm font-semibold text-emerald-100">แชทผู้เชี่ยวชาญแยกตามโหมด (Coding vs OPD)</h2>
+                <p className="mt-1 text-xs leading-relaxed text-slate-400">
+                  นับจาก <code className="text-emerald-200/90">assistantMode</code> ใน telemetry ตอนตอบแชทและตอนให้คะแนน — แถว &quot;ไม่ระบุโหมด&quot; มักเป็นข้อมูลเก่าก่อนมีการส่งโหมดในคะแนน
+                </p>
+                <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                  {SPECIALIST_CHAT_MODE_KEYS.map((key) => {
+                    const row = data.specialistChatByMode![key];
+                    return (
+                      <div key={key} className="rounded-xl border border-slate-700/80 bg-slate-950/60 px-3 py-3 text-sm">
+                        <div className="font-medium text-emerald-100">{specialistChatModeDisplayLabel(key)}</div>
+                        <div className="mt-2 space-y-1 text-xs text-slate-300">
+                          <div className="flex justify-between gap-2">
+                            <span>ตอบกลับ (ครั้ง)</span>
+                            <span className="text-slate-100">{row.replies}</span>
+                          </div>
+                          <div className="flex justify-between gap-2">
+                            <span>Acceptance</span>
+                            <span className="text-slate-100">
+                              {row.acceptanceRate == null ? "—" : `${(row.acceptanceRate * 100).toFixed(1)}%`}
+                            </span>
+                          </div>
+                          <div className="flex justify-between gap-2">
+                            <span>helpful / not</span>
+                            <span className="text-slate-100">
+                              {row.helpful} / {row.notHelpful}
+                            </span>
+                          </div>
+                          <div className="flex justify-between gap-2">
+                            <span>Token แชท (฿)</span>
+                            <span className="text-slate-100">{row.tokenCostThb.toFixed(2)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                  <HorizontalBarChart title="จำนวนตอบแชท (replies) ตามโหมด" rows={specialistRepliesByModeBars} maxItems={3} />
+                  <HorizontalBarChart
+                    title="Token specialist_chat (THB) ตามโหมด"
+                    rows={specialistTokenByModeBars}
+                    maxItems={3}
+                    formatValue={(n) => `${n.toFixed(2)} ฿`}
+                  />
+                  <HorizontalBarChart
+                    title="คะแนน helpful / not helpful แยกโหมด"
+                    rows={specialistRatedByModeBars}
+                    maxItems={6}
+                    caption="แต่ละคู่แถบเปรียบเทียบ helpful กับ not helpful ภายในโหมดนั้นเท่านั้น"
+                  />
+                </div>
+              </section>
+            ) : null}
 
             <section className="grid gap-3 sm:grid-cols-3">
               <StatCard label="Landing views" value={String(data.webAnalytics?.landing.views || 0)} />

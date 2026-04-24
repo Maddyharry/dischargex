@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { useSession } from "next-auth/react";
 import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 
 type ChatMessage = {
@@ -229,6 +231,8 @@ function newThread(): Thread {
 }
 
 export default function ChartSummaryConsultChatPage() {
+  const { status: sessionStatus } = useSession();
+  const sessionAuthed = sessionStatus === "authenticated";
   const [threads, setThreads] = useState<Thread[]>([newThread()]);
   const [activeId, setActiveId] = useState<string>(threads[0].id);
   const [input, setInput] = useState("");
@@ -731,7 +735,11 @@ export default function ChartSummaryConsultChatPage() {
       const status = await consumeStreamResponse(res, params.threadId);
       if (status === "error") {
         setCanRetryStream(true);
-        setComposerHint("สตรีมหลุดหรือตอบไม่ครบ กด Retry stream เพื่อต่อคำตอบ");
+        setComposerHint(
+          res.status === 401
+            ? "เซสชันหมดอายุหรือยังไม่ได้เข้าสู่ระบบ — กรุณาเข้าสู่ระบบแล้วลองใหม่"
+            : "สตรีมหลุดหรือตอบไม่ครบ กด Retry stream เพื่อต่อคำตอบ"
+        );
       } else {
         setCanRetryStream(false);
         pendingStreamRef.current = null;
@@ -760,6 +768,14 @@ export default function ChartSummaryConsultChatPage() {
 
   async function retryStreamFromLastChunk() {
     if (loading) return;
+    if (!sessionAuthed) {
+      setComposerHint(
+        sessionStatus === "unauthenticated"
+          ? "กรุณาเข้าสู่ระบบก่อนใช้แชทผู้เชี่ยวชาญ"
+          : "กำลังตรวจสอบการเข้าสู่ระบบ รอสักครู่แล้วลองอีกครั้ง"
+      );
+      return;
+    }
     const pending = pendingStreamRef.current;
     if (!pending) return;
     const partial = getLastAssistantContent(pending.threadId).trim();
@@ -789,6 +805,14 @@ export default function ChartSummaryConsultChatPage() {
     const trimmed = input.trim();
     const attachments = [...pendingImages];
     if (!trimmed && attachments.length === 0) return;
+    if (!sessionAuthed) {
+      setComposerHint(
+        sessionStatus === "unauthenticated"
+          ? "กรุณาเข้าสู่ระบบก่อนใช้แชทผู้เชี่ยวชาญ"
+          : "กำลังตรวจสอบการเข้าสู่ระบบ รอสักครู่แล้วลองอีกครั้ง"
+      );
+      return;
+    }
     const imageOnly = !trimmed && attachments.length > 0;
     const text = imageOnly ? DEFAULT_IMAGE_ONLY_API_PROMPT : trimmed;
     setInput("");
@@ -849,6 +873,14 @@ export default function ChartSummaryConsultChatPage() {
     opts?: { displayContent?: string }
   ) {
     if (!text || !active || loading) return;
+    if (!sessionAuthed) {
+      setComposerHint(
+        sessionStatus === "unauthenticated"
+          ? "กรุณาเข้าสู่ระบบก่อนใช้แชทผู้เชี่ยวชาญ"
+          : "กำลังตรวจสอบการเข้าสู่ระบบ รอสักครู่แล้วลองอีกครั้ง"
+      );
+      return;
+    }
 
     const attachmentLine = attachments?.length ? `\n[แนบรูป ${attachments.length} ภาพ]` : "";
     const displayBody = opts?.displayContent ?? text;
@@ -885,6 +917,14 @@ export default function ChartSummaryConsultChatPage() {
   }
 
   async function sendSummary(kind: SummaryKind) {
+    if (!sessionAuthed) {
+      setComposerHint(
+        sessionStatus === "unauthenticated"
+          ? "กรุณาเข้าสู่ระบบก่อนใช้แชทผู้เชี่ยวชาญ"
+          : "กำลังตรวจสอบการเข้าสู่ระบบ รอสักครู่แล้วลองอีกครั้ง"
+      );
+      return;
+    }
     const basePrompt = buildSummaryPrompt(kind);
     const threadMessages = active?.messages || [];
     const fullThreadContext = buildSummaryContextFromThread(threadMessages);
@@ -908,6 +948,14 @@ export default function ChartSummaryConsultChatPage() {
 
   async function regenerateLastAnswer() {
     if (!active || loading) return;
+    if (!sessionAuthed) {
+      setComposerHint(
+        sessionStatus === "unauthenticated"
+          ? "กรุณาเข้าสู่ระบบก่อนใช้แชทผู้เชี่ยวชาญ"
+          : "กำลังตรวจสอบการเข้าสู่ระบบ รอสักครู่แล้วลองอีกครั้ง"
+      );
+      return;
+    }
     const lastUserIndex = [...active.messages]
       .map((m, i) => ({ m, i }))
       .filter((x) => x.m.role === "user")
@@ -1019,6 +1067,7 @@ export default function ChartSummaryConsultChatPage() {
             messageIndex,
             score,
             reason: reason || null,
+            assistantMode,
           }),
         }),
       });
@@ -1157,7 +1206,7 @@ export default function ChartSummaryConsultChatPage() {
           <button
             type="button"
             onClick={() => void sendMessage()}
-            disabled={loading || (!input.trim() && !pendingImages.length)}
+            disabled={loading || (!input.trim() && !pendingImages.length) || !sessionAuthed}
             className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-cyan-600 text-white hover:bg-cyan-500 disabled:opacity-50 sm:h-8 sm:w-8"
             title={loading ? "กำลังตอบ..." : "ส่ง"}
             aria-label={loading ? "กำลังตอบ..." : "ส่ง"}
@@ -1200,7 +1249,7 @@ export default function ChartSummaryConsultChatPage() {
           <button
             type="button"
             onClick={() => void sendSummary("diagnosis")}
-            disabled={loading || !active?.messages.length}
+            disabled={loading || !active?.messages.length || !sessionAuthed}
             className="w-full rounded-full border border-sky-700 bg-sky-900/40 px-3 py-1 text-xs text-sky-200 hover:bg-sky-800/50 disabled:opacity-50 sm:w-auto"
           >
             สรุป diagnosis
@@ -1210,7 +1259,7 @@ export default function ChartSummaryConsultChatPage() {
             <button
               type="button"
               onClick={() => void sendSummary("opd_case")}
-              disabled={loading || !active?.messages.length}
+              disabled={loading || !active?.messages.length || !sessionAuthed}
               className="w-full rounded-full border border-sky-700 bg-sky-900/40 px-3 py-1 text-xs text-sky-200 hover:bg-sky-800/50 disabled:opacity-50 sm:w-auto"
             >
               สรุปเคส OPD
@@ -1218,7 +1267,7 @@ export default function ChartSummaryConsultChatPage() {
             <button
               type="button"
               onClick={() => void sendSummary("opd_soap")}
-              disabled={loading || !active?.messages.length}
+              disabled={loading || !active?.messages.length || !sessionAuthed}
               className="w-full rounded-full border border-teal-700 bg-teal-900/40 px-3 py-1 text-xs text-teal-200 hover:bg-teal-800/50 disabled:opacity-50 sm:w-auto"
             >
               สรุป SOAP
@@ -1228,7 +1277,7 @@ export default function ChartSummaryConsultChatPage() {
         <button
           type="button"
           onClick={() => void regenerateLastAnswer()}
-          disabled={loading || !active?.messages.some((m) => m.role === "user")}
+          disabled={loading || !active?.messages.some((m) => m.role === "user") || !sessionAuthed}
           className="w-full rounded-full border border-emerald-700 bg-emerald-900/40 px-3 py-1 text-xs text-emerald-200 hover:bg-emerald-800/50 disabled:opacity-50 sm:w-auto"
         >
           Regenerate answer
@@ -1244,7 +1293,7 @@ export default function ChartSummaryConsultChatPage() {
         <button
           type="button"
           onClick={() => void retryStreamFromLastChunk()}
-          disabled={loading || !canRetryStream}
+          disabled={loading || !canRetryStream || !sessionAuthed}
           className="hidden w-full rounded-full border border-indigo-700 bg-indigo-900/40 px-3 py-1 text-xs text-indigo-200 hover:bg-indigo-800/50 disabled:opacity-50 sm:block sm:w-auto"
         >
           Retry stream
@@ -1263,7 +1312,7 @@ export default function ChartSummaryConsultChatPage() {
           <button
             type="button"
             onClick={() => void retryStreamFromLastChunk()}
-            disabled={loading || !canRetryStream}
+            disabled={loading || !canRetryStream || !sessionAuthed}
             className="w-full rounded-full border border-indigo-700 bg-indigo-900/40 px-3 py-1 text-xs text-indigo-200 hover:bg-indigo-800/50 disabled:opacity-50 sm:hidden"
           >
             Retry
@@ -1351,7 +1400,7 @@ export default function ChartSummaryConsultChatPage() {
           <button
             type="button"
             onClick={() => void sendMessage()}
-            disabled={loading || (!input.trim() && !pendingImages.length)}
+            disabled={loading || (!input.trim() && !pendingImages.length) || !sessionAuthed}
             className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-cyan-600 text-white hover:bg-cyan-500 disabled:opacity-50"
             title={loading ? "กำลังตอบ..." : "ส่ง"}
             aria-label={loading ? "กำลังตอบ..." : "ส่ง"}
@@ -1369,6 +1418,29 @@ export default function ChartSummaryConsultChatPage() {
   return (
     <main className="min-h-[100dvh] overflow-y-auto bg-[#081120] text-slate-100 md:h-[100dvh] md:min-h-0 md:overflow-hidden">
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-2 px-2 py-2 md:h-full md:min-h-0 md:grid md:grid-cols-[220px_minmax(0,1fr)] md:gap-3 md:px-4 md:py-3">
+        {sessionStatus === "unauthenticated" ? (
+          <div className="rounded-xl border border-amber-600/50 bg-amber-950/40 px-3 py-2.5 text-sm leading-relaxed text-amber-100 md:col-span-2">
+            แชทผู้เชี่ยวชาญต้องเข้าสู่ระบบก่อน — ระบบจึงจะบันทึกการใช้งาน โควตา และ feedback ต่อบัญชีได้ถูกต้อง{" "}
+            <Link
+              href="/login?callbackUrl=%2Fchat"
+              className="font-medium text-cyan-300 underline underline-offset-2 hover:text-cyan-200"
+            >
+              เข้าสู่ระบบ
+            </Link>
+            {" · "}
+            <Link
+              href="/signup?callbackUrl=%2Fchat"
+              className="font-medium text-cyan-300 underline underline-offset-2 hover:text-cyan-200"
+            >
+              สมัครสมาชิก
+            </Link>
+          </div>
+        ) : null}
+        {sessionStatus === "loading" ? (
+          <div className="rounded-lg border border-slate-700/80 bg-slate-900/50 px-3 py-2 text-xs text-slate-400 md:col-span-2">
+            กำลังตรวจสอบการเข้าสู่ระบบ…
+          </div>
+        ) : null}
         <div className="flex items-center gap-2 md:hidden">
           <button
             type="button"
