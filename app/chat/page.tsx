@@ -1289,9 +1289,9 @@ export default function ChartSummaryConsultChatPage() {
                 type="button"
                 onClick={() => removePendingImage(img.id)}
                 className="text-rose-300 hover:text-rose-200"
-                title="เธฅเธเธฃเธนเธเธเธตเน"
+                title="ลบรูปนี้"
               >
-                ร—
+                ลบ
               </button>
             </span>
           ))}
@@ -1317,8 +1317,8 @@ export default function ChartSummaryConsultChatPage() {
           className="w-full max-h-[180px] min-h-[56px] resize-none overflow-y-auto rounded-xl border border-slate-700 bg-slate-900/80 px-3 py-2.5 pr-[9.5rem] text-sm leading-relaxed outline-none focus:border-cyan-500"
           placeholder={
             assistantMode === "opd_demo"
-              ? "เน€เธฅเนเธฒเน€เธเธช เธซเธฃเธทเธญเนเธเธเธฃเธนเธ EKG/X-rayโ€ฆ"
-              : "เธ–เธฒเธก diagnosis / เนเธเธเธฃเธนเธเธ•เธฃเธงเธเน€เธเธทเนเธญเธเนเธงเธขเธญเนเธฒเธเน€เธเธทเนเธญเธเธ•เนเธโ€ฆ"
+              ? "เล่าเคส หรือแนบรูป EKG/X-ray..."
+              : "ถาม diagnosis / แนบรูปตรวจเพื่อช่วยอ่านเบื้องต้น..."
           }
         />
         <div className="absolute right-1.5 bottom-2 flex items-center gap-0.5">
@@ -1339,8 +1339,8 @@ export default function ChartSummaryConsultChatPage() {
             onClick={() => imageInputRef.current?.click()}
             disabled={loading}
             className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-slate-600 bg-slate-900/80 text-slate-200 disabled:opacity-50"
-            title="เน€เธฅเธทเธญเธเธฃเธนเธเธเธฒเธเน€เธเธฃเธทเนเธญเธ"
-            aria-label="เน€เธฅเธทเธญเธเธฃเธนเธเธเธฒเธเน€เธเธฃเธทเนเธญเธ"
+            title="เลือกรูปจากเครื่อง"
+            aria-label="เลือกรูปจากเครื่อง"
           >
             <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
@@ -1353,8 +1353,8 @@ export default function ChartSummaryConsultChatPage() {
             onClick={() => void sendMessage()}
             disabled={loading || (!input.trim() && !pendingImages.length)}
             className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-cyan-600 text-white hover:bg-cyan-500 disabled:opacity-50"
-            title={loading ? "เธเธณเธฅเธฑเธเธ•เธญเธ..." : "เธชเนเธ"}
-            aria-label={loading ? "เธเธณเธฅเธฑเธเธ•เธญเธ..." : "เธชเนเธ"}
+            title={loading ? "กำลังตอบ..." : "ส่ง"}
+            aria-label={loading ? "กำลังตอบ..." : "ส่ง"}
           >
             <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M22 2 11 13" />
@@ -1804,7 +1804,7 @@ export default function ChartSummaryConsultChatPage() {
           <div className="mt-2 hidden shrink-0 border-t border-white/10 bg-[#081120]/95 pt-2 pb-3 backdrop-blur sm:block">
             {renderComposerInner(textareaRef)}
           </div>
-          <div className="sticky bottom-0 z-30 -mx-2 mt-3 shrink-0 border-t border-white/10 bg-[#081120]/95 px-2 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-10px_30px_rgba(8,17,32,0.35)] backdrop-blur sm:hidden">
+          <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#081120]/95 px-2 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-10px_30px_rgba(8,17,32,0.35)] backdrop-blur sm:hidden">
             {renderMobileQuickComposer()}
           </div>
           <div>

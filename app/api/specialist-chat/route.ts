@@ -18,6 +18,7 @@ import { deidentify } from "@/lib/deidentify";
 import { estimateTokenBillingThb, getPlanTokenBudgetThb, readUsageSummary } from "@/lib/token-billing";
 import { extractIcd10Candidates, retrieveExternalEvidence } from "@/lib/reference-retriever";
 import { analyzeOpdCase } from "@/lib/chartAssist/analyzeCase";
+import { consumeRateLimit, getRequestIdentity } from "@/lib/request-rate-limit";
 
 export const runtime = "nodejs";
 
@@ -1069,6 +1070,22 @@ export async function POST(req: NextRequest) {
         })
       : null;
     const userId = dbUser?.id ?? null;
+    const identity = getRequestIdentity(
+      userId,
+      req.headers.get("x-forwarded-for"),
+      req.headers.get("user-agent")
+    );
+    const rate = consumeRateLimit(identity, userId ? 90 : 20, 60_000);
+    if (!rate.allowed) {
+      return jsonUtf8(
+        {
+          ok: false,
+          error: "มีการเรียกใช้งานถี่เกินไป กรุณารอสักครู่แล้วลองใหม่อีกครั้ง",
+          retryAfterSec: rate.retryAfterSec,
+        },
+        429
+      );
+    }
     const normalizedPlan = normalizePlanId(dbUser?.plan ?? "trial");
     const stylePatchFromMessage = inferStylePatchFromMessage(userMessageTrimmed);
     const stylePatchFromRequest = body.styleProfile || {};

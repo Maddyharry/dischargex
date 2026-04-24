@@ -72,55 +72,73 @@ function PricingPageContent() {
 
     let cancelled = false;
     const controller = new AbortController();
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    let attempts = 0;
+    const maxAttempts = 6;
 
     setCheckoutStatus({
       state: "loading",
       message: "กำลังตรวจสอบสถานะการชำระเงินกับระบบสมาชิก...",
     });
 
-    fetch("/api/usage", { cache: "no-store", signal: controller.signal })
-      .then(async (response) => {
-        const text = await response.text();
-        const data = text ? (JSON.parse(text) as Record<string, unknown>) : {};
-        if (!response.ok || !data.ok) {
-          throw new Error(
-            typeof data.error === "string" ? data.error : "ตรวจสอบสถานะการชำระเงินไม่สำเร็จ"
-          );
-        }
-        if (cancelled) return;
+    const checkUsage = () => {
+      attempts += 1;
+      fetch("/api/usage", { cache: "no-store", signal: controller.signal })
+        .then(async (response) => {
+          const text = await response.text();
+          const data = text ? (JSON.parse(text) as Record<string, unknown>) : {};
+          if (!response.ok || !data.ok) {
+            throw new Error(
+              typeof data.error === "string" ? data.error : "ตรวจสอบสถานะการชำระเงินไม่สำเร็จ"
+            );
+          }
+          if (cancelled) return;
 
-        const status = String(data.subscriptionStatus || "");
-        const plan = String(data.plan || "");
-        const remaining = Number(data.remaining || 0);
-        const isProvisioned =
-          status === "active" || (plan !== "trial" && Number.isFinite(remaining) && remaining > 0);
+          const status = String(data.subscriptionStatus || "");
+          const plan = String(data.plan || "");
+          const remaining = Number(data.remaining || 0);
+          const isProvisioned =
+            status === "active" || (plan !== "trial" && Number.isFinite(remaining) && remaining > 0);
 
-        setCheckoutStatus(
-          isProvisioned
-            ? {
-                state: "confirmed",
-                message: "สิทธิ์ใช้งานถูกอัปเดตแล้ว คุณเริ่มใช้งานต่อได้ทันที",
-              }
-            : {
-                state: "pending",
-                message:
-                  "Stripe รับชำระสำเร็จแล้ว แต่ระบบสมาชิกยังอัปเดตไม่เสร็จ หากเพิ่งชำระไปให้รอสักครู่แล้วรีเฟรชอีกครั้ง",
-              }
-        );
-      })
-      .catch((error) => {
-        if (cancelled || String(error?.name || "") === "AbortError") return;
-        setCheckoutStatus({
-          state: "failed",
-          message:
-            error instanceof Error
-              ? error.message
-              : "ตรวจสอบสถานะการชำระเงินไม่สำเร็จ กรุณาลองรีเฟรชอีกครั้ง",
+          if (isProvisioned) {
+            setCheckoutStatus({
+              state: "confirmed",
+              message: "สิทธิ์ใช้งานถูกอัปเดตแล้ว คุณเริ่มใช้งานต่อได้ทันที",
+            });
+            return;
+          }
+
+          if (attempts < maxAttempts) {
+            setCheckoutStatus({
+              state: "loading",
+              message: `กำลังรอ backend อัปเดตสิทธิ์ล่าสุด... (รอบที่ ${attempts}/${maxAttempts})`,
+            });
+            retryTimer = setTimeout(checkUsage, 4000);
+            return;
+          }
+
+          setCheckoutStatus({
+            state: "pending",
+            message:
+              "Stripe รับชำระสำเร็จแล้ว แต่ระบบสมาชิกยังอัปเดตไม่เสร็จ หากเพิ่งชำระไปให้รอสักครู่แล้วรีเฟรชอีกครั้ง",
+          });
+        })
+        .catch((error) => {
+          if (cancelled || String(error?.name || "") === "AbortError") return;
+          setCheckoutStatus({
+            state: "failed",
+            message:
+              error instanceof Error
+                ? error.message
+                : "ตรวจสอบสถานะการชำระเงินไม่สำเร็จ กรุณาลองรีเฟรชอีกครั้ง",
+          });
         });
-      });
+    };
+    checkUsage();
 
     return () => {
       cancelled = true;
+      if (retryTimer) clearTimeout(retryTimer);
       controller.abort();
     };
   }, [submitSuccess, isLoggedIn]);

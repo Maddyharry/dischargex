@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { feedbackFingerprint, similarityScore } from "@/lib/text-similarity";
 import { sendAdminAlertEmail } from "@/lib/admin-alert";
+import { consumeRateLimit, getRequestIdentity } from "@/lib/request-rate-limit";
 
 export const runtime = "nodejs";
 
@@ -87,6 +88,14 @@ export async function POST(req: NextRequest) {
       req.headers.get("x-real-ip") ||
       null;
     const clientUserAgent = req.headers.get("user-agent") || null;
+    const identity = getRequestIdentity(userId, req.headers.get("x-forwarded-for"), clientUserAgent);
+    const submitRate = consumeRateLimit(identity, userId ? 30 : 8, 60_000);
+    if (!submitRate.allowed) {
+      return NextResponse.json(
+        { ok: false, error: "ส่ง feedback ถี่เกินไป กรุณารอสักครู่", retryAfterSec: submitRate.retryAfterSec },
+        { status: 429 }
+      );
+    }
 
     let status: string = "pending";
     let duplicateOfId: string | null = null;

@@ -4,34 +4,9 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import crypto from "crypto";
 import { sendAdminAlertEmail } from "@/lib/admin-alert";
+import { getTrustedAppOrigin } from "@/lib/app-origin";
 
 const emailSchema = z.string().trim().toLowerCase().email();
-
-function resolveAppOrigin(req: Request): string {
-  const forwardedProto = req.headers.get("x-forwarded-proto")?.trim();
-  const forwardedHost = req.headers.get("x-forwarded-host")?.trim();
-  if (forwardedProto && forwardedHost) {
-    return `${forwardedProto}://${forwardedHost}`;
-  }
-
-  const host = req.headers.get("host")?.trim();
-  if (host) {
-    const proto = host.includes("localhost") ? "http" : "https";
-    return `${proto}://${host}`;
-  }
-
-  const origin = req.headers.get("origin")?.trim();
-  if (origin) return origin;
-
-  const referer = req.headers.get("referer")?.trim();
-  if (referer) {
-    try {
-      return new URL(referer).origin;
-    } catch {}
-  }
-
-  return process.env.NEXTAUTH_URL?.trim() || "";
-}
 
 export async function POST(req: Request) {
   try {
@@ -87,7 +62,13 @@ export async function POST(req: Request) {
       },
     });
 
-    const appOrigin = resolveAppOrigin(req);
+    const appOrigin = getTrustedAppOrigin();
+    if (!appOrigin) {
+      return NextResponse.json(
+        { ok: false, error: "ระบบยังไม่ได้ตั้งค่า NEXTAUTH_URL สำหรับลิงก์ยืนยันอีเมล" },
+        { status: 500 }
+      );
+    }
     const verifyUrl = `${appOrigin}/api/auth/verify-email?token=${verifyToken}`;
 
     await sendAdminAlertEmail({

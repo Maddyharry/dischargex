@@ -1,39 +1,14 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
+import { getTrustedAppOrigin } from "@/lib/app-origin";
 
 const RESET_EXPIRY_HOURS = 1;
-
-function resolveAppOrigin(req: Request): string {
-  const forwardedProto = req.headers.get("x-forwarded-proto")?.trim();
-  const forwardedHost = req.headers.get("x-forwarded-host")?.trim();
-  if (forwardedProto && forwardedHost) {
-    return `${forwardedProto}://${forwardedHost}`;
-  }
-
-  const host = req.headers.get("host")?.trim();
-  if (host) {
-    const proto = host.includes("localhost") ? "http" : "https";
-    return `${proto}://${host}`;
-  }
-
-  const origin = req.headers.get("origin")?.trim();
-  if (origin) return origin;
-
-  const referer = req.headers.get("referer")?.trim();
-  if (referer) {
-    try {
-      return new URL(referer).origin;
-    } catch {}
-  }
-
-  return process.env.NEXTAUTH_URL?.trim() || "https://dischargex-beta.vercel.app";
-}
 
 export async function POST(req: Request) {
   try {
     const body = (await req.json()) as { email?: string };
-    const email = body.email?.trim();
+    const email = body.email?.trim().toLowerCase();
     if (!email) {
       return NextResponse.json(
         { ok: false, error: "กรุณาระบุอีเมล" },
@@ -59,7 +34,13 @@ export async function POST(req: Request) {
         passwordResetExpires: expires,
       },
     });
-    const baseUrl = resolveAppOrigin(req);
+    const baseUrl = getTrustedAppOrigin();
+    if (!baseUrl) {
+      return NextResponse.json(
+        { ok: false, error: "ระบบยังไม่ได้ตั้งค่า NEXTAUTH_URL สำหรับลิงก์รีเซ็ตรหัสผ่าน" },
+        { status: 500 }
+      );
+    }
     const resetLink = `${baseUrl}/reset-password?token=${token}`;
 
     if (process.env.RESEND_API_KEY) {

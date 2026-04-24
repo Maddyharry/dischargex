@@ -12,6 +12,7 @@ import {
   normalizePlanId,
 } from "@/lib/billing-rules";
 import { getStripe, getStripePriceMap } from "@/lib/stripe";
+import { getTrustedAppOrigin } from "@/lib/app-origin";
 
 export const runtime = "nodejs";
 
@@ -22,6 +23,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
     }
     const body = (await req.json()) as { planRequested?: string; addCredits?: number };
+    const appOrigin = getTrustedAppOrigin();
+    if (!appOrigin) {
+      return NextResponse.json(
+        { ok: false, error: "ยังไม่ได้ตั้งค่า NEXTAUTH_URL สำหรับ Stripe redirect URL" },
+        { status: 500 }
+      );
+    }
     const planRequestedRaw = String(body.planRequested || "").trim();
     const addCredits = Number(body.addCredits || 0);
     const isAddCredits = Number.isFinite(addCredits) && addCredits > 0;
@@ -104,7 +112,7 @@ export async function POST(req: NextRequest) {
     if (!isAddCredits && activeSubscription && dbUser.stripeSubscriptionId) {
       const portal = await stripe.billingPortal.sessions.create({
         customer: customerId,
-        return_url: `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/pricing`,
+        return_url: `${appOrigin}/pricing`,
       });
       return NextResponse.json({
         ok: true,
@@ -126,8 +134,8 @@ export async function POST(req: NextRequest) {
       ? await stripe.checkout.sessions.create({
           mode: "payment",
           customer: customerId,
-          success_url: `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/pricing?stripe=success`,
-          cancel_url: `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/pricing?stripe=cancel`,
+          success_url: `${appOrigin}/pricing?stripe=success`,
+          cancel_url: `${appOrigin}/pricing?stripe=cancel`,
           line_items: [
             {
               price_data: {
@@ -152,8 +160,8 @@ export async function POST(req: NextRequest) {
       : await stripe.checkout.sessions.create({
           mode: "subscription",
           customer: customerId,
-          success_url: `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/pricing?stripe=success`,
-          cancel_url: `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/pricing?stripe=cancel`,
+          success_url: `${appOrigin}/pricing?stripe=success`,
+          cancel_url: `${appOrigin}/pricing?stripe=cancel`,
           line_items: [{ price: selectedPriceId, quantity: 1 }],
           metadata: {
             userId: dbUser.id,
