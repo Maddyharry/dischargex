@@ -48,9 +48,33 @@ function botReplyAsksForAttachment(message: string): boolean {
 
 type Tab = "chat" | "report";
 
+/** ผู้ยังไม่ล็อกอิน: GET /api/feedback?type=chat คืน [] — เก็บประวัติฝั่งเครื่องเพื่อไม่ให้ loadChat ทับข้อความหลังส่ง */
+const GUEST_FEEDBACK_CHAT_STORAGE_KEY = "dischargex_feedback_widget_guest_v1";
+const GUEST_CHAT_MAX_MESSAGES = 50;
+
+function parseGuestChatMessages(raw: string | null): ChatMessage[] {
+  if (!raw) return [];
+  try {
+    const data = JSON.parse(raw) as unknown;
+    if (!Array.isArray(data)) return [];
+    const out: ChatMessage[] = [];
+    for (const row of data) {
+      if (!row || typeof row !== "object") continue;
+      const r = row as Record<string, unknown>;
+      if (typeof r.id !== "string" || typeof r.message !== "string" || typeof r.createdAt !== "string") continue;
+      const isBot = r.isBot === true;
+      const source = r.source === "admin" ? "admin" : isBot ? "ai" : "user";
+      out.push({ id: r.id, message: r.message, createdAt: r.createdAt, isBot, source });
+    }
+    return out.slice(-GUEST_CHAT_MAX_MESSAGES);
+  } catch {
+    return [];
+  }
+}
+
 export function FeedbackWidget() {
   const { workspaceSnapshot, feedbackOpen, feedbackTab, setFeedbackOpen, setFeedbackTab } = useFeedbackContext();
-  const { data: session } = useSession();
+  const { data: session, status: sessionStatus } = useSession();
   const pathname = usePathname();
   const isChatPage = pathname === "/chat";
   const isAdmin = (session?.user as { role?: string } | undefined)?.role === "admin";
@@ -68,6 +92,7 @@ export function FeedbackWidget() {
   const [activeThreadUserId, setActiveThreadUserId] = useState("");
   const [chatNudgeVisible, setChatNudgeVisible] = useState(false);
   const [chatNudgeText, setChatNudgeText] = useState("สอบถามเพิ่มเติมได้ที่ปุ่มแชต");
+  const guestChatHydratedRef = useRef(false);
 
   const [reportDesc, setReportDesc] = useState("");
   const [reportIncludeWorkspace, setReportIncludeWorkspace] = useState(true);
@@ -79,6 +104,17 @@ export function FeedbackWidget() {
   const loadChat = useCallback(async () => {
     try {
       setLoadError(null);
+      if (sessionStatus === "loading") {
+        return;
+      }
+      if (sessionStatus !== "authenticated") {
+        const raw =
+          typeof window !== "undefined" ? localStorage.getItem(GUEST_FEEDBACK_CHAT_STORAGE_KEY) : null;
+        setChatMessages(parseGuestChatMessages(raw));
+        guestChatHydratedRef.current = true;
+        return;
+      }
+
       const res = await fetch("/api/feedback?type=chat");
       const data = await res.json();
       if (!data.ok) {
@@ -97,8 +133,12 @@ export function FeedbackWidget() {
       setChatMessages(list);
     } catch {
       setLoadError("โหลดประวัติไม่สำเร็จ");
+    } finally {
+      if (sessionStatus === "authenticated") {
+        guestChatHydratedRef.current = true;
+      }
     }
-  }, []);
+  }, [sessionStatus]);
 
   const loadAdminThreads = useCallback(async () => {
     try {
@@ -155,6 +195,12 @@ export function FeedbackWidget() {
   }, [isChatPage, open, setOpen]);
 
   useEffect(() => {
+    if (!open) {
+      guestChatHydratedRef.current = false;
+    }
+  }, [open]);
+
+  useEffect(() => {
     if (!(open && tab === "chat")) return;
     if (isAdmin) {
       void loadAdminThreads();
@@ -162,6 +208,20 @@ export function FeedbackWidget() {
       void loadChat();
     }
   }, [open, tab, isAdmin, loadAdminThreads, loadChat]);
+
+  useEffect(() => {
+    if (sessionStatus !== "unauthenticated") return;
+    if (!open || tab !== "chat" || isAdmin) return;
+    if (!guestChatHydratedRef.current) return;
+    try {
+      localStorage.setItem(
+        GUEST_FEEDBACK_CHAT_STORAGE_KEY,
+        JSON.stringify(chatMessages.slice(-GUEST_CHAT_MAX_MESSAGES))
+      );
+    } catch {
+      // ignore quota / private mode
+    }
+  }, [chatMessages, sessionStatus, open, tab, isAdmin]);
 
   useEffect(() => {
     if (!(open && tab === "chat")) return;
@@ -176,12 +236,21 @@ export function FeedbackWidget() {
       if (isAdmin) {
         void loadAdminThreads();
         if (activeThreadUserId) void loadAdminThreadMessages(activeThreadUserId);
-      } else {
+      } else if (sessionStatus === "authenticated") {
         void loadChat();
       }
     }, 12000);
     return () => clearInterval(timer);
-  }, [open, tab, isAdmin, activeThreadUserId, loadAdminThreads, loadAdminThreadMessages, loadChat]);
+  }, [
+    open,
+    tab,
+    isAdmin,
+    activeThreadUserId,
+    loadAdminThreads,
+    loadAdminThreadMessages,
+    loadChat,
+    sessionStatus,
+  ]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });

@@ -136,14 +136,14 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-50 border-b border-slate-800 bg-[#081120]/95 backdrop-blur">
-      <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-2 px-4 sm:gap-4">
-        <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
+      <div className="mx-auto flex h-14 max-w-7xl items-center gap-2 px-4 sm:gap-4">
+        <div className="flex shrink-0 items-center gap-2 sm:gap-3">
           <Link href={session?.user ? "/chat" : "/"} className="shrink-0 text-lg font-semibold text-white">
             Discharge<span className="text-cyan-400">X</span>
           </Link>
         </div>
 
-        <nav className="flex min-w-0 shrink-0 items-center justify-end gap-1 sm:gap-2">
+        <nav className="flex min-w-0 flex-1 items-center justify-end gap-1 sm:gap-2">
           <Link
             href="/about"
             className="hidden shrink-0 rounded-lg px-2.5 py-2 text-sm text-slate-300 hover:bg-white/5 hover:text-white sm:inline"
@@ -188,7 +188,7 @@ export function Header() {
           </Link>
           <Link
             href="/pricing"
-            className="shrink-0 rounded-lg px-2 py-2 text-xs text-slate-300 hover:bg-white/5 hover:text-white sm:px-2.5 sm:text-sm"
+            className="hidden shrink-0 rounded-lg px-2 py-2 text-xs text-slate-300 hover:bg-white/5 hover:text-white sm:px-2.5 sm:text-sm lg:inline-flex"
           >
             แพ็กเกจ
           </Link>

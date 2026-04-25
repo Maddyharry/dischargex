@@ -197,7 +197,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "GET รองรับเฉพาะ type=chat" }, { status: 400 });
     }
 
-    // ไม่ล็อกอินก็ไม่โหลดประวัติ (หรือจะให้โหลดจาก deviceId ก็ได้)
+    // ไม่ล็อกอิน: ไม่คืนประวัติจาก DB (FeedbackWidget เก็บประวัติแชทผู้เยี่ยมใน localStorage แทน)
     const list = userId
       ? await prisma.feedback.findMany({
           where: { userId, type: "chat" },
