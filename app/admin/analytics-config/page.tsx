@@ -31,24 +31,31 @@ function toLabel(key: CheckItem["key"]) {
 export default function AdminAnalyticsConfigPage() {
   const [data, setData] = useState<AnalyticsConfigResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lastCheckedAt, setLastCheckedAt] = useState<Date | null>(null);
+
+  async function loadConfig(options?: { silent?: boolean }) {
+    const silent = Boolean(options?.silent);
+    if (silent) setRefreshing(true);
+    else setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/admin/analytics-config");
+      const json = (await res.json()) as AnalyticsConfigResponse;
+      if (!res.ok || !json.ok) throw new Error(json.error || "โหลดสถานะไม่สำเร็จ");
+      setData(json);
+      setLastCheckedAt(new Date());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "โหลดสถานะไม่สำเร็จ");
+    } finally {
+      if (silent) setRefreshing(false);
+      else setLoading(false);
+    }
+  }
 
   useEffect(() => {
-    async function load() {
-      setLoading(true);
-      setError(null);
-      try {
-        const res = await fetch("/api/admin/analytics-config");
-        const json = (await res.json()) as AnalyticsConfigResponse;
-        if (!res.ok || !json.ok) throw new Error(json.error || "โหลดสถานะไม่สำเร็จ");
-        setData(json);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "โหลดสถานะไม่สำเร็จ");
-      } finally {
-        setLoading(false);
-      }
-    }
-    void load();
+    void loadConfig();
   }, []);
 
   const checks = useMemo(() => data?.checks || [], [data]);
@@ -64,15 +71,28 @@ export default function AdminAnalyticsConfigPage() {
               ตรวจความพร้อม env สำหรับ GA, Google Ads และ Search Console แบบไม่แสดงค่าจริง
             </p>
           </div>
-          <Link
-            href="/admin"
-            className="rounded-xl border border-slate-700 bg-slate-900/80 px-3 py-2 text-xs font-medium text-slate-200 hover:bg-slate-800"
-          >
-            กลับ Admin
-          </Link>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => void loadConfig({ silent: true })}
+              disabled={loading || refreshing}
+              className="rounded-xl border border-cyan-700 bg-cyan-900/30 px-3 py-2 text-xs font-medium text-cyan-200 hover:bg-cyan-800/40 disabled:opacity-60"
+            >
+              {refreshing ? "Refreshing..." : "Refresh"}
+            </button>
+            <Link
+              href="/admin"
+              className="rounded-xl border border-slate-700 bg-slate-900/80 px-3 py-2 text-xs font-medium text-slate-200 hover:bg-slate-800"
+            >
+              กลับ Admin
+            </Link>
+          </div>
         </header>
 
         {loading ? <div className="text-sm text-slate-300">กำลังโหลด...</div> : null}
+        {lastCheckedAt ? (
+          <div className="text-xs text-slate-500">Last checked: {lastCheckedAt.toLocaleString("th-TH")}</div>
+        ) : null}
         {error ? (
           <div className="rounded-xl border border-red-900/60 bg-red-950/40 px-4 py-3 text-sm text-red-200">{error}</div>
         ) : null}
