@@ -32,6 +32,8 @@ export default function AdminAnalyticsConfigPage() {
   const [data, setData] = useState<AnalyticsConfigResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [sendingTest, setSendingTest] = useState(false);
+  const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [lastCheckedAt, setLastCheckedAt] = useState<Date | null>(null);
 
@@ -61,6 +63,21 @@ export default function AdminAnalyticsConfigPage() {
   const checks = useMemo(() => data?.checks || [], [data]);
   const warnings = useMemo(() => data?.warningMessages || [], [data]);
 
+  async function sendTestAlert() {
+    setSendingTest(true);
+    setTestResult(null);
+    try {
+      const res = await fetch("/api/admin/analytics-config", { method: "POST" });
+      const json = (await res.json()) as { ok?: boolean; error?: string };
+      if (!res.ok || !json.ok) throw new Error(json.error || "ส่ง test email ไม่สำเร็จ");
+      setTestResult({ ok: true, message: "ส่ง test email แล้ว กรุณาเช็ค inbox/spam ของอีเมลแอดมิน" });
+    } catch (err) {
+      setTestResult({ ok: false, message: err instanceof Error ? err.message : "ส่ง test email ไม่สำเร็จ" });
+    } finally {
+      setSendingTest(false);
+    }
+  }
+
   return (
     <main className="min-h-screen bg-[#081120] text-slate-100">
       <div className="mx-auto max-w-3xl space-y-6 px-4 py-8">
@@ -72,6 +89,14 @@ export default function AdminAnalyticsConfigPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => void sendTestAlert()}
+              disabled={loading || refreshing || sendingTest}
+              className="rounded-xl border border-emerald-700 bg-emerald-900/30 px-3 py-2 text-xs font-medium text-emerald-200 hover:bg-emerald-800/40 disabled:opacity-60"
+            >
+              {sendingTest ? "Sending..." : "Send test email"}
+            </button>
             <button
               type="button"
               onClick={() => void loadConfig({ silent: true })}
@@ -92,6 +117,17 @@ export default function AdminAnalyticsConfigPage() {
         {loading ? <div className="text-sm text-slate-300">กำลังโหลด...</div> : null}
         {lastCheckedAt ? (
           <div className="text-xs text-slate-500">Last checked: {lastCheckedAt.toLocaleString("th-TH")}</div>
+        ) : null}
+        {testResult ? (
+          <div
+            className={`rounded-xl px-4 py-3 text-sm ${
+              testResult.ok
+                ? "border border-emerald-900/60 bg-emerald-950/30 text-emerald-200"
+                : "border border-red-900/60 bg-red-950/40 text-red-200"
+            }`}
+          >
+            {testResult.message}
+          </div>
         ) : null}
         {error ? (
           <div className="rounded-xl border border-red-900/60 bg-red-950/40 px-4 py-3 text-sm text-red-200">{error}</div>

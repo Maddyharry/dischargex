@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { sendAdminAlertEmail } from "@/lib/admin-alert";
 
 export const runtime = "nodejs";
 
@@ -67,4 +68,24 @@ export async function GET() {
     },
     warningMessages,
   });
+}
+
+export async function POST() {
+  const session = await getServerSession(authOptions);
+  if (!isAdmin(session)) {
+    return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
+  }
+
+  const actorEmail = (session as { user?: { email?: string } } | null)?.user?.email || "unknown";
+  await sendAdminAlertEmail({
+    subject: "DischargeX: Test admin alert",
+    lines: [
+      "This is a test alert from /admin/analytics-config.",
+      `Triggered by: ${actorEmail}`,
+      `Triggered at: ${new Date().toISOString()}`,
+      "If you received this message, admin alert email is working.",
+    ],
+  });
+
+  return NextResponse.json({ ok: true });
 }
