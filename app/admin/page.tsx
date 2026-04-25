@@ -46,6 +46,15 @@ export default function AdminPage() {
             </p>
           </Link>
           <Link
+            href="/admin/analytics-config"
+            className="block rounded-2xl border border-amber-500/20 bg-amber-500/5 p-5 text-slate-100 transition hover:bg-amber-500/10"
+          >
+            <span className="font-medium">Analytics Config Health</span>
+            <p className="mt-1 text-sm text-slate-400">
+              ตรวจความพร้อม GA / Google Ads / Search Console env ใน production แบบไม่เผยค่าจริง
+            </p>
+          </Link>
+          <Link
             href="/admin/review-queue"
             className="block rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-5 text-slate-100 transition hover:bg-emerald-500/10"
           >
