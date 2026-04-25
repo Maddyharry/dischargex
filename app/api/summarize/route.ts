@@ -1078,6 +1078,7 @@ export async function POST(req: Request) {
 
     const userSelect = {
       id: true,
+      role: true,
       plan: true,
       extraCredits: true,
       createdAt: true,
@@ -1113,6 +1114,7 @@ export async function POST(req: Request) {
     }
 
     const userId = dbUser?.id;
+    const isAdminUser = dbUser?.role === "admin";
     const plan = normalizePlanId(
       dbUser?.plan ?? (session.user as { plan?: string } | null | undefined)?.plan ?? "trial"
     );
@@ -1159,7 +1161,7 @@ export async function POST(req: Request) {
     const nextDailyResetAt = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
 
     // ตรวจ device limit
-    if (userId) {
+    if (userId && !isAdminUser) {
       const deviceId = req.headers.get("x-dischargex-device-id") || null;
       const activeSince = new Date(Date.now() - DEVICE_SESSION_TTL_MS);
 
@@ -1266,7 +1268,13 @@ export async function POST(req: Request) {
     const tokenBudgetThb = getPlanTokenBudgetThb(plan);
 
     const trialExpiredPolicy = await getTrialExpiredPolicy();
-    if (mode === "generate" && isLimitedTrialExpired && trialExpiredPolicy.enabled && !trialExpiredPolicy.allowSummarize) {
+    if (
+      mode === "generate" &&
+      !isAdminUser &&
+      isLimitedTrialExpired &&
+      trialExpiredPolicy.enabled &&
+      !trialExpiredPolicy.allowSummarize
+    ) {
       return json(
         {
           error:
@@ -1611,7 +1619,7 @@ export async function POST(req: Request) {
             "If both KNOWLEDGE_UPDATES_JSON and EXTERNAL_REFERENCE_SOURCES_JSON are empty/insufficient, avoid definitive principal diagnosis and explicitly state missing evidence in warnings.",
           ].join("\n\n");
 
-    if (mode === "generate" && tokenSpendThb >= tokenBudgetThb) {
+    if (mode === "generate" && !isAdminUser && tokenSpendThb >= tokenBudgetThb) {
       const monthResetAt = new Date(monthStart);
       monthResetAt.setMonth(monthResetAt.getMonth() + 1);
       return json(
@@ -1624,7 +1632,7 @@ export async function POST(req: Request) {
       );
     }
 
-    if (mode === "generate" && todaySummaryCount >= summaryApproxLimit) {
+    if (mode === "generate" && !isAdminUser && todaySummaryCount >= summaryApproxLimit) {
       return json(
         {
           error: `วันนี้คุณสร้างสรุปชาร์จครบโควตาโดยประมาณแล้ว (${summaryApproxLimit} เคส/วัน) ระบบจะรีเซ็ตอีกครั้งประมาณ ${formatBangkokDateTime(nextDailyResetAt)} หรือคุณสามารถซื้อแพ็กเพิ่มได้ที่หน้า /pricing`,
@@ -1633,7 +1641,12 @@ export async function POST(req: Request) {
       );
     }
 
-    if (enforceCreditLimit && mode === "generate" && (isExpired || availableCredits < requiredCreditsForCase)) {
+    if (
+      enforceCreditLimit &&
+      mode === "generate" &&
+      !isAdminUser &&
+      (isExpired || availableCredits < requiredCreditsForCase)
+    ) {
       if (isExpired) {
         return json(
           {
