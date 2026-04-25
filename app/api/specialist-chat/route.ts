@@ -136,7 +136,8 @@ function pickPromptVariant(seed: string) {
 }
 
 function detectChatIntent(message: string, history: ChatHistoryItem[]): ChatIntent {
-  const q = message.trim().toLowerCase();
+  const qRaw = message.trim();
+  const q = qRaw.toLowerCase();
   if (!q) return "clinical_question";
   if (/^(สวัสดี|hello|hi|ขอบคุณ|thanks|thank you|ช่วยหน่อย|test)/i.test(q)) {
     return "greeting_or_smalltalk";
@@ -148,6 +149,27 @@ function detectChatIntent(message: string, history: ChatHistoryItem[]): ChatInte
     history.length > 0
   ) {
     return "follow_up";
+  }
+  if (history.length > 0) {
+    const lastAssistant = [...history].reverse().find((h) => h.role === "assistant")?.content || "";
+    const shortAffirm =
+      /^(เอา|เอาสิ|เอาเลย|เอาให้|ได้(เลย|ครับ|ค่ะ|นะ|สิ)?|รับ(ครับ|ค่ะ)?|จัด(เลย)?|มา(เลย)?|ตกลง(ครับ|ค่ะ|นะ)?|ok\b|o\.?k\.?|yes|yep|make it|go ahead|sure)\b/i.test(
+        qRaw
+      ) && qRaw.length <= 48;
+    const assistantMentionsOffer =
+      /(template|เทมเพลต|ต้องการให้(ทำ|เพิ่ม|สรุป)|เอาแบบ(ไหน|นี้)|cc|pi|pe|soap|โน๊ต|บันทึก|ddx|แนวทาง|ต่อไหม|ทำ(ให้|ต่อ)ไหม|จะ(ให้|เอา))/i.test(
+        lastAssistant
+      );
+    if (shortAffirm && assistantMentionsOffer) {
+      return "follow_up";
+    }
+    if (
+      qRaw.length <= 36 &&
+      /^(อืม|ฮืม|อ่อ|ได้|รับ|โอเค|ใช่|มา|เอา)\b/.test(qRaw) &&
+      /(เคส|อาการ|opd|ตรวจ|ยา|ddx|วินิจฉัย|แนวทาง)/i.test(lastAssistant)
+    ) {
+      return "follow_up";
+    }
   }
   return "clinical_question";
 }
@@ -297,14 +319,17 @@ function buildSystemPrompt(assistantMode: AssistantMode, variant: "A" | "B", sty
 
 function resolveSpecialistChatModel(mode: ChatMode) {
   const fromCommon = process.env.OPENAI_CHAT_MODEL;
+  // Fast ต้องไม่ fallback ไป `OPENAI_CHAT_MODEL` คนเดียวกับ Precise โดยอัตโนมัติ — มิฉะนั้น UI จะเห็นรุ่นเดียวกันทั้งสองโหมด
   const preferred =
     mode === "precise"
       ? process.env.OPENAI_SPECIALIST_CHAT_MODEL_PRECISE || fromCommon || "gpt-5.5"
-      : process.env.OPENAI_SPECIALIST_CHAT_MODEL_FAST || fromCommon || "gpt-5-mini";
+      : process.env.OPENAI_SPECIALIST_CHAT_MODEL_FAST || "gpt-5-mini";
   const fallback =
     mode === "precise"
       ? [preferred, "gpt-5.5", "gpt-5.4", "gpt-5.4-mini", "gpt-5-mini", "gpt-4.1-mini", "gpt-4o-mini", "gpt-4o"]
-      : [preferred, "gpt-5-mini", "gpt-5.4-mini", "gpt-4.1-mini", "gpt-4o-mini", "gpt-4o"];
+      : [preferred, fromCommon, "gpt-5-mini", "gpt-5.4-mini", "gpt-4.1-mini", "gpt-4o-mini", "gpt-4o"].filter(
+          (m): m is string => Boolean(m) && m !== "gpt-5.5" && m !== "gpt-5.4"
+        );
   const candidates = Array.from(new Set(fallback.filter(Boolean)));
   return { preferred, candidates };
 }
@@ -358,11 +383,49 @@ function buildCaseSummaryPatternBlock(assistantMode: AssistantMode) {
   ].join("\n");
 }
 
-function detectSummaryIntent(message: string, assistantMode: AssistantMode): SummaryIntent {
-  if (assistantMode !== "opd_demo") return "none";
+function isShortOpdNoteRequest(message: string, assistantMode: AssistantMode) {
+  if (assistantMode !== "opd_demo") return false;
+  const raw = message.trim();
+  if (!raw) return false;
+  const t = raw.toLowerCase();
+  if (t.includes("thai opd case") || t.includes("mandatory_summary") || t.includes("## thai opd")) {
+    if (!/note|นท|สั้น|กระชับ|1 ย่อ|แบบสั้น|บันทึกสั้น/.test(t)) return false;
+  }
+  if (/\bสรุป(แบบ)?\s*เคส/.test(t) && (t.includes("เต็ม") || t.includes("cc:") || t.includes("##")) && t.length < 220) {
+    if (!/note|นท|สั้น|กระชับ|1 ย่อ|แบบสั้น/.test(t)) return false;
+  }
+  const hasOpd = t.includes("opd") || t.includes("คนไข้");
+  if (!hasOpd) return false;
+  if (/(โน๊ต|โน้ต|opd note|บันทึก(สั้น)?|แบบสั้น|1\s*ย่อหน้า|brief|\bnote\b|นท(?!ก)|กระชับ|ไม่(ต้อง|เอา)\s*เต็ม)/i.test(raw)) {
+    if (/\bสรุป(แบบ)?\s*เคส(?!.*(note|นท|สั้น|กระชับ|1 ย่อ))/.test(t) && t.includes("เต็ม")) {
+      if (!/note|นท|สั้น|กระชับ|1 ย่อ|แบบสั้น|แค่/.test(t)) {
+        return false;
+      }
+    }
+    return true;
+  }
+  if (t.length < 100 && /^(ขอ|ช่วย|รบกวน|เขียน|ทำ|ส่ง|สร้าง)\b/.test(t) && (t.includes("note") || t.includes("นท") || t.includes("บันทึก")) && !/สรุป(แบบ)?\s*เคส/.test(t)) {
+    return true;
+  }
+  return false;
+}
+
+function detectSummaryIntent(message: string, assistantMode: AssistantMode, shortOpdNote: boolean): SummaryIntent {
+  if (assistantMode !== "opd_demo" || shortOpdNote) return "none";
   const q = message.toLowerCase();
-  if (/สรุป\s*soap|\bsoap\b/.test(q)) return "opd_soap";
-  if (/สรุปเคส|thai opd case summary|opd ไทย/.test(q)) return "opd_case";
+  if (/\bsoap\b|สรุป(แบบ)?\s*soap/.test(q)) return "opd_soap";
+  if (q.includes("thai opd case summary") || (q.includes("##") && q.includes("thai opd case"))) {
+    if (/(opd note|note|นท(?!ก)|สั้น|กระชับ|1 ย่อ|แบบสั้น|brief|short opd note)/.test(message.toLowerCase())) {
+      return "none";
+    }
+    return "opd_case";
+  }
+  if (q.includes("สรุปเคส") && (q.includes("opd ไทย") || (q.includes("thai") && q.includes("opd")))) {
+    if (/(opd note|note|นท(?!ก)|สั้น|กระชับ|1 ย่อ|แบบสั้น|brief|short opd note)/.test(message.toLowerCase())) {
+      return "none";
+    }
+    return "opd_case";
+  }
   return "none";
 }
 
@@ -1208,9 +1271,16 @@ export async function POST(req: NextRequest) {
           .slice(-200)
           .map((h) => ({ ...h, content: deidentify(h.content) }))
       : [];
-    const recentHistory = rawHistory.slice(mode === "fast" ? -8 : -12);
+    const defaultTailN = mode === "fast" ? 8 : 12;
+    const followTailN = mode === "fast" ? 16 : 24;
+    const intent = detectChatIntent(messageForModel, rawHistory);
+    const shortOpd = isShortOpdNoteRequest(userMessageTrimmed, assistantMode);
+    const summaryIntent = detectSummaryIntent(userMessageTrimmed, assistantMode, shortOpd);
+    const forceSummaryTemplate = summaryIntent !== "none";
+    const recentTailN = intent === "follow_up" ? followTailN : defaultTailN;
+    const recentForContext = rawHistory.slice(-recentTailN);
     const conversationSummary = buildConversationSummary(
-      rawHistory.slice(0, Math.max(0, rawHistory.length - recentHistory.length))
+      rawHistory.slice(0, Math.max(0, rawHistory.length - recentTailN))
     );
 
     const identity = getRequestIdentity(
@@ -1349,7 +1419,6 @@ export async function POST(req: NextRequest) {
       process.env.SPECIALIST_CHAT_PROMPT_VARIANT === "A" || process.env.SPECIALIST_CHAT_PROMPT_VARIANT === "B"
         ? process.env.SPECIALIST_CHAT_PROMPT_VARIANT
         : pickPromptVariant(userId || userMessageTrimmed.slice(0, 16) || (safeImages.length ? "image" : "u"));
-    const intent = detectChatIntent(messageForModel, recentHistory);
     const systemBase = buildSystemPrompt(assistantMode, variant, styleProfile);
     const system = isLimitedTrialExpired && trialExpiredPolicy.enabled
       ? `${systemBase}
@@ -1358,14 +1427,24 @@ TRIAL_EXPIRED_LIMITED_MODE:
 - Do not provide case analysis, differential diagnosis, treatment planning, or OPD workflow.
 - Keep response concise and coding-focused.`
       : systemBase;
-    const caseSummaryPattern = buildCaseSummaryPatternBlock(assistantMode);
+    const caseSummaryPattern = shortOpd ? "" : buildCaseSummaryPatternBlock(assistantMode);
+    const followUpBlock =
+      intent === "follow_up"
+        ? "FOLLOW_UP_STRICT: นี่คือบทสนทนาต่อเนื่อง ตอบต่อบริบทล่าสุด ห้ามเริ่มซักเคสใหม่หรือกลับไปตอบ \"คำถามแรก\" อ่าน CONVERSATION_SUMMARY, CHAT_HISTORY, USER_MESSAGE แล้วทำงานนั้นให้จบ"
+        : "";
+    const shortOpdBlock =
+      shortOpd
+        ? "SHORT_OPD_NOTE: ต้องการบันทึก/โน๊ต OPD กระชับ ไม่ใช่ case summary แยกหัวข้อ CC/PI/PE แบบ formal — 6–12 บรรทัด: อาการ+ระยะ, สมมติฐาน, แนวรักษา/นัด/red flag"
+        : "";
     const criticalScenarioBlock = buildCriticalScenarioBlock(messageForModel);
-    const summaryIntent = detectSummaryIntent(messageForModel, assistantMode);
     const mandatorySummaryTemplate = buildMandatorySummaryTemplate(summaryIntent);
-    const forceSummaryTemplate = summaryIntent !== "none";
     const historyForPrompt = forceSummaryTemplate
       ? compactHistoryForPrompt(rawHistory, 40, 320)
-      : compactHistoryForPrompt(recentHistory, recentHistory.length, 260);
+      : compactHistoryForPrompt(
+          recentForContext,
+          recentForContext.length,
+          intent === "follow_up" ? 400 : 260
+        );
     const summarySourceContext = buildFocusedSourceContext(rawHistory, messageForModel);
     const opdRuleContextBlock =
       assistantMode === "opd_demo" ? buildOpdRuleContextBlock(summarySourceContext || messageForModel) : "";
@@ -1393,6 +1472,8 @@ TRIAL_EXPIRED_LIMITED_MODE:
       "",
       ...(opdRuleContextBlock ? [opdRuleContextBlock, ""] : []),
       ...(medicationSafetyBlock ? [medicationSafetyBlock, ""] : []),
+      ...(followUpBlock ? [followUpBlock, ""] : []),
+      ...(shortOpdBlock ? [shortOpdBlock, ""] : []),
       ...(caseSummaryPattern ? [caseSummaryPattern, ""] : []),
       ...(criticalScenarioBlock ? [criticalScenarioBlock, ""] : []),
       ...(mandatorySummaryTemplate ? [mandatorySummaryTemplate, ""] : []),

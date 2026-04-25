@@ -42,6 +42,9 @@ type PendingStreamRequest = {
 };
 const CHAT_MODE_KEY = "dischargex_chat_mode_v1";
 const ASSISTANT_MODE_KEY = "dischargex_assistant_mode_v1";
+/** ตรงกับ `resolveSpecialistChatModel` เริ่มต้น — สำหรับแสดงก่อนมี done event; รุ่นจริงอาจเปลี่ยนเมื่อ fallback ที่ฝั่ง API */
+const DEFAULT_FAST_MODEL = "gpt-5-mini";
+const DEFAULT_PRECISE_MODEL = "gpt-5.5";
 const DEFAULT_CHAT_STYLE_PROFILE: ChatStyleProfile = {
   responseLength: "balanced",
   outputFormat: "auto",
@@ -175,17 +178,17 @@ function renderInlineCitations(line: string) {
                 href={chunk}
                 target="_blank"
                 rel="noreferrer"
-                className="mx-0.5 inline-flex items-center gap-1 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 text-[11px] text-cyan-200 hover:bg-cyan-500/20"
-                title={chunk}
+                className="mx-0.5 inline-flex h-6 w-6 items-center justify-center rounded-full border border-cyan-500/35 bg-cyan-500/10 text-cyan-200 hover:bg-cyan-500/25"
+                title={`${host}\n${chunk}`}
+                aria-label={`อ้างอิง: ${host}`}
               >
-                <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
                   <path d="M14 3h7v7" strokeLinecap="round" strokeLinejoin="round" />
                   <path d="M10 14 21 3" strokeLinecap="round" strokeLinejoin="round" />
                   <path d="M21 14v7h-7" strokeLinecap="round" strokeLinejoin="round" />
                   <path d="M3 10V3h7" strokeLinecap="round" strokeLinejoin="round" />
                   <path d="m3 3 7 7" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
-                <span>{host}</span>
               </a>
             );
           }
@@ -342,6 +345,14 @@ export default function ChartSummaryConsultChatPage() {
     [threads, activeId]
   );
   const isChatSendLocked = Boolean(chatQuotaNotice);
+  const expectedChatModel = useMemo(
+    () => (mode === "fast" ? DEFAULT_FAST_MODEL : DEFAULT_PRECISE_MODEL),
+    [mode]
+  );
+
+  useEffect(() => {
+    setLastModelUsed("");
+  }, [mode]);
 
   useEffect(() => {
     const lastAssistant = [...(active?.messages || [])].reverse().find((m) => m.role === "assistant")?.content || "";
@@ -1107,6 +1118,7 @@ export default function ChartSummaryConsultChatPage() {
     opts?: { displayContent?: string }
   ) {
     if (!text || !active || loading) return;
+    setComposerHint((h) => (h.includes("แก้ข้อความ") ? "" : h));
     if (!sessionAuthed) {
       setComposerHint(
         sessionStatus === "unauthenticated"
@@ -1887,15 +1899,11 @@ export default function ChartSummaryConsultChatPage() {
                 {assistantMode === "opd_demo" ? "โหมด OPD เน้นแนวทางคลินิก" : "โหมด Coding เน้นรหัสและสรุปชาร์จ"}
               </span>
             </div>
-            <div className="mt-2 flex items-center gap-2 text-xs">
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
               <span className="text-slate-400">
-                {assistantModeLabel} · {mode === "fast" ? "Fast" : "Precise"}
+                {assistantModeLabel} · {mode === "fast" ? "Fast" : "Precise"} · รุ่น:{" "}
+                {lastModelUsed || `≈ ${expectedChatModel}`}
               </span>
-              {lastModelUsed ? (
-                <span className="rounded-full border border-slate-700 bg-slate-900/70 px-2 py-0.5 text-[11px] text-slate-300">
-                  model: {lastModelUsed}
-                </span>
-              ) : null}
               {loading ? (
                 <span className="inline-flex items-center gap-1 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 text-[11px] text-cyan-200">
                   <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-cyan-300" />

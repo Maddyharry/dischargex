@@ -107,7 +107,13 @@ export async function GET() {
       : { _sum: { estimatedCostThb: 0 } };
   const tokenSpendThb = Number(tokenSpendInCycle._sum.estimatedCostThb || 0);
   const tokenBudgetThb = getPlanTokenBudgetThb(normalizedPlanId);
-  const tokenUsagePercent = tokenBudgetThb > 0 ? Math.max(0, Math.min(100, Math.round((tokenSpendThb / tokenBudgetThb) * 100))) : 0;
+  const tokenUsagePercent =
+    tokenBudgetThb > 0
+      ? Math.max(
+          0,
+          Math.min(100, tokenSpendThb > 0 ? Math.ceil((tokenSpendThb / tokenBudgetThb) * 100 - 1e-9) : 0)
+        )
+      : 0;
   const dayStart = new Date(now);
   dayStart.setHours(0, 0, 0, 0);
   const nextDailyResetAt = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
