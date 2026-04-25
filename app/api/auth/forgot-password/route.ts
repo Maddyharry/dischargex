@@ -34,10 +34,10 @@ export async function POST(req: Request) {
         passwordResetExpires: expires,
       },
     });
-    const baseUrl = getTrustedAppOrigin();
+    const baseUrl = getTrustedAppOrigin(req);
     if (!baseUrl) {
       return NextResponse.json(
-        { ok: false, error: "ระบบยังไม่ได้ตั้งค่า NEXTAUTH_URL สำหรับลิงก์รีเซ็ตรหัสผ่าน" },
+        { ok: false, error: "ระบบยังไม่ได้ตั้งค่า APP_ORIGIN/NEXTAUTH_URL สำหรับลิงก์รีเซ็ตรหัสผ่าน" },
         { status: 500 }
       );
     }

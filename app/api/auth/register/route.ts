@@ -62,10 +62,10 @@ export async function POST(req: Request) {
       },
     });
 
-    const appOrigin = getTrustedAppOrigin();
+    const appOrigin = getTrustedAppOrigin(req);
     if (!appOrigin) {
       return NextResponse.json(
-        { ok: false, error: "ระบบยังไม่ได้ตั้งค่า NEXTAUTH_URL สำหรับลิงก์ยืนยันอีเมล" },
+        { ok: false, error: "ระบบยังไม่ได้ตั้งค่า APP_ORIGIN/NEXTAUTH_URL สำหรับลิงก์ยืนยันอีเมล" },
         { status: 500 }
       );
     }

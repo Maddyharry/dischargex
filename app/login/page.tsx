@@ -14,6 +14,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   OAuthCreateAccount: "ไม่สามารถสร้างบัญชีได้",
   CredentialsSignin: "อีเมลหรือรหัสผ่านไม่ถูกต้อง หรืออีเมลยังไม่ได้ยืนยัน",
   InvalidToken: "ลิงก์ยืนยันอีเมลไม่ถูกต้องหรือหมดอายุ",
+  EmailNotVerified: "อีเมลนี้ยังไม่ได้ยืนยัน กรุณายืนยันอีเมลก่อนเข้าสู่ระบบ",
   Callback: "เกิดข้อผิดพลาดในการเข้าสู่ระบบ",
   Default: "เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง",
 };
@@ -39,6 +40,7 @@ function LoginForm() {
   const [resendMessage, setResendMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [devVerifyUrl, setDevVerifyUrl] = useState<string | null>(null);
   const [rememberUser, setRememberUser] = useState(true);
+  const [authError, setAuthError] = useState<string>("");
 
   useEffect(() => {
     if (status === "authenticated") {
@@ -84,6 +86,7 @@ function LoginForm() {
     e.preventDefault();
     if (!email.trim() || !password) return;
     setLoading(true);
+    setAuthError("");
     try {
       if (typeof window !== "undefined" && rememberUser) {
         window.localStorage.setItem(rememberedEmailKey, email.trim());
@@ -94,8 +97,12 @@ function LoginForm() {
         callbackUrl: postLoginUrl,
         redirect: false,
       });
+      if (res?.error) {
+        setPassword("");
+        setAuthError(ERROR_MESSAGES[res.error] || ERROR_MESSAGES.Default);
+        return;
+      }
       if (res?.url) window.location.href = res.url;
-      else if (res?.error) setPassword("");
     } finally {
       setLoading(false);
     }
@@ -213,7 +220,10 @@ function LoginForm() {
             type="email"
             placeholder="อีเมล"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              if (authError) setAuthError("");
+            }}
             autoComplete="username"
             className="w-full rounded-xl border border-white/10 bg-slate-800/80 px-4 py-3 text-slate-100 placeholder-slate-500 focus:border-cyan-500 focus:outline-none"
             required
@@ -226,7 +236,10 @@ function LoginForm() {
             type="password"
             placeholder="รหัสผ่าน"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(e) => {
+              setPassword(e.target.value);
+              if (authError) setAuthError("");
+            }}
             autoComplete="current-password"
             className="w-full rounded-xl border border-white/10 bg-slate-800/80 px-4 py-3 text-slate-100 placeholder-slate-500 focus:border-cyan-500 focus:outline-none"
             required
@@ -253,6 +266,11 @@ function LoginForm() {
             {loading ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ด้วยอีเมล"}
           </button>
         </form>
+        {authError ? (
+          <div className="mt-4 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
+            {authError}
+          </div>
+        ) : null}
 
         <p className="mt-4 text-center text-xs text-slate-500">หรือ</p>
 

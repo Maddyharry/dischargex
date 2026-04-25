@@ -11,6 +11,7 @@ import {
   normalizePlanId,
 } from "@/lib/billing-rules";
 import { applyScheduledPlanChangeIfDue } from "@/lib/subscription-switch";
+import { getPlanTokenBudgetThb } from "@/lib/token-billing";
 
 export const runtime = "nodejs";
 
@@ -87,6 +88,19 @@ export async function GET() {
   const baseUsed = usedBaseInCycle._sum.baseCreditsUsed ?? 0;
   const baseRemaining = Math.max(0, plan.creditsPerCycle - baseUsed);
   const remaining = isActive ? baseRemaining + extraCredits : 0;
+  const tokenSpendInCycle =
+    dbUser?.id != null
+      ? await prisma.tokenUsageLedger.aggregate({
+          _sum: { estimatedCostThb: true },
+          where: {
+            userId: dbUser.id,
+            createdAt: { gte: cycleStart, lte: cycleWindowEnd },
+          },
+        })
+      : { _sum: { estimatedCostThb: 0 } };
+  const tokenSpendThb = Number(tokenSpendInCycle._sum.estimatedCostThb || 0);
+  const tokenBudgetThb = getPlanTokenBudgetThb(normalizedPlanId);
+  const tokenUsagePercent = tokenBudgetThb > 0 ? Math.max(0, Math.min(100, Math.round((tokenSpendThb / tokenBudgetThb) * 100))) : 0;
   const daysLeft = isActive ? daysLeftUntil(periodEnd, now) : 0;
   const nextCreditRefreshAt =
     cycleWindowEnd.getTime() < periodEnd.getTime() ? cycleWindowEnd.toISOString() : null;
@@ -99,6 +113,10 @@ export async function GET() {
     used: baseUsed,
     remaining,
     extraCredits,
+    tokenSpendThb: Number(tokenSpendThb.toFixed(2)),
+    tokenBudgetThb,
+    tokenRemainingThb: Math.max(0, Number((tokenBudgetThb - tokenSpendThb).toFixed(2))),
+    tokenUsagePercent,
     periodEnd: periodEnd.toISOString(),
     nextCreditRefreshAt,
     subscriptionStatus: isActive ? dbUser?.subscriptionStatus ?? "active" : "expired",

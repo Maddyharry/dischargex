@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { THAI_PROVINCES, validateBirthDateBE, validateThaiPhone } from "@/lib/thai-input";
 import { LAST_REVIEWED_DATE, REFERENCE_SET_NAME } from "@/lib/reference-info";
-import { REFERRAL_BONUS_FIRST_PURCHASE, REFERRAL_BONUS_FIRST_USAGE } from "@/lib/referral-constants";
 
 type UserInfo = {
   id: string;
@@ -24,6 +23,10 @@ type UsageInfo = {
   total: number;
   used: number;
   remaining: number;
+  tokenSpendThb?: number;
+  tokenBudgetThb?: number;
+  tokenRemainingThb?: number;
+  tokenUsagePercent?: number;
   nextCreditRefreshAt?: string | null;
   daysLeftInMonth?: number;
   subscriptionStatus?: string;
@@ -44,36 +47,6 @@ type RequestRow = {
   adminNote?: string | null;
   rejectionReason?: string | null;
   reviewedAt?: string | null;
-  createdAt: string;
-};
-
-type ReferralDashboard = {
-  referralCode: string | null;
-  stats: {
-    signups: number;
-    firstUsages: number;
-    firstPurchases: number;
-    credits: number;
-  };
-  history: Array<{
-    id: string;
-    referredName: string | null;
-    referredEmail: string | null;
-    signupAt: string;
-    firstUsageAt: string | null;
-    firstPurchaseAt: string | null;
-    creditsEarned: number;
-    status: string;
-    suspiciousFlag: boolean;
-  }>;
-};
-
-type CreditLedgerItem = {
-  id: string;
-  sourceType: string;
-  amount: number;
-  direction: string;
-  note: string | null;
   createdAt: string;
 };
 
@@ -130,13 +103,7 @@ export default function ProfilePage() {
   const [user, setUser] = useState<UserInfo | null>(null);
   const [usage, setUsage] = useState<UsageInfo | null>(null);
   const [requests, setRequests] = useState<RequestRow[]>([]);
-  const [referral, setReferral] = useState<ReferralDashboard | null>(null);
-  const [ledger, setLedger] = useState<CreditLedgerItem[]>([]);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
-  const [refCodeInput, setRefCodeInput] = useState("");
-  const [refClaimed, setRefClaimed] = useState<{ referralCode: string } | null>(null);
-  const [refClaimMsg, setRefClaimMsg] = useState<{ ok: boolean; text: string } | null>(null);
-  const [refClaimLoading, setRefClaimLoading] = useState(false);
   const [editName, setEditName] = useState("");
   const [editBirthDate, setEditBirthDate] = useState("");
   const [editPhone, setEditPhone] = useState("");
@@ -151,7 +118,11 @@ export default function ProfilePage() {
   const [stripeSuccess, setStripeSuccess] = useState(false);
   const [portalReturned, setPortalReturned] = useState(false);
   const usagePercent = useMemo(() => {
-    if (!usage || usage.total <= 0) return 0;
+    if (!usage) return 0;
+    if (typeof usage.tokenUsagePercent === "number") {
+      return Math.max(0, Math.min(100, usage.tokenUsagePercent));
+    }
+    if (usage.total <= 0) return 0;
     return Math.max(0, Math.min(100, Math.round((usage.used / usage.total) * 100)));
   }, [usage]);
   const timePercent = useMemo(() => {
@@ -174,18 +145,16 @@ export default function ProfilePage() {
       setLoading(true);
       setError(null);
       try {
-        const [meRes, usageRes, reqRes, refRes, notiRes] = await Promise.all([
+        const [meRes, usageRes, reqRes, notiRes] = await Promise.all([
           fetch("/api/me"),
           fetch("/api/usage"),
           fetch("/api/me/requests"),
-          fetch("/api/referral/me"),
           fetch("/api/notifications?limit=50"),
         ]);
 
         const meData = await meRes.json().catch(() => ({}));
         const usageData = await usageRes.json().catch(() => ({}));
         const reqData = await reqRes.json().catch(() => ({}));
-        const refData = await refRes.json().catch(() => ({}));
         const notiData = await notiRes.json().catch(() => ({}));
 
         if (meData.ok && meData.user) {
@@ -205,6 +174,12 @@ export default function ProfilePage() {
             total: usageData.total ?? 0,
             used: usageData.used ?? 0,
             remaining: usageData.remaining ?? 0,
+            tokenSpendThb: typeof usageData.tokenSpendThb === "number" ? usageData.tokenSpendThb : undefined,
+            tokenBudgetThb: typeof usageData.tokenBudgetThb === "number" ? usageData.tokenBudgetThb : undefined,
+            tokenRemainingThb:
+              typeof usageData.tokenRemainingThb === "number" ? usageData.tokenRemainingThb : undefined,
+            tokenUsagePercent:
+              typeof usageData.tokenUsagePercent === "number" ? usageData.tokenUsagePercent : undefined,
             daysLeftInMonth:
               typeof usageData.daysLeftInMonth === "number" ? usageData.daysLeftInMonth : undefined,
             nextCreditRefreshAt:
@@ -217,11 +192,6 @@ export default function ProfilePage() {
 
         if (reqData.ok && Array.isArray(reqData.requests)) {
           setRequests(reqData.requests);
-        }
-        if (refData.ok) {
-          setReferral(refData.referral ?? null);
-          setLedger(Array.isArray(refData.ledger) ? refData.ledger : []);
-          if (refData.alreadyClaimed) setRefClaimed(refData.alreadyClaimed);
         }
         if (notiData.ok && Array.isArray(notiData.notifications)) {
           setNotifications(notiData.notifications);
@@ -296,31 +266,6 @@ export default function ProfilePage() {
       setError(err instanceof Error ? err.message : "บันทึกไม่สำเร็จ");
     } finally {
       setSaving(false);
-    }
-  }
-
-  async function claimReferral() {
-    const code = refCodeInput.trim();
-    if (!code) {
-      setRefClaimMsg({ ok: false, text: "กรุณากรอกรหัสแนะนำเพื่อน" });
-      return;
-    }
-    setRefClaimLoading(true);
-    setRefClaimMsg(null);
-    try {
-      const res = await fetch("/api/referral/claim", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ referralCode: code }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.ok) throw new Error(data.error || "บันทึกรหัสแนะนำเพื่อนไม่สำเร็จ");
-      setRefClaimed({ referralCode: code.toUpperCase() });
-      setRefClaimMsg({ ok: true, text: "ผูกรหัสแนะนำเพื่อนสำเร็จ!" });
-    } catch (err) {
-      setRefClaimMsg({ ok: false, text: err instanceof Error ? err.message : "บันทึกรหัสไม่สำเร็จ" });
-    } finally {
-      setRefClaimLoading(false);
     }
   }
 
@@ -522,7 +467,9 @@ export default function ProfilePage() {
                     {usage ? (
                       <div className="mt-1">
                         <div className="flex items-center justify-between text-sm">
-                          <p className="font-medium text-emerald-300">การใช้งาน</p>
+                          <p className="font-medium text-emerald-300">
+                            {typeof usage.tokenBudgetThb === "number" ? "การใช้งาน AI budget" : "การใช้งาน"}
+                          </p>
                           <p className="font-semibold text-cyan-200">{usagePercent}%</p>
                         </div>
                         <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-800">
@@ -531,6 +478,12 @@ export default function ProfilePage() {
                             style={{ width: `${usagePercent}%` }}
                           />
                         </div>
+                        {typeof usage.tokenBudgetThb === "number" ? (
+                          <p className="mt-2 text-xs text-slate-400">
+                            ใช้ไป {usage.tokenSpendThb?.toFixed(2) ?? "0.00"} / {usage.tokenBudgetThb.toFixed(2)} บาท
+                            (คงเหลือ {usage.tokenRemainingThb?.toFixed(2) ?? "0.00"} บาท)
+                          </p>
+                        ) : null}
                         <div className="mt-3 flex items-center justify-between text-sm">
                           <p className="font-medium text-slate-300">เวลาในรอบ</p>
                           <p className="font-semibold text-violet-200">{usage.daysLeftInMonth ?? 0} วัน</p>
@@ -573,121 +526,6 @@ export default function ProfilePage() {
                     ) : null}
                   </div>
                 ) : null}
-              </div>
-            </section>
-
-            <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
-              <h2 className="text-lg font-semibold text-white">โควตาโบนัสของฉัน</h2>
-              <div className="mt-2 rounded-2xl border border-cyan-500/25 bg-cyan-950/20 px-4 py-3 text-xs text-cyan-100">
-                กติกาแนะนำเพื่อน:
-                <span className="block mt-1">- เพื่อนสมัคร/ผูกรหัสแนะนำ: ยังไม่เพิ่มสิทธิ์ทันที</span>
-                <span className="block">
-                  - เพื่อนเริ่มใช้งานครั้งแรก (เริ่มทดลองใช้ฟรี): โบนัส +{REFERRAL_BONUS_FIRST_USAGE} หน่วย
-                </span>
-                <span className="block">
-                  - เพื่อนซื้อแพ็กเกจครั้งแรก: โบนัส +{REFERRAL_BONUS_FIRST_PURCHASE} หน่วย
-                </span>
-              </div>
-              <div className="mt-4 grid gap-3 sm:grid-cols-4">
-                <div className="rounded-xl border border-slate-700 bg-slate-950/50 p-3">
-                  <div className="text-xs text-slate-500">สมัคร/ผูกรหัสแล้ว (ยังไม่รับสิทธิ์ทันที)</div>
-                  <div className="mt-1 text-sm font-semibold text-slate-100">{referral?.stats.signups ?? 0}</div>
-                </div>
-                <div className="rounded-xl border border-slate-700 bg-slate-950/50 p-3">
-                  <div className="text-xs text-slate-500">
-                    เริ่มทดลองใช้ฟรีครั้งแรก (+{REFERRAL_BONUS_FIRST_USAGE} หน่วย/คน)
-                  </div>
-                  <div className="mt-1 text-sm font-semibold text-slate-100">{referral?.stats.firstUsages ?? 0}</div>
-                </div>
-                <div className="rounded-xl border border-slate-700 bg-slate-950/50 p-3">
-                  <div className="text-xs text-slate-500">
-                    ซื้อแพ็กเกจครั้งแรก (+{REFERRAL_BONUS_FIRST_PURCHASE} หน่วย/คน)
-                  </div>
-                  <div className="mt-1 text-sm font-semibold text-slate-100">{referral?.stats.firstPurchases ?? 0}</div>
-                </div>
-                <div className="rounded-xl border border-slate-700 bg-slate-950/50 p-3">
-                  <div className="text-xs text-slate-500">โบนัสโควตา (referral)</div>
-                  <div className="mt-1 text-sm font-semibold text-emerald-300">{referral?.stats.credits ?? 0}</div>
-                </div>
-              </div>
-
-              <div className="mt-4 grid gap-3 md:grid-cols-2">
-                <div className="rounded-xl border border-slate-700 bg-slate-950/50 p-3">
-                  <label className="text-xs text-slate-400">Referral code ของคุณ</label>
-                  <div className="mt-2 flex items-center gap-2">
-                    <code className="rounded bg-slate-900 px-2 py-1 text-sm text-cyan-300">
-                      {referral?.referralCode || "-"}
-                    </code>
-                    {referral?.referralCode ? (
-                      <button
-                        type="button"
-                        className="rounded-lg border border-slate-600 px-2 py-1 text-xs text-slate-200 hover:bg-slate-800"
-                        onClick={() =>
-                          navigator.clipboard.writeText(
-                            `${window.location.origin}/login?ref=${encodeURIComponent(referral.referralCode || "")}`
-                          )
-                        }
-                      >
-                        คัดลอกลิงก์แนะนำเพื่อน
-                      </button>
-                    ) : null}
-                  </div>
-                </div>
-
-                <div className="rounded-xl border border-slate-700 bg-slate-950/50 p-3">
-                  <label className="text-xs text-slate-400">มีรหัสเพื่อน? ผูกที่นี่</label>
-                  {refClaimed ? (
-                    <div className="mt-2 rounded-xl border border-emerald-700/50 bg-emerald-950/30 px-3 py-2 text-sm text-emerald-200">
-                      ผูกรหัสแล้ว: <span className="font-semibold">{refClaimed.referralCode}</span>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="mt-2 flex gap-2">
-                        <input
-                          value={refCodeInput}
-                          onChange={(e) => setRefCodeInput(e.target.value.toUpperCase())}
-                          className="flex-1 rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-cyan-500"
-                          placeholder="ใส่ referral code"
-                          disabled={refClaimLoading}
-                        />
-                        <button
-                          type="button"
-                          onClick={claimReferral}
-                          disabled={refClaimLoading || !refCodeInput.trim()}
-                          className="rounded-xl bg-cyan-600 px-3 py-2 text-xs font-medium text-white hover:bg-cyan-500 disabled:opacity-50"
-                        >
-                          {refClaimLoading ? "กำลังตรวจ..." : "บันทึก"}
-                        </button>
-                      </div>
-                      {refClaimMsg ? (
-                        <div className={`mt-2 rounded-lg px-3 py-1.5 text-xs ${refClaimMsg.ok ? "border border-emerald-700/50 bg-emerald-950/30 text-emerald-200" : "border border-red-800/50 bg-red-950/30 text-red-200"}`}>
-                          {refClaimMsg.text}
-                        </div>
-                      ) : null}
-                    </>
-                  )}
-                </div>
-              </div>
-
-              <div className="mt-4">
-                <h3 className="text-sm font-medium text-slate-200">ประวัติปรับโควตาโบนัสล่าสุด</h3>
-                {ledger.length === 0 ? (
-                  <div className="mt-2 text-xs text-slate-500">ยังไม่มีรายการ</div>
-                ) : (
-                  <div className="mt-2 space-y-2">
-                    {ledger.slice(0, 10).map((l) => (
-                      <div key={l.id} className="flex items-center justify-between rounded-xl border border-slate-700 bg-slate-950/50 px-3 py-2 text-xs">
-                        <div className="text-slate-300">
-                          {l.sourceType} · {l.note || "-"}
-                        </div>
-                        <div className={l.direction === "plus" ? "text-emerald-300" : "text-red-300"}>
-                          {l.direction === "plus" ? "+" : "-"}
-                          {l.amount}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
               </div>
             </section>
 

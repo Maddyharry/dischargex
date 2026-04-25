@@ -329,7 +329,7 @@ function PricingPageContent() {
           <p className="mt-3 max-w-2xl text-sm text-slate-400 md:text-base">
             โปรโมชั่นช่วงเปิดตัว: จ่ายแบบรายเดือนหรือรายปี — ตัวเลขต่อวันด้านล่างเป็น{" "}
             <span className="text-slate-300">เพดาน Fair Use โดยประมาณ</span> (ไม่ได้รับประกันจำนวนข้อความต่อเดือน)
-            และยังมี <span className="text-slate-300">เพดานการใช้งานรายเดือน</span> ของระบบแยกต่างหาก
+            โดยระบบจะคิดโควต้าแบบ weighted ตามความหนักของโมเดลที่ใช้ (Fast ใช้น้อยกว่า Precise)
           </p>
           <p className="mt-2 text-xs text-slate-500">
             ราคาอัปเดตล่าสุดในหน้านี้เสมอ — หากมีแคมเปญใหม่ ระบบจะแสดงที่หน้านี้ก่อนช่องทางอื่น
@@ -395,7 +395,7 @@ function PricingPageContent() {
                 <li>- ไม่มีผูกมัด</li>
                 <li>- ใช้ได้ 1 ครั้งต่อบัญชี</li>
                 <li>- จำกัด Fair Use: AI Chat ~20 ครั้ง/วัน · สรุปชาร์จ ~2 เคส/วัน</li>
-                <li>- มีเพดานการใช้งานรายเดือนของระบบ (โควตา token โดยประมาณ)</li>
+                <li>- โควต้าจริงคิดจากต้นทุน AI ตาม model/token usage</li>
               </ul>
             </div>
 
@@ -588,7 +588,9 @@ function PricingPageContent() {
             </table>
           </div>
           <p className="mt-2 text-xs leading-relaxed text-slate-500">
-            ตัวเลขต่อวันเป็นเพดาน Fair Use ที่ระบบใช้จริง — ไม่ได้แปลงมาจาก token ทีละข้อความโดยตรง ผู้ใช้งานหนักอาจถึงเพดานรายเดือนก่อนตัวเลขต่อวัน
+            ตัวเลขต่อวันเป็นเพดาน Fair Use ที่ระบบใช้จริง และมีเพดาน monthly AI budget แยกอีกชั้น
+            <br />
+            Fast mode ใช้โควต้าน้อยกว่า Precise mode (เพราะใช้โมเดลหนักต่างกัน) จึงใช้งานได้ถี่กว่าในงบเดียวกัน
             <br />
             ทดลองใช้ (Trial) รวมฟีเจอร์ &quot;แนะนำเติม chart / AdjRW ประมาณการ&quot; เช่นเดียวกับ Pro ในขอบเขตที่ระบบกำหนด
           </p>
@@ -601,27 +603,6 @@ function PricingPageContent() {
             </Link>
             <Link href="/guidelines" className="rounded-xl border border-slate-600 px-3 py-2 text-xs text-slate-200 hover:bg-slate-800">
               ดูแนวทางใช้งาน
-            </Link>
-          </div>
-        </section>
-
-        <section className="rounded-2xl border border-cyan-500/15 bg-gradient-to-br from-cyan-950/20 to-transparent p-6">
-          <h2 className="text-lg font-semibold text-white tracking-tight">รับโควตาโบนัสเพิ่มเติม</h2>
-          <p className="mt-2 text-sm text-slate-300">
-            ส่ง feedback ที่มีประโยชน์ต่อการพัฒนาระบบ หรือแนะนำเพื่อนมาใช้งานจริง
-            เพื่อรับโควตาโบนัสตามเงื่อนไข
-          </p>
-          <ul className="mt-3 space-y-1 text-sm text-slate-200">
-            <li>- โบนัส feedback พิจารณาตามคุณภาพของข้อเสนอ (ไม่รับประกันทุกรายการ)</li>
-            <li>- โบนัสแนะนำเพื่อนได้เมื่อเพื่อนเริ่มใช้งานจริง/ซื้อแพ็กเกจครั้งแรก</li>
-            <li>- ทีมงานขอสงวนสิทธิ์ปรับโควตาโบนัสตามความเหมาะสม</li>
-          </ul>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <Link href="/app/profile" className="rounded-xl border border-cyan-400/40 px-3 py-2 text-sm text-cyan-200 hover:bg-cyan-500/10">
-              ดูโควตาโบนัสของฉัน
-            </Link>
-            <Link href="/app?feedback=report" className="rounded-xl border border-slate-600 px-3 py-2 text-sm text-slate-200 hover:bg-slate-800">
-              ไปส่ง feedback
             </Link>
           </div>
         </section>

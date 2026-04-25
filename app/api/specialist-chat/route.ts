@@ -15,7 +15,7 @@ import {
   type ChatStyleProfile,
 } from "@/lib/chat-style-profile";
 import { deidentify } from "@/lib/deidentify";
-import { estimateTokenBillingThb, getPlanTokenBudgetThb, readUsageSummary } from "@/lib/token-billing";
+import { estimateTokenBillingThbByModel, getPlanTokenBudgetThb, readUsageSummary } from "@/lib/token-billing";
 import { extractIcd10Candidates, retrieveExternalEvidence } from "@/lib/reference-retriever";
 import { analyzeOpdCase } from "@/lib/chartAssist/analyzeCase";
 import { consumeRateLimit, getRequestIdentity } from "@/lib/request-rate-limit";
@@ -274,6 +274,20 @@ function buildSystemPrompt(assistantMode: AssistantMode, variant: "A" | "B", sty
     "Default format: 1) คำตอบสั้นตรงคำถาม 2) หลักฐานที่ควรมี 3) สิ่งที่ควรเช็กเพิ่ม",
   ];
   return [...(variant === "A" ? systemVariantA : systemVariantB), "USER_STYLE_PREFERENCE:", styleInstruction].join("\n");
+}
+
+function resolveSpecialistChatModel(mode: ChatMode) {
+  const fromCommon = process.env.OPENAI_CHAT_MODEL;
+  const preferred =
+    mode === "precise"
+      ? process.env.OPENAI_SPECIALIST_CHAT_MODEL_PRECISE || fromCommon || "gpt-5.5"
+      : process.env.OPENAI_SPECIALIST_CHAT_MODEL_FAST || fromCommon || "gpt-5-mini";
+  const fallback =
+    mode === "precise"
+      ? [preferred, "gpt-5.5", "gpt-5.4", "gpt-5.4-mini", "gpt-5-mini", "gpt-4.1-mini", "gpt-4o-mini", "gpt-4o"]
+      : [preferred, "gpt-5-mini", "gpt-5.4-mini", "gpt-4.1-mini", "gpt-4o-mini", "gpt-4o"];
+  const candidates = Array.from(new Set(fallback.filter(Boolean)));
+  return { preferred, candidates };
 }
 
 function buildCaseSummaryPatternBlock(assistantMode: AssistantMode) {
@@ -1246,9 +1260,9 @@ export async function POST(req: NextRequest) {
     const userContentPayload = buildUserContentPayload(prompt, safeImages);
 
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    const preferredModel = process.env.OPENAI_CHAT_MODEL || "gpt-4.1-mini";
-    const fallbackModels = [preferredModel, "gpt-4.1-mini", "gpt-4o-mini", "gpt-4o"];
-    const modelCandidates = Array.from(new Set(fallbackModels.filter(Boolean)));
+    const modelRoute = resolveSpecialistChatModel(mode);
+    const preferredModel = modelRoute.preferred;
+    const modelCandidates = modelRoute.candidates;
     const baseAnswerSource: AnswerSource = ranked.hasStrongMatch
       ? external.evidences.length > 0
         ? "mixed"
@@ -1265,7 +1279,10 @@ export async function POST(req: NextRequest) {
             try {
               let model = preferredModel;
               let streamReply = "";
-              let usage = estimateTokenBillingThb({ inputTokens: 0, outputTokens: 0, totalTokens: 0 });
+              let usage = estimateTokenBillingThbByModel(
+                { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+                preferredModel
+              );
               let lastModelError: unknown = null;
               let completed = false;
 
@@ -1306,7 +1323,7 @@ export async function POST(req: NextRequest) {
                     }
                   }
                   const finalUsage = "usage" in finalResp ? finalResp.usage : undefined;
-                  usage = estimateTokenBillingThb(readUsageSummary(finalUsage));
+                  usage = estimateTokenBillingThbByModel(readUsageSummary(finalUsage), model);
                   completed = true;
                   break;
                 } catch (error) {
@@ -1368,6 +1385,11 @@ export async function POST(req: NextRequest) {
                         assistantMode,
                         intent,
                         summaryIntent,
+                        chatMode: mode,
+                        modelRoute: {
+                          preferred: preferredModel,
+                          candidates: modelCandidates,
+                        },
                       }),
                     },
                   });
@@ -1411,6 +1433,7 @@ export async function POST(req: NextRequest) {
                         summaryIntent,
                         answerSource,
                         isBot: true,
+                        model,
                         tokenUsage: usage,
                       }),
                       category: "other",
@@ -1430,10 +1453,13 @@ export async function POST(req: NextRequest) {
                   historyCount: historyForPrompt.length,
                   usedConversationSummary: Boolean(conversationSummary),
                   intent,
+                  chatMode: mode,
                   assistantMode,
                   summaryIntent,
                   plan: normalizedPlan,
                   promptVariant: variant,
+                  model,
+                  modelRoute,
                   tokenUsage: usage,
                   answerSource,
                   baseAnswerSource,
@@ -1448,6 +1474,7 @@ export async function POST(req: NextRequest) {
                     type: "done",
                     answerSource,
                     variant,
+                    model,
                     usage,
                     privacy: { deidentifiedBeforeModel: true },
                   })
@@ -1518,7 +1545,7 @@ export async function POST(req: NextRequest) {
       externalEvidenceCount: external.evidences.length,
       reply,
     });
-    const usage = estimateTokenBillingThb(readUsageSummary(resp.usage));
+    const usage = estimateTokenBillingThbByModel(readUsageSummary(resp.usage), model);
     if (!ranked.hasStrongMatch) {
       await queuePendingKnowledgeEntry(messageForModel, reply, {
         externalSources: external.evidences.map((e) => ({
@@ -1546,6 +1573,11 @@ export async function POST(req: NextRequest) {
               assistantMode,
               intent,
               summaryIntent,
+              chatMode: mode,
+              modelRoute: {
+                preferred: preferredModel,
+                candidates: modelCandidates,
+              },
             }),
           },
         });
@@ -1589,6 +1621,7 @@ export async function POST(req: NextRequest) {
               summaryIntent,
               answerSource,
               isBot: true,
+              model,
               tokenUsage: usage,
             }),
             category: "other",
@@ -1608,10 +1641,13 @@ export async function POST(req: NextRequest) {
         historyCount: historyForPrompt.length,
         usedConversationSummary: Boolean(conversationSummary),
         intent,
+        chatMode: mode,
         assistantMode,
         summaryIntent,
         plan: normalizedPlan,
         promptVariant: variant,
+        model,
+        modelRoute,
         tokenUsage: usage,
         answerSource,
         baseAnswerSource,
@@ -1625,6 +1661,7 @@ export async function POST(req: NextRequest) {
       reply,
       answerSource,
       variant,
+      model,
       usage,
       privacy: { deidentifiedBeforeModel: true },
     });

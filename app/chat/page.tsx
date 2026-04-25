@@ -22,6 +22,7 @@ type StreamDonePayload = {
   answerSource?: "internal" | "mixed" | "external";
   usage?: TokenUsageMeta;
   variant?: string;
+  model?: string;
 };
 type ChatHistoryPayload = { role: "user" | "assistant"; content: string };
 type ChatStyleProfile = {
@@ -255,6 +256,7 @@ export default function ChartSummaryConsultChatPage() {
   const [cloudSyncReady, setCloudSyncReady] = useState(false);
   const [chatStyle, setChatStyle] = useState<ChatStyleProfile>(DEFAULT_CHAT_STYLE_PROFILE);
   const [chatStyleReady, setChatStyleReady] = useState(false);
+  const [lastModelUsed, setLastModelUsed] = useState<string>("");
   const messagesRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
@@ -655,10 +657,12 @@ export default function ChartSummaryConsultChatPage() {
         reply?: string;
         error?: string;
         answerSource?: "internal" | "mixed" | "external";
+        model?: string;
       };
       const reply = data.ok && data.reply ? data.reply : data.error || "ขออภัยครับ ตอบกลับไม่สำเร็จ";
       setAssistantError(threadId, reply);
       finalizeAssistantMessage(threadId, { answerSource: data.answerSource });
+      if (data.model) setLastModelUsed(data.model);
       return data.ok ? "done" : "error";
     }
     if (!res.body) {
@@ -690,11 +694,13 @@ export default function ChartSummaryConsultChatPage() {
           answerSource?: "internal" | "mixed" | "external";
           usage?: TokenUsageMeta;
           variant?: string;
+          model?: string;
         };
         if (payload.type === "delta") {
           appendAssistantChunk(threadId, payload.delta || "");
         } else if (payload.type === "done") {
           finalizeAssistantMessage(threadId, payload);
+          if (payload.model) setLastModelUsed(payload.model);
           status = "done";
           streamDone = true;
         } else if (payload.type === "error") {
@@ -1574,7 +1580,7 @@ export default function ChartSummaryConsultChatPage() {
                 {showMobileTools ? "ซ่อนตั้งค่า" : "ตั้งค่า"}
               </button>
             </div>
-            <div className={`mt-2 ${showMobileTools ? "flex" : "hidden"} flex-wrap items-center gap-2 text-xs`}>
+            <div className={`mt-2 ${showMobileTools ? "flex" : "hidden"} md:flex flex-wrap items-center gap-2 text-xs`}>
               <button
                 type="button"
                 onClick={() => setAssistantMode("coding")}
@@ -1603,7 +1609,16 @@ export default function ChartSummaryConsultChatPage() {
               >
                 Precise
               </button>
-              <span className="text-slate-500">{mode === "fast" ? "ตอบเร็ว กระชับ" : "ละเอียดขึ้น ใช้เวลามากขึ้น"}</span>
+              <span className="text-slate-500">
+                {mode === "fast"
+                  ? "ตอบเร็ว/คุ้มโควต้า (เหมาะใช้ต่อเนื่อง)"
+                  : "ฉลาดและละเอียดขึ้น แต่ใช้โควต้ามากกว่า"}
+              </span>
+              {lastModelUsed ? (
+                <span className="rounded-full border border-slate-700 bg-slate-900/70 px-2 py-0.5 text-[11px] text-slate-300">
+                  model: {lastModelUsed}
+                </span>
+              ) : null}
               {loading ? (
                 <span className="inline-flex items-center gap-1 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 text-[11px] text-cyan-200">
                   <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-cyan-300" />
@@ -1612,7 +1627,7 @@ export default function ChartSummaryConsultChatPage() {
               ) : null}
             </div>
             <div
-              className={`mt-2 ${showMobileTools ? "flex" : "hidden"} flex-wrap items-center gap-2 text-[11px] text-slate-300`}
+              className={`mt-2 ${showMobileTools ? "flex" : "hidden"} md:flex flex-wrap items-center gap-2 text-[11px] text-slate-300`}
             >
               <span className="text-slate-500">สไตล์ตอบ:</span>
               <select
@@ -1659,16 +1674,16 @@ export default function ChartSummaryConsultChatPage() {
               </select>
               <span className="text-slate-500">ระบบจะจำรายผู้ใช้ให้อัตโนมัติ</span>
             </div>
-            <p className={`${showMobileTools ? "block" : "hidden"} mt-1 text-xs text-slate-400`}>
+            <p className={`${showMobileTools ? "block" : "hidden"} md:block mt-1 text-xs text-slate-400`}>
               {assistantMode === "opd_demo"
                 ? "โหมด OPD รวม: ซักประวัติ/ตรวจร่างกาย/DDx/แผนรักษา + RDU โดยต้องเช็กข้อบ่งชี้ยาฆ่าเชื้อ และชื่อโรคให้ใส่ (ICD-10: ...)"
                 : "ถามโรค/แนวทางลง diagnosis และการบันทึกสรุป โดยอิงชุดความรู้ในระบบและอ้างอิงเอกสารมาตรฐานเป็น [R#] (ไม่ใช่คำแนะทางการรักษาแทนแพทย์)"}
             </p>
-            <p className={`${showMobileTools ? "block" : "hidden"} mt-1 text-[11px] text-slate-500`}>
+            <p className={`${showMobileTools ? "block" : "hidden"} md:block mt-1 text-[11px] text-slate-500`}>
               ทั้งสองโหมดคุยได้ทุกเรื่องในแชทเดียวกัน ต่างกันที่โครงคำตอบเริ่มต้น
             </p>
             <div
-              className={`mt-2 ${showMobileTools ? "flex" : "hidden"} flex-wrap items-center gap-2 text-[11px] text-slate-300`}
+              className={`mt-2 ${showMobileTools ? "flex" : "hidden"} md:flex flex-wrap items-center gap-2 text-[11px] text-slate-300`}
             >
               <span className="text-slate-500">ลัดไปหน้าอื่น:</span>
               <a href="/app" className="rounded-full border border-slate-700 px-2 py-0.5 hover:border-cyan-500/50 hover:text-cyan-200">
@@ -1682,7 +1697,7 @@ export default function ChartSummaryConsultChatPage() {
               </a>
             </div>
             {assistantMode === "coding" ? (
-              <p className={`${showMobileTools ? "block" : "hidden"} mt-1 text-xs text-slate-500`}>
+              <p className={`${showMobileTools ? "block" : "hidden"} md:block mt-1 text-xs text-slate-500`}>
                 [R#] คือเลขเอกสารอ้างอิง เช่น [R2] = เอกสารลำดับที่ 2 ในชุดมาตรฐานของระบบ
               </p>
             ) : null}
