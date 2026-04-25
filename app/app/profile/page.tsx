@@ -27,6 +27,7 @@ type UsageInfo = {
   tokenBudgetThb?: number;
   tokenRemainingThb?: number;
   tokenUsagePercent?: number;
+  baseUsagePercent?: number;
   nextCreditRefreshAt?: string | null;
   daysLeftInMonth?: number;
   subscriptionStatus?: string;
@@ -119,6 +120,12 @@ export default function ProfilePage() {
   const [portalReturned, setPortalReturned] = useState(false);
   const usagePercent = useMemo(() => {
     if (!usage) return 0;
+    if (typeof usage.baseUsagePercent === "number" && typeof usage.tokenUsagePercent === "number") {
+      return Math.max(0, Math.min(100, Math.max(usage.baseUsagePercent, usage.tokenUsagePercent)));
+    }
+    if (typeof usage.baseUsagePercent === "number") {
+      return Math.max(0, Math.min(100, usage.baseUsagePercent));
+    }
     if (typeof usage.tokenUsagePercent === "number") {
       return Math.max(0, Math.min(100, usage.tokenUsagePercent));
     }
@@ -182,6 +189,8 @@ export default function ProfilePage() {
               typeof usageData.tokenRemainingThb === "number" ? usageData.tokenRemainingThb : undefined,
             tokenUsagePercent:
               typeof usageData.tokenUsagePercent === "number" ? usageData.tokenUsagePercent : undefined,
+            baseUsagePercent:
+              typeof usageData.baseUsagePercent === "number" ? usageData.baseUsagePercent : undefined,
             daysLeftInMonth:
               typeof usageData.daysLeftInMonth === "number" ? usageData.daysLeftInMonth : undefined,
             nextCreditRefreshAt:

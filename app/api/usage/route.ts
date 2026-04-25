@@ -91,6 +91,10 @@ export async function GET() {
   const baseUsed = usedBaseInCycle._sum.baseCreditsUsed ?? 0;
   const baseRemaining = Math.max(0, plan.creditsPerCycle - baseUsed);
   const remaining = isActive ? baseRemaining + extraCredits : 0;
+  const baseUsagePercent =
+    plan.creditsPerCycle > 0
+      ? Math.max(0, Math.min(100, Math.round((baseUsed / plan.creditsPerCycle) * 100)))
+      : 0;
   const tokenSpendInCycle =
     dbUser?.id != null
       ? await prisma.tokenUsageLedger.aggregate({
@@ -151,6 +155,7 @@ export async function GET() {
     tokenBudgetThb,
     tokenRemainingThb: Math.max(0, Number((tokenBudgetThb - tokenSpendThb).toFixed(2))),
     tokenUsagePercent,
+    baseUsagePercent,
     chatUsedToday,
     chatDailyLimit: dailyApprox.chatPerDay,
     chatDailyLimitReached,
