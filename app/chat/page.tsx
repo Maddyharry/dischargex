@@ -97,7 +97,8 @@ function parseChatQuotaNotice(message: string): ChatQuotaNotice | null {
     normalized.includes("ครบโควตาโดยประมาณแล้ว") ||
     normalized.includes("โควตาการใช้งานเดือนนี้ครบแล้ว") ||
     normalized.includes("หมดรอบการใช้งานแล้ว") ||
-    normalized.includes("โควตารอบนี้ไม่พอ");
+    normalized.includes("โควตารอบนี้ไม่พอ") ||
+    normalized.includes("ถูกใช้งานพร้อมกันเกินจำนวนอุปกรณ์ที่อนุญาต");
   if (!isQuota) return null;
   const resetMatch = normalized.match(/รีเซ็ตอีกครั้งประมาณ\s*(.+?)(?:\s+หรือ|$)/);
   return {
@@ -341,6 +342,14 @@ export default function ChartSummaryConsultChatPage() {
     [threads, activeId]
   );
   const isChatSendLocked = Boolean(chatQuotaNotice);
+
+  useEffect(() => {
+    const lastAssistant = [...(active?.messages || [])].reverse().find((m) => m.role === "assistant")?.content || "";
+    const parsed = parseChatQuotaNotice(lastAssistant);
+    if (parsed) {
+      setChatQuotaNotice(parsed);
+    }
+  }, [active?.messages]);
 
   useEffect(() => {
     const el = messagesRef.current;

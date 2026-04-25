@@ -785,7 +785,8 @@ function PageContent() {
       message.includes("ครบโควตาโดยประมาณแล้ว") ||
       message.includes("โควตาการใช้งานเดือนนี้ครบแล้ว") ||
       message.includes("หมดรอบการใช้งานแล้ว") ||
-      message.includes("โควตารอบนี้ไม่พอสำหรับเคสนี้")
+      message.includes("โควตารอบนี้ไม่พอสำหรับเคสนี้") ||
+      message.includes("ถูกใช้งานพร้อมกันเกินจำนวนอุปกรณ์ที่อนุญาต")
     );
   }
 
@@ -793,7 +794,9 @@ function PageContent() {
     if (!isUsageLimitMessage(message)) return null;
     const resetMatch = message.match(/รีเซ็ตอีกครั้งประมาณ\s*(.+?)(?:\s+หรือ|$)/);
     return {
-      shortLabel: "โควตาสรุปชาร์จเต็มชั่วคราว",
+      shortLabel: message.includes("ถูกใช้งานพร้อมกันเกินจำนวนอุปกรณ์ที่อนุญาต")
+        ? "บัญชีถูกใช้งานเกินจำนวนอุปกรณ์ที่อนุญาต"
+        : "โควตาสรุปชาร์จเต็มชั่วคราว",
       resetAtText: resetMatch?.[1]?.trim() || null,
     };
   }
