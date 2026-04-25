@@ -467,9 +467,7 @@ export default function ProfilePage() {
                     {usage ? (
                       <div className="mt-1">
                         <div className="flex items-center justify-between text-sm">
-                          <p className="font-medium text-emerald-300">
-                            {typeof usage.tokenBudgetThb === "number" ? "การใช้งาน AI budget" : "การใช้งาน"}
-                          </p>
+                          <p className="font-medium text-emerald-300">การใช้งานโควต้า</p>
                           <p className="font-semibold text-cyan-200">{usagePercent}%</p>
                         </div>
                         <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-800">
@@ -478,21 +476,9 @@ export default function ProfilePage() {
                             style={{ width: `${usagePercent}%` }}
                           />
                         </div>
-                        {typeof usage.tokenBudgetThb === "number" ? (
-                          <p className="mt-2 text-xs text-slate-400">
-                            ใช้ไป {usage.tokenSpendThb?.toFixed(2) ?? "0.00"} / {usage.tokenBudgetThb.toFixed(2)} บาท
-                            (คงเหลือ {usage.tokenRemainingThb?.toFixed(2) ?? "0.00"} บาท)
-                          </p>
-                        ) : null}
                         <div className="mt-3 flex items-center justify-between text-sm">
                           <p className="font-medium text-slate-300">เวลาในรอบ</p>
-                          <p className="font-semibold text-violet-200">{usage.daysLeftInMonth ?? 0} วัน</p>
-                        </div>
-                        <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-800">
-                          <div
-                            className="h-full bg-violet-400 transition-all"
-                            style={{ width: `${timePercent}%` }}
-                          />
+                          <p className="font-semibold text-violet-200">เหลือ {usage.daysLeftInMonth ?? 0} วัน</p>
                         </div>
                       </div>
                     ) : (
@@ -509,7 +495,7 @@ export default function ProfilePage() {
                     ) : null}
                     {usage?.daysLeftInMonth !== undefined && (
                       <p className="mt-0.5 text-xs text-slate-500">
-                        เหลืออีก {usage.daysLeftInMonth} วันในรอบนี้
+                        ระบบรีเซ็ตโควต้าตามรอบแพ็กเกจอัตโนมัติ
                       </p>
                     )}
                   </div>
