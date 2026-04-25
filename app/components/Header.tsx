@@ -91,6 +91,15 @@ export function Header() {
     if (!usage || usage.total <= 0) return 0;
     return Math.max(0, Math.min(100, Math.round((usage.used / usage.total) * 100)));
   }, [usage]);
+  const displayDaysLeft = useMemo(() => {
+    if (!usage) return 0;
+    if (typeof usage.daysLeftInMonth === "number" && usage.daysLeftInMonth > 0) return usage.daysLeftInMonth;
+    if (!usage.nextCreditRefreshAt) return usage.daysLeftInMonth ?? 0;
+    const target = new Date(usage.nextCreditRefreshAt);
+    const diffMs = target.getTime() - Date.now();
+    if (!Number.isFinite(diffMs) || diffMs <= 0) return usage.daysLeftInMonth ?? 0;
+    return Math.max(1, Math.ceil(diffMs / (24 * 60 * 60 * 1000)));
+  }, [usage]);
 
   async function handleSignOut() {
     try {
@@ -226,7 +235,7 @@ export function Header() {
                         </div>
                         <div className="flex items-center justify-between">
                           <span className="text-slate-300">เวลาในรอบ</span>
-                          <span className="font-semibold text-violet-200">เหลือ {usage.daysLeftInMonth ?? 0} วัน</span>
+                          <span className="font-semibold text-violet-200">เหลือ {displayDaysLeft} วัน</span>
                         </div>
                         <p>
                           แผน <span className="text-slate-300">{formatPlanName(usage.plan)}</span>

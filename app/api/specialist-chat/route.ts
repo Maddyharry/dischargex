@@ -4,7 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { trackTelemetry } from "@/lib/telemetry";
-import { getDailyApproxLimit, normalizePlanId } from "@/lib/billing-rules";
+import { getDailyApproxLimit, getPeriodBounds, normalizePlanId } from "@/lib/billing-rules";
 import { KNOWLEDGE_REFERENCES } from "@/lib/clinical-knowledge";
 import { getMergedKnowledge, queuePendingKnowledgeEntry } from "@/lib/knowledge-store";
 import {
@@ -288,6 +288,20 @@ function resolveSpecialistChatModel(mode: ChatMode) {
       : [preferred, "gpt-5-mini", "gpt-5.4-mini", "gpt-4.1-mini", "gpt-4o-mini", "gpt-4o"];
   const candidates = Array.from(new Set(fallback.filter(Boolean)));
   return { preferred, candidates };
+}
+
+function resolveLimitedIcdLookupModel() {
+  return (
+    process.env.OPENAI_SPECIALIST_CHAT_MODEL_LIMITED ||
+    process.env.OPENAI_SPECIALIST_CHAT_MODEL_FAST ||
+    process.env.OPENAI_CHAT_MODEL ||
+    "gpt-4o-mini"
+  );
+}
+
+function isIcdLookupOnlyQuery(message: string) {
+  const q = message.toLowerCase();
+  return /icd[\s\-]?10|รหัส|code|coding/.test(q) && /(วินิจฉัย|diagnosis|โรค|dx|icd)/.test(q);
 }
 
 function buildCaseSummaryPatternBlock(assistantMode: AssistantMode) {
@@ -1051,7 +1065,7 @@ export async function POST(req: NextRequest) {
       styleProfile?: ChatStyleProfilePatch;
     };
     const userMessageTrimmed = String(body.message || "").trim();
-    const mode: ChatMode = body.mode === "precise" ? "precise" : "fast";
+    let mode: ChatMode = body.mode === "precise" ? "precise" : "fast";
     const safeImages = sanitizeIncomingImages(body.images);
     const assistantMode: AssistantMode =
       body.assistantMode === "opd_demo" || body.assistantMode === "opd_rdu" ? "opd_demo" : "coding";
@@ -1064,7 +1078,13 @@ export async function POST(req: NextRequest) {
     const dbUser = session?.user?.email
       ? await prisma.user.findUnique({
           where: { email: session.user.email },
-          select: { id: true, plan: true },
+          select: {
+            id: true,
+            plan: true,
+            createdAt: true,
+            periodStartedAt: true,
+            subscriptionExpiresAt: true,
+          },
         })
       : null;
     const userId = dbUser?.id ?? null;
@@ -1114,6 +1134,35 @@ export async function POST(req: NextRequest) {
       );
     }
     const normalizedPlan = normalizePlanId(dbUser?.plan ?? "trial");
+    const now = new Date();
+    const periodStartDate = dbUser?.periodStartedAt ?? dbUser?.createdAt ?? now;
+    const periodEnd = dbUser?.subscriptionExpiresAt ?? getPeriodBounds(periodStartDate, normalizedPlan).end;
+    const isLimitedTrialExpired = normalizedPlan === "trial" && now.getTime() > periodEnd.getTime();
+    if (isLimitedTrialExpired) {
+      if (assistantMode === "opd_demo") {
+        return jsonUtf8(
+          {
+            ok: false,
+            error:
+              "Trial หมดอายุแล้ว: โหมด OPD ถูกปิดไว้ชั่วคราว สามารถใช้งานได้เฉพาะค้นหารหัส ICD-10 ในโหมด Coding",
+            limitedMode: "trial_expired_icd10_only",
+          },
+          402
+        );
+      }
+      if (!isIcdLookupOnlyQuery(messageForPrompt)) {
+        return jsonUtf8(
+          {
+            ok: false,
+            error:
+              "Trial หมดอายุแล้ว: ตอนนี้ใช้งานได้เฉพาะค้นหารหัส ICD-10 เท่านั้น (ยังไม่รองรับวิเคราะห์เคส/OPD). หากต้องการใช้งานเต็มรูปแบบ กรุณาอัปเกรดแพ็กเกจที่ /pricing",
+            limitedMode: "trial_expired_icd10_only",
+          },
+          402
+        );
+      }
+      mode = "fast";
+    }
     const stylePatchFromMessage = inferStylePatchFromMessage(userMessageTrimmed);
     const stylePatchFromRequest = body.styleProfile || {};
     let styleProfile = mergeChatStyleProfile(DEFAULT_CHAT_STYLE_PROFILE, stylePatchFromRequest);
@@ -1198,7 +1247,14 @@ export async function POST(req: NextRequest) {
         ? process.env.SPECIALIST_CHAT_PROMPT_VARIANT
         : pickPromptVariant(userId || userMessageTrimmed.slice(0, 16) || (safeImages.length ? "image" : "u"));
     const intent = detectChatIntent(messageForModel, recentHistory);
-    const system = buildSystemPrompt(assistantMode, variant, styleProfile);
+    const systemBase = buildSystemPrompt(assistantMode, variant, styleProfile);
+    const system = isLimitedTrialExpired
+      ? `${systemBase}
+TRIAL_EXPIRED_LIMITED_MODE:
+- Only answer ICD-10 lookup and short coding guidance.
+- Do not provide case analysis, differential diagnosis, treatment planning, or OPD workflow.
+- Keep response concise and coding-focused.`
+      : systemBase;
     const caseSummaryPattern = buildCaseSummaryPatternBlock(assistantMode);
     const criticalScenarioBlock = buildCriticalScenarioBlock(messageForModel);
     const summaryIntent = detectSummaryIntent(messageForModel, assistantMode);
@@ -1260,7 +1316,9 @@ export async function POST(req: NextRequest) {
     const userContentPayload = buildUserContentPayload(prompt, safeImages);
 
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    const modelRoute = resolveSpecialistChatModel(mode);
+    const modelRoute = isLimitedTrialExpired
+      ? { preferred: resolveLimitedIcdLookupModel(), candidates: [resolveLimitedIcdLookupModel()] }
+      : resolveSpecialistChatModel(mode);
     const preferredModel = modelRoute.preferred;
     const modelCandidates = modelRoute.candidates;
     const baseAnswerSource: AnswerSource = ranked.hasStrongMatch

@@ -72,6 +72,11 @@ type UploadedImage = {
   dataUrl: string;
 };
 
+function isIcdLookupOnlyQuery(text: string) {
+  const q = text.toLowerCase();
+  return /icd[\s\-]?10|รหัส|code|coding/.test(q) && /(วินิจฉัย|diagnosis|โรค|dx|icd)/.test(q);
+}
+
 function isSummaryCommandText(text: string) {
   return /ช่วยสรุปเป็นเฉพาะกลุ่ม diagnosis|ช่วยสรุปเคสแบบ opd ไทย|ช่วยสรุปแบบ soap/i.test(text);
 }
@@ -257,6 +262,7 @@ export default function ChartSummaryConsultChatPage() {
   const [chatStyle, setChatStyle] = useState<ChatStyleProfile>(DEFAULT_CHAT_STYLE_PROFILE);
   const [chatStyleReady, setChatStyleReady] = useState(false);
   const [lastModelUsed, setLastModelUsed] = useState<string>("");
+  const [limitedTrialExpired, setLimitedTrialExpired] = useState(false);
   const messagesRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
@@ -338,6 +344,36 @@ export default function ChartSummaryConsultChatPage() {
       // ignore storage failures
     }
   }, []);
+
+  useEffect(() => {
+    if (!sessionAuthed) {
+      setLimitedTrialExpired(false);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/usage", { cache: "no-store" });
+        const data = (await res.json()) as {
+          ok?: boolean;
+          plan?: string;
+          subscriptionStatus?: string;
+        };
+        if (cancelled || !data?.ok) return;
+        const limited = data.plan === "trial" && data.subscriptionStatus === "expired";
+        setLimitedTrialExpired(limited);
+        if (limited) {
+          setAssistantMode("coding");
+          setMode("fast");
+        }
+      } catch {
+        // ignore usage fetch error for trial-limited banner
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionAuthed]);
 
   useEffect(() => {
     localStorage.setItem(CHAT_MODE_KEY, mode);
@@ -887,6 +923,16 @@ export default function ChartSummaryConsultChatPage() {
       );
       return;
     }
+    if (limitedTrialExpired) {
+      if (assistantMode === "opd_demo") {
+        setComposerHint("Trial หมดอายุแล้ว: โหมด OPD ถูกปิดไว้ชั่วคราว");
+        return;
+      }
+      if (!isIcdLookupOnlyQuery(text)) {
+        setComposerHint("Trial หมดอายุแล้ว: ใช้งานได้เฉพาะค้นหารหัส ICD-10");
+        return;
+      }
+    }
 
     const attachmentLine = attachments?.length ? `\n[แนบรูป ${attachments.length} ภาพ]` : "";
     const displayBody = opts?.displayContent ?? text;
@@ -923,6 +969,10 @@ export default function ChartSummaryConsultChatPage() {
   }
 
   async function sendSummary(kind: SummaryKind) {
+    if (limitedTrialExpired) {
+      setComposerHint("Trial หมดอายุแล้ว: ปิดปุ่มสรุปชั่วคราว กรุณาอัปเกรดแพ็กเกจเพื่อใช้งานต่อ");
+      return;
+    }
     if (!sessionAuthed) {
       setComposerHint(
         sessionStatus === "unauthenticated"
@@ -1255,7 +1305,7 @@ export default function ChartSummaryConsultChatPage() {
           <button
             type="button"
             onClick={() => void sendSummary("diagnosis")}
-            disabled={loading || !active?.messages.length || !sessionAuthed}
+            disabled={loading || !active?.messages.length || !sessionAuthed || limitedTrialExpired}
             className="w-full rounded-full border border-sky-700 bg-sky-900/40 px-3 py-1 text-xs text-sky-200 hover:bg-sky-800/50 disabled:opacity-50 sm:w-auto"
           >
             สรุป diagnosis
@@ -1265,7 +1315,7 @@ export default function ChartSummaryConsultChatPage() {
             <button
               type="button"
               onClick={() => void sendSummary("opd_case")}
-              disabled={loading || !active?.messages.length || !sessionAuthed}
+              disabled={loading || !active?.messages.length || !sessionAuthed || limitedTrialExpired}
               className="w-full rounded-full border border-sky-700 bg-sky-900/40 px-3 py-1 text-xs text-sky-200 hover:bg-sky-800/50 disabled:opacity-50 sm:w-auto"
             >
               สรุปเคส OPD
@@ -1273,7 +1323,7 @@ export default function ChartSummaryConsultChatPage() {
             <button
               type="button"
               onClick={() => void sendSummary("opd_soap")}
-              disabled={loading || !active?.messages.length || !sessionAuthed}
+              disabled={loading || !active?.messages.length || !sessionAuthed || limitedTrialExpired}
               className="w-full rounded-full border border-teal-700 bg-teal-900/40 px-3 py-1 text-xs text-teal-200 hover:bg-teal-800/50 disabled:opacity-50 sm:w-auto"
             >
               สรุป SOAP
@@ -1447,6 +1497,15 @@ export default function ChartSummaryConsultChatPage() {
             กำลังตรวจสอบการเข้าสู่ระบบ…
           </div>
         ) : null}
+        {limitedTrialExpired ? (
+          <div className="rounded-xl border border-amber-600/50 bg-amber-950/40 px-3 py-2.5 text-sm leading-relaxed text-amber-100 md:col-span-2">
+            Trial หมดอายุแล้ว: ใช้งานต่อได้เฉพาะ AI Chat แบบค้นหารหัส ICD-10 ในโหมด Coding (Fast) ชั่วคราว
+            {" · "}
+            <Link href="/pricing" className="font-medium text-cyan-300 underline underline-offset-2 hover:text-cyan-200">
+              อัปเกรดแพ็กเกจ
+            </Link>
+          </div>
+        ) : null}
         <div className="flex items-center gap-2 md:hidden">
           <button
             type="button"
@@ -1591,7 +1650,8 @@ export default function ChartSummaryConsultChatPage() {
               <button
                 type="button"
                 onClick={() => setAssistantMode("opd_demo")}
-                className={`rounded-full px-3 py-1 ${assistantMode === "opd_demo" ? "bg-violet-500/25 text-violet-100" : "bg-slate-800 text-slate-300"}`}
+                disabled={limitedTrialExpired}
+                className={`rounded-full px-3 py-1 disabled:cursor-not-allowed disabled:opacity-50 ${assistantMode === "opd_demo" ? "bg-violet-500/25 text-violet-100" : "bg-slate-800 text-slate-300"}`}
               >
                 เน้น OPD
               </button>

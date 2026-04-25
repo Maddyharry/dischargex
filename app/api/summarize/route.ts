@@ -1141,6 +1141,7 @@ export async function POST(req: Request) {
     const baseUsedInCycle = usageInCycle._sum.baseCreditsUsed ?? 0;
     const baseRemaining = Math.max(0, planDefinition.creditsPerCycle - baseUsedInCycle);
     const isExpired = now.getTime() > periodEnd.getTime();
+    const isLimitedTrialExpired = plan === "trial" && isExpired;
     const dayStart = new Date(now);
     dayStart.setHours(0, 0, 0, 0);
     const todaySummaryCount =
@@ -1262,6 +1263,17 @@ export async function POST(req: Request) {
       : { _sum: { estimatedCostThb: 0 } };
     const tokenSpendThb = Number(tokenSpendMonth._sum.estimatedCostThb || 0);
     const tokenBudgetThb = getPlanTokenBudgetThb(plan);
+
+    if (mode === "generate" && isLimitedTrialExpired) {
+      return json(
+        {
+          error:
+            "Trial หมดอายุแล้ว: ปิดการใช้งานสรุปชาร์จชั่วคราว เพื่อให้ใช้งานต่อได้เฉพาะ AI Chat แบบค้นหารหัส ICD-10 เท่านั้น หากต้องการใช้สรุปชาร์จ กรุณาอัปเกรดแพ็กเกจที่ /pricing",
+          limitedMode: "trial_expired_icd10_only",
+        },
+        402
+      );
+    }
 
     const preprocess = preprocessClinicalText(mergedRaw);
     const clinical = deidentify(preprocess.cleaned);
