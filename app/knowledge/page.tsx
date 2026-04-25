@@ -9,7 +9,7 @@ const BLOCK_STYLES: Record<string, string> = {
   "สิ่งที่ควรนึกถึงเพิ่ม": "border-violet-500/35 bg-violet-950/20",
   "ยังไม่ควรลงวินิจฉัยว่า": "border-rose-500/35 bg-rose-950/20",
   "Investigations ที่ควรพิจารณา": "border-amber-500/35 bg-amber-950/20",
-  "คำที่ควรพิมพ์ในสรุปชาร์จ + ICD-10 ที่เกี่ยวข้อง": "border-cyan-500/35 bg-cyan-950/20",
+  "คำที่ควรพิมพ์ในสรุปชาร์จ + ICD ที่เกี่ยวข้อง": "border-cyan-500/35 bg-cyan-950/20",
   "Checklist การลงวินิจฉัย": "border-fuchsia-500/35 bg-fuchsia-950/20",
   "ดูหัวข้อถัดไป": "border-slate-500/35 bg-slate-900/40",
 };
@@ -37,7 +37,7 @@ export default function KnowledgePage() {
     const query = q.trim().toLowerCase();
     if (!query) return items;
     return items.filter((d) => {
-      const blob = [d.name, ...d.aliases, ...d.diagnosisToWrite, ...d.icd10, ...d.investigations].join(" ");
+      const blob = [d.name, ...d.aliases, ...d.diagnosisToWrite, ...d.icd10, ...(d.icd9 || []), ...d.investigations].join(" ");
       return blob.toLowerCase().includes(query);
     });
   }, [items, q]);
@@ -51,6 +51,22 @@ export default function KnowledgePage() {
     if (!active) return null;
     return buildChecklist(active);
   }, [active]);
+  const codingReviewNotes = useMemo(() => {
+    if (!active) return [];
+    const notes: string[] = [];
+    const broadIcd10 = active.icd10.filter((code) => isBroadIcdCode(code));
+    if (broadIcd10.length > 0) {
+      notes.push(`มีรหัส ICD-10 แบบช่วง/กว้างที่ต้องเลือกให้จำเพาะตามเวชระเบียนจริง: ${broadIcd10.join(", ")}`);
+    }
+    if ((active.icd9 || []).length > 0) {
+      notes.push("หัวข้อนี้มีรหัสหัตถการ ICD-9-CM ให้ใช้กับ procedure; อย่าใช้แทนรหัสโรคหลัก");
+    }
+    const hasPlaceholder = icdDisplayItems.some((line) => line.includes("ยังไม่มีข้อมูลอ้างอิง"));
+    if (hasPlaceholder) {
+      notes.push("บางบรรทัดยังไม่มีรหัสอ้างอิงเพียงพอ ควรตรวจสอบ guideline/เอกสารต้นทางก่อนลงรหัส");
+    }
+    return notes;
+  }, [active, icdDisplayItems]);
 
   return (
     <main className="min-h-screen bg-[#081120] text-slate-100">
@@ -75,7 +91,9 @@ export default function KnowledgePage() {
                 }`}
               >
                 <div className="font-medium">{d.name}</div>
-                <div className="mt-0.5 text-xs text-slate-500">{d.icd10.slice(0, 3).join(" · ")}</div>
+                <div className="mt-0.5 text-xs text-slate-500">
+                  {[...d.icd10, ...(d.icd9 || [])].slice(0, 3).join(" · ")}
+                </div>
               </button>
             ))}
             {filtered.length === 0 ? <div className="px-2 py-3 text-sm text-slate-500">ไม่พบหัวข้อที่ค้นหา</div> : null}
@@ -99,7 +117,17 @@ export default function KnowledgePage() {
               <Block title="สิ่งที่ควรนึกถึงเพิ่ม" items={active.considerMore} />
               <Block title="ยังไม่ควรลงวินิจฉัยว่า" items={active.notYetDiagnosis} />
               <Block title="Investigations ที่ควรพิจารณา" items={active.investigations} />
-              <Block title="คำที่ควรพิมพ์ในสรุปชาร์จ + ICD-10 ที่เกี่ยวข้อง" items={icdDisplayItems} />
+              <Block title="คำที่ควรพิมพ์ในสรุปชาร์จ + ICD ที่เกี่ยวข้อง" items={icdDisplayItems} />
+              {codingReviewNotes.length > 0 ? (
+                <div className="rounded-xl border border-amber-500/35 bg-amber-950/20 p-3">
+                  <div className="text-sm font-semibold text-amber-100">จุดที่ควร review รหัสก่อนใช้งานจริง</div>
+                  <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-amber-50">
+                    {codingReviewNotes.map((note, idx) => (
+                      <li key={`review-${idx}`}>{note}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
               {checklist ? <ChecklistBlock checklist={checklist} /> : null}
               <Block title="ดูหัวข้อถัดไป" items={active.seeAlso} />
 
@@ -182,6 +210,11 @@ function formatIcdDisplay(disease: DiseaseSummary): string[] {
     if (!code || usedCodes.has(code)) continue;
     formatted.push(`รหัสที่เกี่ยวข้อง (ICD-10: ${rawItem})`);
   }
+  for (const rawItem of disease.icd9 || []) {
+    const code = normalizeIcdCode(rawItem);
+    if (!code || usedCodes.has(code)) continue;
+    formatted.push(`รหัสหัตถการที่เกี่ยวข้อง (ICD-9-CM: ${rawItem})`);
+  }
 
   return formatted;
 }
@@ -191,6 +224,12 @@ function normalizeIcdCode(raw: string): string {
   if (!cleaned) return "";
   const firstToken = cleaned.split(/\s+/)[0] ?? "";
   return firstToken.replace(/[()]/g, "");
+}
+
+function isBroadIcdCode(raw: string): boolean {
+  const upper = raw.trim().toUpperCase();
+  if (!upper) return false;
+  return upper.includes(".-") || upper.includes("V01-Y98");
 }
 
 type ChecklistView = {
