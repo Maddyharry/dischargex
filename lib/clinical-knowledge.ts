@@ -2,6 +2,8 @@ export type KnowledgeReference = {
   id: string;
   title: string;
   year?: string;
+  /** Official portal / PDF when available */
+  url?: string;
 };
 
 export type DiseaseSummary = {
@@ -38,6 +40,12 @@ export const KNOWLEDGE_REFERENCES: KnowledgeReference[] = [
   { id: "R4", title: "การสรุปเวชระเบียน 2020 CASE MEDICINE", year: "2020" },
   { id: "R5", title: "แนวทางสรุปโรคและหัตถการเพื่อเบิกจ่าย DRGs ออนไลน์ ปี 2566", year: "2023" },
   { id: "R6", title: "แนวทางการบันทึกเวชระเบียนสำหรับแพทย์ ปี 2568", year: "2025" },
+  {
+    id: "R7",
+    title: "สำนักงานหลักประกันสุขภาพแห่งชาติ (สปสช.) — ประกาศ/คู่มือที่เกี่ยวกับเวชระเบียนและสิทธิประโยชน์",
+    year: "2026",
+    url: "https://www.nhso.go.th/",
+  },
 ];
 
 export const DISEASE_SUMMARIES: DiseaseSummary[] = [
@@ -684,7 +692,7 @@ export const DISEASE_SUMMARIES: DiseaseSummary[] = [
     notYetDiagnosis: ["ไม่ลง cerebral infarction หากยังไม่มีข้อมูลยืนยันทางภาพหรือ clinical สนับสนุนพอ"],
     investigations: ["CT/MRI brain", "Neurologic exam", "Swallowing assessment"],
     icd10: ["I63.9"],
-    seeAlso: ["old-cva-hemiplegia", "aspiration-pneumonia", "malnutrition"],
+    seeAlso: ["old-cva-hemiplegia", "pneumonia", "malnutrition"],
     refs: ["R2", "R4", "R6"],
     chartChecklist: {
       mustHave: ["CT/MRI ยืนยัน infarction"],
@@ -720,7 +728,7 @@ export const DISEASE_SUMMARIES: DiseaseSummary[] = [
     notYetDiagnosis: ["ไม่ลง sequelae หากยังไม่มีประวัติ stroke เดิมที่ชัดเจน"],
     investigations: ["Neurologic exam", "ประวัติ prior stroke", "Functional assessment"],
     icd10: ["I69.3", "I69.4", "G81.9"],
-    seeAlso: ["ischemic-stroke", "aspiration-pneumonia"],
+    seeAlso: ["ischemic-stroke", "pneumonia"],
     refs: ["R2", "R4", "R6"],
     chartChecklist: {
       mustHave: ["มีประวัติ stroke เดิม + neurologic deficit คงค้าง"],
@@ -738,7 +746,7 @@ export const DISEASE_SUMMARIES: DiseaseSummary[] = [
     notYetDiagnosis: ["ไม่สรุปสาเหตุจำเพาะของ seizure หากยังไม่มีข้อมูลพอ"],
     investigations: ["Glucose", "Electrolytes", "Neuroimaging ตามข้อบ่งชี้", "CSF เมื่อสงสัยติดเชื้อ CNS"],
     icd10: ["R56.8", "G40.9"],
-    seeAlso: ["hypoglycemia", "hyponatremia", "meningitis-encephalitis"],
+    seeAlso: ["dka-hhs", "hyponatremia", "meningitis-encephalitis"],
     refs: ["R2", "R4"],
     chartChecklist: {
       mustHave: ["มีอาการชักและ clinical context สอดคล้อง"],
@@ -756,7 +764,7 @@ export const DISEASE_SUMMARIES: DiseaseSummary[] = [
     notYetDiagnosis: ["ไม่ลง meningitis/encephalitis หากยังไม่มีข้อมูลสนับสนุนทางคลินิก/CSF เพียงพอ"],
     investigations: ["CSF study", "Neuroimaging ตามข้อบ่งชี้", "Microbiology/antigen tests"],
     icd10: ["G00.9", "G03.9", "G04.9", "B45.1"],
-    seeAlso: ["cryptococcal-meningitis", "hiv-infection-disease", "lumbar-puncture-procedure"],
+    seeAlso: ["sepsis-septic-shock", "lumbar-puncture-procedure"],
     refs: ["R2", "R4", "R6"],
     chartChecklist: {
       mustHave: ["ไข้/neurologic symptoms เข้าได้ + CSF/lab สนับสนุน"],
@@ -777,7 +785,7 @@ export const DISEASE_SUMMARIES: DiseaseSummary[] = [
     notYetDiagnosis: ["ไม่ลง PPH/obstetric shock หากยังไม่มีข้อมูลสนับสนุนเพียงพอ"],
     investigations: ["Blood loss documentation", "Vital signs", "CBC trend", "Transfusion record"],
     icd10: ["O72.1", "O72.2", "O75.1", "D62"],
-    seeAlso: ["blood-transfusion-procedure", "hypovolemic-shock", "acute-posthemorrhagic-anemia"],
+    seeAlso: ["blood-transfusion-procedure", "hypovolemic-shock", "gi-bleeding"],
     refs: ["R1", "R2", "R4", "R6"],
     chartChecklist: {
       mustHave: ["มี blood loss ตามเกณฑ์และแพทย์วินิจฉัย", "แยก immediate PPH กับ delayed PPH ให้ชัด"],
@@ -807,7 +815,7 @@ export const DISEASE_SUMMARIES: DiseaseSummary[] = [
     notYetDiagnosis: ["ไม่สรุปสาเหตุจำเพาะ (เช่น breast milk, ABO, G6PD) หากยังไม่มีข้อมูลสนับสนุนชัดเจน"],
     investigations: ["Total bilirubin trend", "Hemolysis workup ตามบริบท", "Clinical timing and feeding history"],
     icd10: ["P58.8", "P55.1", "P55.8", "P59.3", "P59.8", "P59.9"],
-    seeAlso: ["preterm-low-birth-weight", "newborn-procedures"],
+    seeAlso: ["preterm-low-birth-weight", "neonatal-sepsis"],
     refs: ["R1", "R2", "R4", "R6"],
     chartChecklist: {
       mustHave: ["มี neonatal jaundice พร้อม bilirubin/clinical timing สนับสนุน"],
@@ -1120,4 +1128,43 @@ export const DISEASE_SUMMARIES: DiseaseSummary[] = [
     },
   },
 ];
+
+/** Static catalog QA date (bump when you re-audit slugs/refs against guidelines). */
+export const DISEASE_KNOWLEDGE_LAST_REVIEWED = "2026-04-26";
+
+export type DiseaseCatalogAudit = {
+  lastReviewed: string;
+  total: number;
+  withIssues: number;
+  issues: { slug: string; issues: string[] }[];
+};
+
+/** Structural checks only — not a substitute for clinical guideline review. */
+export function auditDiseaseCatalog(diseases: DiseaseSummary[]): DiseaseCatalogAudit {
+  const refIds = new Set(KNOWLEDGE_REFERENCES.map((r) => r.id));
+  const slugs = new Set(diseases.map((d) => d.slug));
+  const issues: { slug: string; issues: string[] }[] = [];
+  for (const d of diseases) {
+    const row: string[] = [];
+    if (!d.diagnosisToWrite?.length) row.push("missing diagnosisToWrite");
+    if (!d.refs?.length) row.push("missing refs");
+    for (const r of d.refs || []) {
+      if (!refIds.has(r)) row.push(`unknown ref: ${r}`);
+    }
+    for (const s of d.seeAlso || []) {
+      if (!slugs.has(s)) row.push(`seeAlso → invalid slug: ${s}`);
+    }
+    const hasIcd10 = (d.icd10?.length ?? 0) > 0;
+    const hasIcd9 = (d.icd9?.length ?? 0) > 0;
+    if (!hasIcd10 && !hasIcd9) row.push("missing icd10 and icd9");
+    if (row.length) issues.push({ slug: d.slug, issues: row });
+  }
+  const maxIssues = 100;
+  return {
+    lastReviewed: DISEASE_KNOWLEDGE_LAST_REVIEWED,
+    total: diseases.length,
+    withIssues: issues.length,
+    issues: issues.slice(0, maxIssues),
+  };
+}
 

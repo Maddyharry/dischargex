@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type { DiseaseSummary, KnowledgeReference } from "@/lib/clinical-knowledge";
+import type { DiseaseCatalogAudit, DiseaseSummary, KnowledgeReference } from "@/lib/clinical-knowledge";
 
 const BLOCK_STYLES: Record<string, string> = {
   "วินิจฉัยที่ควรเขียน": "border-emerald-500/35 bg-emerald-950/20",
@@ -17,17 +17,24 @@ const BLOCK_STYLES: Record<string, string> = {
 export default function KnowledgePage() {
   const [items, setItems] = useState<DiseaseSummary[]>([]);
   const [references, setReferences] = useState<KnowledgeReference[]>([]);
+  const [catalogMeta, setCatalogMeta] = useState<DiseaseCatalogAudit | null>(null);
   const [q, setQ] = useState("");
   const [selected, setSelected] = useState<string>("");
 
   useEffect(() => {
     const load = async () => {
       const resp = await fetch("/api/knowledge", { cache: "no-store" });
-      const data = (await resp.json()) as { ok?: boolean; items?: DiseaseSummary[]; references?: KnowledgeReference[] };
+      const data = (await resp.json()) as {
+        ok?: boolean;
+        items?: DiseaseSummary[];
+        references?: KnowledgeReference[];
+        catalogMeta?: DiseaseCatalogAudit;
+      };
       if (!data.ok) return;
       const nextItems = data.items || [];
       setItems(nextItems);
       setReferences(data.references || []);
+      setCatalogMeta(data.catalogMeta ?? null);
       if (nextItems.length > 0) setSelected(nextItems[0].slug);
     };
     void load();
@@ -50,6 +57,11 @@ export default function KnowledgePage() {
   const checklist = useMemo(() => {
     if (!active) return null;
     return buildChecklist(active);
+  }, [active]);
+  const refIdsOrdered = useMemo(() => {
+    if (!active) return [];
+    const rest = active.refs.filter((id) => id !== "R7");
+    return ["R7", ...rest];
   }, [active]);
   const codingReviewNotes = useMemo(() => {
     if (!active) return [];
@@ -80,6 +92,25 @@ export default function KnowledgePage() {
             <span className="font-medium text-amber-50">สปสช</span> เป็นหลัก; รหัส ICD-10 ควรอิงเอกสารคู่มือ/ประกาศ สปสช
             หรือแนวทางที่เทียบเคียงได้ ไม่ใช่ข้อความทั่วไป
           </p>
+          {catalogMeta ? (
+            <div className="mt-2 rounded-lg border border-emerald-500/25 bg-emerald-950/20 px-2 py-1.5 text-[11px] leading-snug text-emerald-100/95">
+              <div className="font-medium text-emerald-50">ตรวจโครงสร้างแคตตาล็อก (refs / seeAlso / ICD)</div>
+              <p className="mt-0.5 text-emerald-100/90">
+                รีวิวล่าสุด: {catalogMeta.lastReviewed} · หัวข้อรวม {catalogMeta.total} · มีประเด็น {catalogMeta.withIssues}
+              </p>
+              {catalogMeta.issues.length > 0 ? (
+                <ul className="mt-1 max-h-28 list-disc space-y-0.5 overflow-y-auto pl-4 text-emerald-100/85">
+                  {catalogMeta.issues.map((row) => (
+                    <li key={row.slug}>
+                      <span className="font-mono text-[10px] text-emerald-200">{row.slug}</span>: {row.issues.join(" · ")}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-0.5 text-emerald-100/85">ไม่พบ seeAlso ชี้ slug ผิด / ref ไม่รู้จัก / ขาด ICD ในรายการที่โหลด</p>
+              )}
+            </div>
+          ) : null}
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
@@ -141,13 +172,33 @@ export default function KnowledgePage() {
 
               <div className="rounded-xl border border-indigo-500/30 bg-indigo-950/20 p-3">
                 <div className="text-xs font-semibold uppercase tracking-wide text-indigo-200">References</div>
+                <p className="mt-1 text-[11px] text-slate-400">
+                  [R7] แสดงทุกหัวข้อเป็นประตูอ้างอิงหลัก สปสช.; รายการอื่นตามที่ระบุในแคตตาล็อก
+                </p>
                 <ul className="mt-2 space-y-1 text-sm text-slate-200">
-                  {references.filter((r) => active.refs.includes(r.id)).map((r) => (
-                    <li key={r.id}>
-                      [{r.id}] {r.title}
-                      {r.year ? ` (${r.year})` : ""}
-                    </li>
-                  ))}
+                  {refIdsOrdered
+                    .map((id) => references.find((r) => r.id === id))
+                    .filter((r): r is KnowledgeReference => Boolean(r))
+                    .map((r) => (
+                      <li key={r.id}>
+                        {r.url ? (
+                          <a
+                            href={r.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-cyan-300 underline-offset-2 hover:underline"
+                          >
+                            [{r.id}] {r.title}
+                            {r.year ? ` (${r.year})` : ""}
+                          </a>
+                        ) : (
+                          <>
+                            [{r.id}] {r.title}
+                            {r.year ? ` (${r.year})` : ""}
+                          </>
+                        )}
+                      </li>
+                    ))}
                 </ul>
               </div>
             </div>

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getMergedKnowledge } from "@/lib/knowledge-store";
-import { KNOWLEDGE_REFERENCES } from "@/lib/clinical-knowledge";
+import { KNOWLEDGE_REFERENCES, auditDiseaseCatalog } from "@/lib/clinical-knowledge";
 
 export const runtime = "nodejs";
 
@@ -14,7 +14,8 @@ export async function GET(req: NextRequest) {
     : all.filter((d) =>
         [d.name, ...d.aliases, ...d.diagnosisToWrite, ...d.icd10, ...d.investigations].join(" ").toLowerCase().includes(q)
       );
-  return NextResponse.json({ ok: true, items: list, references: KNOWLEDGE_REFERENCES });
+  const catalogMeta = auditDiseaseCatalog(all);
+  return NextResponse.json({ ok: true, items: list, references: KNOWLEDGE_REFERENCES, catalogMeta });
 }
 
 export async function POST(req: NextRequest) {
@@ -63,11 +64,13 @@ export async function POST(req: NextRequest) {
       refs: [],
     }));
 
+    const catalogMeta = auditDiseaseCatalog(staticKnowledge);
     return NextResponse.json({
       ok: true,
       q,
       items: [...chunks, ...staticHits].slice(0, limit),
       references: KNOWLEDGE_REFERENCES,
+      catalogMeta,
     });
   } catch (err) {
     return NextResponse.json(

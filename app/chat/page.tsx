@@ -1484,18 +1484,12 @@ export default function ChartSummaryConsultChatPage() {
           ref={textRef}
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              void sendMessage();
-            }
-          }}
           rows={2}
           className="w-full max-h-[180px] min-h-[56px] resize-none overflow-y-auto rounded-xl border border-slate-700 bg-slate-900/80 px-3 py-2.5 pr-[7.25rem] sm:pr-36 text-sm leading-relaxed outline-none focus:border-cyan-500"
           placeholder={
             assistantMode === "opd_demo"
-              ? "เล่าเคส หรือแนบรูป EKG/X-ray…"
-              : "ถาม diagnosis / แนบรูปตรวจเพื่อช่วยอ่านเบื้องต้น…"
+              ? "Enter ขึ้นบรรทัดใหม่ · ส่งที่ปุ่มส่ง — เล่าเคส หรือแนบรูป EKG/X-ray…"
+              : "Enter ขึ้นบรรทัดใหม่ · ส่งที่ปุ่มส่ง — ถาม diagnosis / แนบรูปตรวจ…"
           }
         />
         <div className="absolute right-1.5 bottom-2 flex items-center gap-0.5 sm:right-2 sm:gap-1">
@@ -1707,18 +1701,12 @@ export default function ChartSummaryConsultChatPage() {
               mobileQuickTextareaRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
             });
           }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              void sendMessage();
-            }
-          }}
           rows={2}
           className="w-full max-h-[180px] min-h-[56px] resize-none overflow-y-auto rounded-xl border border-slate-700 bg-slate-900/80 px-3 py-2.5 pr-[9.5rem] text-sm leading-relaxed outline-none focus:border-cyan-500"
           placeholder={
             assistantMode === "opd_demo"
-              ? "เล่าเคส หรือแนบรูป EKG/X-ray..."
-              : "ถาม diagnosis / แนบรูปตรวจเพื่อช่วยอ่านเบื้องต้น..."
+              ? "Enter ขึ้นบรรทัดใหม่ · ส่งที่ปุ่ม — เล่าเคส หรือแนบรูป EKG/X-ray..."
+              : "Enter ขึ้นบรรทัดใหม่ · ส่งที่ปุ่ม — ถาม diagnosis / แนบรูปตรวจ…"
           }
         />
         <div className="absolute right-1.5 bottom-2 flex items-center gap-0.5">
