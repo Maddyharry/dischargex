@@ -196,6 +196,24 @@ function buildStyleInstruction(profile: ChatStyleProfile) {
   return lines.join("\n");
 }
 
+function extractTextFromResponse(resp: OpenAIResponse) {
+  const direct = "output_text" in resp ? String(resp.output_text || "").trim() : "";
+  if (direct) return direct;
+  const outputItems = Array.isArray((resp as { output?: unknown[] }).output)
+    ? ((resp as { output?: Array<{ content?: Array<{ type?: string; text?: string }> }> }).output as Array<{
+        content?: Array<{ type?: string; text?: string }>;
+      }>)
+    : [];
+  const chunks = outputItems.flatMap((item) =>
+    Array.isArray(item.content)
+      ? item.content
+          .filter((c) => c && (c.type === "output_text" || c.type === "text") && typeof c.text === "string")
+          .map((c) => String(c.text || ""))
+      : []
+  );
+  return chunks.join("").trim();
+}
+
 function buildSystemPrompt(assistantMode: AssistantMode, variant: "A" | "B", styleProfile: ChatStyleProfile) {
   const styleInstruction = buildStyleInstruction(styleProfile);
   if (assistantMode === "opd_demo") {
@@ -1467,7 +1485,7 @@ TRIAL_EXPIRED_LIMITED_MODE:
                     }
                   }
                   const finalResp = await responseStream.finalResponse();
-                  const finalText = "output_text" in finalResp ? String(finalResp.output_text || "").trim() : "";
+                  const finalText = extractTextFromResponse(finalResp);
                   if (!streamReply && finalText) {
                     streamReply = finalText;
                     if (!forceSummaryTemplate) {
@@ -1488,7 +1506,34 @@ TRIAL_EXPIRED_LIMITED_MODE:
                 throw lastModelError instanceof Error ? lastModelError : new Error("model_stream_unavailable");
               }
 
-              const rawReply = streamReply.trim() || "ขออภัยครับ ตอนนี้ยังตอบไม่ได้ กรุณาลองใหม่อีกครั้ง";
+              let rawReply = streamReply.trim();
+              if (!rawReply) {
+                const rescueCandidates = Array.from(new Set([model, ...modelCandidates, "gpt-4o-mini"])).slice(0, 3);
+                for (const rescueModel of rescueCandidates) {
+                  try {
+                    const rescueResp = await openai.responses.create({
+                      model: rescueModel,
+                      input: [
+                        { role: "system", content: system },
+                        { role: "user", content: userContentPayload },
+                      ],
+                      max_output_tokens: Math.max(420, Math.floor(maxOutputTokens * 0.9)),
+                    });
+                    const rescuedText = extractTextFromResponse(rescueResp);
+                    if (rescuedText) {
+                      rawReply = rescuedText;
+                      model = rescueModel;
+                      usage = estimateTokenBillingThbByModel(readUsageSummary(rescueResp.usage), model);
+                      break;
+                    }
+                  } catch (rescueErr) {
+                    console.warn("specialist-chat rescue model failed:", rescueModel, rescueErr);
+                  }
+                }
+              }
+              if (!rawReply) {
+                rawReply = "ขออภัยครับ ตอนนี้ยังตอบไม่ได้ กรุณาลองใหม่อีกครั้ง";
+              }
               const normalizedReply = forceSummaryTemplate
                 ? normalizeSummaryTemplateOutput(rawReply, assistantMode, summaryIntent, summarySourceContext)
                 : rawReply;
@@ -1691,7 +1736,31 @@ TRIAL_EXPIRED_LIMITED_MODE:
       throw lastModelError instanceof Error ? lastModelError : new Error("model_unavailable");
     }
 
-    const output = "output_text" in resp ? (resp.output_text || "").trim() : "";
+    let output = extractTextFromResponse(resp);
+    if (!output) {
+      const rescueCandidates = Array.from(new Set([model, ...modelCandidates, "gpt-4o-mini"])).slice(0, 3);
+      for (const rescueModel of rescueCandidates) {
+        try {
+          const rescueResp = await openai.responses.create({
+            model: rescueModel,
+            input: [
+              { role: "system", content: system },
+              { role: "user", content: userContentPayload },
+            ],
+            max_output_tokens: Math.max(420, Math.floor(maxOutputTokens * 0.9)),
+          });
+          const rescuedText = extractTextFromResponse(rescueResp);
+          if (rescuedText) {
+            output = rescuedText;
+            model = rescueModel;
+            resp = rescueResp;
+            break;
+          }
+        } catch (rescueErr) {
+          console.warn("specialist-chat rescue model failed:", rescueModel, rescueErr);
+        }
+      }
+    }
     const rawReply = output || "ขออภัยครับ ตอนนี้ยังตอบไม่ได้ กรุณาลองใหม่อีกครั้ง";
     const normalizedReply = forceSummaryTemplate
       ? normalizeSummaryTemplateOutput(rawReply, assistantMode, summaryIntent, summarySourceContext)
