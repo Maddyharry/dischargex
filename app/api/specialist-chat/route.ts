@@ -1174,6 +1174,7 @@ export async function POST(req: NextRequest) {
           where: { email: session.user.email },
           select: {
             id: true,
+            role: true,
             plan: true,
             createdAt: true,
             periodStartedAt: true,
@@ -1182,6 +1183,7 @@ export async function POST(req: NextRequest) {
         })
       : null;
     const userId = dbUser?.id ?? null;
+    const isAdminUser = dbUser?.role === "admin";
     if (!userId) {
       return jsonUtf8(
         {
@@ -1233,7 +1235,7 @@ export async function POST(req: NextRequest) {
     const periodStartDate = dbUser?.periodStartedAt ?? dbUser?.createdAt ?? now;
     const periodEnd = dbUser?.subscriptionExpiresAt ?? getPeriodBounds(periodStartDate, normalizedPlan).end;
     const isLimitedTrialExpired = normalizedPlan === "trial" && now.getTime() > periodEnd.getTime();
-    if (isLimitedTrialExpired && trialExpiredPolicy.enabled) {
+    if (!isAdminUser && isLimitedTrialExpired && trialExpiredPolicy.enabled) {
       if (assistantMode === "opd_demo" && !trialExpiredPolicy.allowOpdDemo) {
         return jsonUtf8(
           {
@@ -1267,7 +1269,7 @@ export async function POST(req: NextRequest) {
     const stylePatchFromMessage = inferStylePatchFromMessage(userMessageTrimmed);
     const stylePatchFromRequest = body.styleProfile || {};
     let styleProfile = mergeChatStyleProfile(DEFAULT_CHAT_STYLE_PROFILE, stylePatchFromRequest);
-    if (userId) {
+    if (userId && !isAdminUser) {
       const storedStyle = await getUserChatStyleProfile(userId);
       styleProfile = mergeChatStyleProfile(storedStyle, { ...stylePatchFromMessage, ...stylePatchFromRequest });
       if (shouldPersistStylePatch(userMessageTrimmed, stylePatchFromMessage)) {
@@ -1319,7 +1321,7 @@ export async function POST(req: NextRequest) {
       : { _sum: { estimatedCostThb: 0 } };
     const spendThb = Number(spend._sum.estimatedCostThb || 0);
     const budgetThb = getPlanTokenBudgetThb(normalizedPlan);
-    if (spendThb >= budgetThb) {
+    if (!isAdminUser && spendThb >= budgetThb) {
       const nextResetAt = new Date(monthStart);
       nextResetAt.setMonth(nextResetAt.getMonth() + 1);
       return jsonUtf8(
