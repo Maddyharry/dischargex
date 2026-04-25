@@ -39,6 +39,7 @@ export function LandingSignupCta({ className, telemetryKey }: LandingSignupCtaPr
     <Link
       href="/signup"
       data-telemetry-click={telemetryKey}
+      data-google-conversion-label="SIGNUP_START"
       data-ab-test="landing_primary_cta_v1"
       data-ab-variant={variant}
       className={className}

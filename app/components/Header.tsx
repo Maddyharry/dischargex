@@ -158,6 +158,7 @@ export function Header() {
           </Link>
           <Link
             href="/chat"
+            data-google-conversion-label="CHAT_ENTRY"
             className="shrink-0 rounded-lg border border-cyan-500/45 bg-cyan-500/12 px-3 py-2 text-sm font-medium text-cyan-100 transition hover:border-cyan-400/60 hover:bg-cyan-500/20 hover:text-white"
           >
             AI Chat
@@ -188,6 +189,7 @@ export function Header() {
           </Link>
           <Link
             href="/pricing"
+            data-google-conversion-label="PRICING_VIEW"
             className="hidden shrink-0 rounded-lg px-2 py-2 text-xs text-slate-300 hover:bg-white/5 hover:text-white sm:px-2.5 sm:text-sm lg:inline-flex"
           >
             แพ็กเกจ
@@ -330,6 +332,7 @@ export function Header() {
           ) : (
             <Link
               href="/login"
+              data-google-conversion-label="LOGIN_VIEW"
               className="shrink-0 rounded-full bg-cyan-500 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-600"
             >
               เข้าสู่ระบบ

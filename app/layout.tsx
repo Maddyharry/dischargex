@@ -6,6 +6,7 @@ import { FeedbackProvider } from "./context/FeedbackContext";
 import { FeedbackWidget } from "./components/FeedbackWidget";
 import { LayoutFooter } from "./components/LayoutFooter";
 import { WebAnalyticsTracker } from "./components/WebAnalyticsTracker";
+import { GoogleTag } from "./components/GoogleTag";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://dischargex.net"),
@@ -42,6 +43,11 @@ export const metadata: Metadata = {
       "max-video-preview": -1,
     },
   },
+  verification: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION
+    ? {
+        google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION,
+      }
+    : undefined,
 };
 
 export default function RootLayout({
@@ -53,6 +59,7 @@ export default function RootLayout({
         <Providers>
           <FeedbackProvider>
             <WebAnalyticsTracker />
+            <GoogleTag />
             <Header />
             {children}
             <LayoutFooter />

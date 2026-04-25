@@ -3,10 +3,17 @@
 import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
 
+declare global {
+  interface Window {
+    gtag?: (...args: unknown[]) => void;
+  }
+}
+
 const VISITOR_KEY = "dx_web_visitor_id_v1";
 const SESSION_KEY = "dx_web_session_id_v1";
 const LANDING_AB_KEY = "dx_ab_landing_cta_v1";
 const LANDING_AB_SENT_KEY = "dx_ab_landing_assigned_sent_v1";
+const ADS_ID = process.env.NEXT_PUBLIC_GOOGLE_ADS_ID?.trim() || "";
 
 function randomId(prefix: string) {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
@@ -67,6 +74,15 @@ function trackClickTelemetry(
     visitorId: context.visitorId,
     sessionId: context.sessionId,
   });
+
+  const conversionLabel = target.dataset.googleConversionLabel?.trim();
+  if (conversionLabel && ADS_ID && typeof window !== "undefined" && typeof window.gtag === "function") {
+    window.gtag("event", "conversion", {
+      send_to: `${ADS_ID}/${conversionLabel}`,
+      value: 1,
+      currency: "THB",
+    });
+  }
 }
 
 export function WebAnalyticsTracker() {

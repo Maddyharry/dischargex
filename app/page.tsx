@@ -131,6 +131,7 @@ export default function Home() {
               <Link
                 href="/chat"
                 data-telemetry-click="landing_hero_chat_entry"
+                data-google-conversion-label="CHAT_ENTRY"
                 className="inline-flex min-w-[190px] items-center justify-center rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 px-7 py-3.5 text-sm font-semibold text-white shadow-lg shadow-cyan-900/40 transition hover:brightness-110"
               >
                 เริ่มแชทเคสทันที (AI Chat)
@@ -181,6 +182,7 @@ export default function Home() {
               <Link
                 href="/pricing"
                 data-telemetry-click="landing_hero_pricing_link"
+                data-google-conversion-label="PRICING_VIEW"
                 className="text-sm font-medium text-cyan-300/95 underline-offset-4 transition hover:text-cyan-200 hover:underline"
               >
                 ดูแพ็กเกจและราคา
@@ -399,6 +401,7 @@ export default function Home() {
               <Link
                 href="/chat"
                 data-telemetry-click="landing_bottom_chat"
+                data-google-conversion-label="CHAT_ENTRY"
                 className="inline-flex min-w-[190px] items-center justify-center rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 px-7 py-3.5 text-sm font-semibold text-white shadow-lg shadow-cyan-900/40 transition hover:brightness-110"
               >
                 เริ่มแชทเคสทันที
@@ -410,6 +413,7 @@ export default function Home() {
               <Link
                 href="/pricing"
                 data-telemetry-click="landing_bottom_pricing"
+                data-google-conversion-label="PRICING_VIEW"
                 className="rounded-2xl border border-slate-600/90 bg-slate-900/70 px-6 py-3.5 text-sm font-medium text-slate-100 backdrop-blur-sm transition hover:border-slate-500 hover:bg-slate-800/80"
               >
                 ดูแพ็กเกจและราคา
