@@ -399,6 +399,46 @@ function PageContent() {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+    const refreshQuotaNotice = async () => {
+      try {
+        const res = await fetch("/api/usage", { cache: "no-store" });
+        if (!res.ok) return;
+        const data = (await res.json()) as {
+          ok?: boolean;
+          summaryDailyLimitReached?: boolean;
+          tokenBudgetReached?: boolean;
+          nextDailyResetAt?: string;
+          periodEnd?: string;
+        };
+        if (cancelled || !data?.ok) return;
+        const locked = Boolean(data.summaryDailyLimitReached || data.tokenBudgetReached);
+        if (!locked) {
+          setSummaryQuotaNotice(null);
+          return;
+        }
+        const resetAtRaw = data.summaryDailyLimitReached ? data.nextDailyResetAt : data.periodEnd;
+        const resetAtText = resetAtRaw
+          ? new Date(resetAtRaw).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short" })
+          : null;
+        setSummaryQuotaNotice({
+          shortLabel: "โควตาสรุปชาร์จเต็มชั่วคราว",
+          resetAtText,
+        });
+      } catch {
+        // ignore quota refresh failures
+      }
+    };
+    void refreshQuotaNotice();
+    const onUsageUpdated = () => void refreshQuotaNotice();
+    window.addEventListener("usage-updated", onUsageUpdated);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("usage-updated", onUsageUpdated);
+    };
+  }, []);
+
+  useEffect(() => {
     try {
       const params =
         typeof window !== "undefined"

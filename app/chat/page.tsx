@@ -412,6 +412,7 @@ export default function ChartSummaryConsultChatPage() {
   useEffect(() => {
     if (!sessionAuthed) {
       setLimitedTrialExpired(false);
+      setChatQuotaNotice(null);
       return;
     }
     let cancelled = false;
@@ -447,6 +448,44 @@ export default function ChartSummaryConsultChatPage() {
     })();
     return () => {
       cancelled = true;
+    };
+  }, [sessionAuthed]);
+
+  useEffect(() => {
+    if (!sessionAuthed) return;
+    let cancelled = false;
+    const refreshLock = async () => {
+      try {
+        const res = await fetch("/api/usage", { cache: "no-store" });
+        if (!res.ok) return;
+        const data = (await res.json()) as {
+          ok?: boolean;
+          chatDailyLimitReached?: boolean;
+          tokenBudgetReached?: boolean;
+          nextDailyResetAt?: string;
+          periodEnd?: string;
+        };
+        if (cancelled || !data?.ok) return;
+        const locked = Boolean(data.chatDailyLimitReached || data.tokenBudgetReached);
+        if (!locked) return;
+        const resetAtRaw = data.chatDailyLimitReached ? data.nextDailyResetAt : data.periodEnd;
+        const resetAtText = resetAtRaw
+          ? new Date(resetAtRaw).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short" })
+          : null;
+        setChatQuotaNotice({
+          shortLabel: "โควตาแชทเต็มชั่วคราว",
+          resetAtText,
+        });
+      } catch {
+        // ignore usage lock refresh failure
+      }
+    };
+    void refreshLock();
+    const onUsageUpdated = () => void refreshLock();
+    window.addEventListener("usage-updated", onUsageUpdated);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("usage-updated", onUsageUpdated);
     };
   }, [sessionAuthed]);
 

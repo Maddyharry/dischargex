@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import {
   daysLeftUntil,
   getCreditCycleBounds,
+  getDailyApproxLimit,
   getPeriodBounds,
   getPlanDefinition,
   isPaidPlan,
@@ -28,6 +29,7 @@ export async function GET() {
     where: { email },
     select: {
       id: true,
+      role: true,
       plan: true,
       extraCredits: true,
       createdAt: true,
@@ -45,6 +47,7 @@ export async function GET() {
       where: { email },
       select: {
         id: true,
+        role: true,
         plan: true,
         extraCredits: true,
         createdAt: true,
@@ -101,6 +104,35 @@ export async function GET() {
   const tokenSpendThb = Number(tokenSpendInCycle._sum.estimatedCostThb || 0);
   const tokenBudgetThb = getPlanTokenBudgetThb(normalizedPlanId);
   const tokenUsagePercent = tokenBudgetThb > 0 ? Math.max(0, Math.min(100, Math.round((tokenSpendThb / tokenBudgetThb) * 100))) : 0;
+  const dayStart = new Date(now);
+  dayStart.setHours(0, 0, 0, 0);
+  const nextDailyResetAt = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+  const dailyApprox = getDailyApproxLimit(normalizedPlanId);
+  const chatUsedToday =
+    dbUser?.id != null
+      ? await prisma.feedback.count({
+          where: {
+            userId: dbUser.id,
+            type: "telemetry",
+            message: "chat:specialist_chat_reply",
+            createdAt: { gte: dayStart },
+          },
+        })
+      : 0;
+  const summaryUsedToday =
+    dbUser?.id != null
+      ? await prisma.usageLog.count({
+          where: {
+            userId: dbUser.id,
+            reason: { in: ["generate", "long_case_generate", "token_generate"] },
+            createdAt: { gte: dayStart },
+          },
+        })
+      : 0;
+  const isAdminUser = dbUser?.role === "admin";
+  const chatDailyLimitReached = !isAdminUser && chatUsedToday >= dailyApprox.chatPerDay;
+  const summaryDailyLimitReached = !isAdminUser && summaryUsedToday >= dailyApprox.summaryPerDay;
+  const tokenBudgetReached = !isAdminUser && tokenSpendThb >= tokenBudgetThb;
   const daysLeftByPeriodEnd = isActive ? daysLeftUntil(periodEnd, now) : 0;
   const daysLeftByCycleEnd = isActive ? daysLeftUntil(cycleWindowEnd, now) : 0;
   const daysLeft = Math.max(daysLeftByPeriodEnd, daysLeftByCycleEnd);
@@ -119,6 +151,14 @@ export async function GET() {
     tokenBudgetThb,
     tokenRemainingThb: Math.max(0, Number((tokenBudgetThb - tokenSpendThb).toFixed(2))),
     tokenUsagePercent,
+    chatUsedToday,
+    chatDailyLimit: dailyApprox.chatPerDay,
+    chatDailyLimitReached,
+    summaryUsedToday,
+    summaryDailyLimit: dailyApprox.summaryPerDay,
+    summaryDailyLimitReached,
+    tokenBudgetReached,
+    nextDailyResetAt: nextDailyResetAt.toISOString(),
     periodEnd: periodEnd.toISOString(),
     nextCreditRefreshAt,
     subscriptionStatus: isActive ? dbUser?.subscriptionStatus ?? "active" : "expired",
