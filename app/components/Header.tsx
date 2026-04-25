@@ -91,13 +91,6 @@ export function Header() {
     if (!usage || usage.total <= 0) return 0;
     return Math.max(0, Math.min(100, Math.round((usage.used / usage.total) * 100)));
   }, [usage]);
-  const timePercent = useMemo(() => {
-    if (!usage || usage.daysLeftInMonth === undefined) return 0;
-    const now = new Date();
-    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-    if (daysInMonth <= 0) return 0;
-    return Math.max(0, Math.min(100, 100 - Math.round((usage.daysLeftInMonth / daysInMonth) * 100)));
-  }, [usage]);
 
   async function handleSignOut() {
     try {
@@ -227,23 +220,13 @@ export function Header() {
                     </p>
                     {usage && (
                       <div className="mt-1.5 space-y-2 text-xs text-slate-400">
-                        <div className="space-y-1">
-                          <div className="flex items-center justify-between">
-                            <span className="text-slate-300">การใช้งาน</span>
-                            <span className="font-semibold text-cyan-200">{usagePercent}%</span>
-                          </div>
-                          <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-700">
-                            <div className="h-full bg-cyan-400" style={{ width: `${usagePercent}%` }} />
-                          </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-300">การใช้งานโควต้า</span>
+                          <span className="font-semibold text-cyan-200">{usagePercent}%</span>
                         </div>
-                        <div className="space-y-1">
-                          <div className="flex items-center justify-between">
-                            <span className="text-slate-300">เวลาในรอบ</span>
-                            <span className="font-semibold text-violet-200">{usage.daysLeftInMonth ?? 0} วัน</span>
-                          </div>
-                          <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-700">
-                            <div className="h-full bg-violet-400" style={{ width: `${timePercent}%` }} />
-                          </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-300">เวลาในรอบ</span>
+                          <span className="font-semibold text-violet-200">เหลือ {usage.daysLeftInMonth ?? 0} วัน</span>
                         </div>
                         <p>
                           แผน <span className="text-slate-300">{formatPlanName(usage.plan)}</span>

@@ -125,12 +125,14 @@ export default function ProfilePage() {
     if (usage.total <= 0) return 0;
     return Math.max(0, Math.min(100, Math.round((usage.used / usage.total) * 100)));
   }, [usage]);
-  const timePercent = useMemo(() => {
-    if (!usage || usage.daysLeftInMonth === undefined) return 0;
-    const now = new Date();
-    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-    if (daysInMonth <= 0) return 0;
-    return Math.max(0, Math.min(100, 100 - Math.round((usage.daysLeftInMonth / daysInMonth) * 100)));
+  const displayDaysLeft = useMemo(() => {
+    if (!usage) return 0;
+    if (typeof usage.daysLeftInMonth === "number" && usage.daysLeftInMonth > 0) return usage.daysLeftInMonth;
+    if (!usage.nextCreditRefreshAt) return usage.daysLeftInMonth ?? 0;
+    const target = new Date(usage.nextCreditRefreshAt);
+    const diffMs = target.getTime() - Date.now();
+    if (!Number.isFinite(diffMs) || diffMs <= 0) return usage.daysLeftInMonth ?? 0;
+    return Math.max(1, Math.ceil(diffMs / (24 * 60 * 60 * 1000)));
   }, [usage]);
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -478,7 +480,7 @@ export default function ProfilePage() {
                         </div>
                         <div className="mt-3 flex items-center justify-between text-sm">
                           <p className="font-medium text-slate-300">เวลาในรอบ</p>
-                          <p className="font-semibold text-violet-200">เหลือ {usage.daysLeftInMonth ?? 0} วัน</p>
+                          <p className="font-semibold text-violet-200">เหลือ {displayDaysLeft} วัน</p>
                         </div>
                       </div>
                     ) : (

@@ -101,7 +101,9 @@ export async function GET() {
   const tokenSpendThb = Number(tokenSpendInCycle._sum.estimatedCostThb || 0);
   const tokenBudgetThb = getPlanTokenBudgetThb(normalizedPlanId);
   const tokenUsagePercent = tokenBudgetThb > 0 ? Math.max(0, Math.min(100, Math.round((tokenSpendThb / tokenBudgetThb) * 100))) : 0;
-  const daysLeft = isActive ? daysLeftUntil(periodEnd, now) : 0;
+  const daysLeftByPeriodEnd = isActive ? daysLeftUntil(periodEnd, now) : 0;
+  const daysLeftByCycleEnd = isActive ? daysLeftUntil(cycleWindowEnd, now) : 0;
+  const daysLeft = Math.max(daysLeftByPeriodEnd, daysLeftByCycleEnd);
   const nextCreditRefreshAt =
     cycleWindowEnd.getTime() < periodEnd.getTime() ? cycleWindowEnd.toISOString() : null;
 
