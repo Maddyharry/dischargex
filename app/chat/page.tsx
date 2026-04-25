@@ -71,6 +71,10 @@ type UploadedImage = {
   name: string;
   dataUrl: string;
 };
+type ChatQuotaNotice = {
+  shortLabel: string;
+  resetAtText: string | null;
+};
 
 function isIcdLookupOnlyQuery(text: string) {
   const q = text.toLowerCase();
@@ -85,6 +89,21 @@ function isSummaryLikeAssistantText(text: string) {
   return /ช่วยสรุปเคสแบบ opd ไทย|ช่วยสรุปแบบ soap|mandatory_summary_output_template|thai opd case summary|##\s*soap/i.test(
     text
   );
+}
+
+function parseChatQuotaNotice(message: string): ChatQuotaNotice | null {
+  const normalized = String(message || "");
+  const isQuota =
+    normalized.includes("ครบโควตาโดยประมาณแล้ว") ||
+    normalized.includes("โควตาการใช้งานเดือนนี้ครบแล้ว") ||
+    normalized.includes("หมดรอบการใช้งานแล้ว") ||
+    normalized.includes("โควตารอบนี้ไม่พอ");
+  if (!isQuota) return null;
+  const resetMatch = normalized.match(/รีเซ็ตอีกครั้งประมาณ\s*(.+?)(?:\s+หรือ|$)/);
+  return {
+    shortLabel: "โควตาแชทเต็มชั่วคราว",
+    resetAtText: resetMatch?.[1]?.trim() || null,
+  };
 }
 
 function buildSummaryContextFromThread(messages: ChatMessage[]) {
@@ -117,6 +136,20 @@ function getUrlHostLabel(rawUrl: string) {
   } catch {
     return "reference";
   }
+}
+
+function renderInlineMarkdown(text: string) {
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  return parts.map((part, idx) => {
+    if (/^\*\*[^*]+\*\*$/.test(part)) {
+      return (
+        <strong key={`bold-${idx}`} className="font-semibold text-slate-50">
+          {part.slice(2, -2)}
+        </strong>
+      );
+    }
+    return <span key={`plain-${idx}`}>{part}</span>;
+  });
 }
 
 function renderInlineCitations(line: string) {
@@ -155,7 +188,7 @@ function renderInlineCitations(line: string) {
               </a>
             );
           }
-          return <span key={`${chunk}-${urlIdx}`}>{chunk}</span>;
+          return <span key={`${chunk}-${urlIdx}`}>{renderInlineMarkdown(chunk)}</span>;
         })}
       </span>
     );
@@ -274,6 +307,7 @@ export default function ChartSummaryConsultChatPage() {
   const [chatStyleReady, setChatStyleReady] = useState(false);
   const [lastModelUsed, setLastModelUsed] = useState<string>("");
   const [limitedTrialExpired, setLimitedTrialExpired] = useState(false);
+  const [chatQuotaNotice, setChatQuotaNotice] = useState<ChatQuotaNotice | null>(null);
   const [trialPolicy, setTrialPolicy] = useState<{
     chatScope: "icd10_only" | "icd10_guidance";
     allowOpdDemo: boolean;
@@ -306,6 +340,7 @@ export default function ChartSummaryConsultChatPage() {
     () => threads.find((t) => t.id === activeId) ?? threads[0],
     [threads, activeId]
   );
+  const isChatSendLocked = Boolean(chatQuotaNotice);
 
   useEffect(() => {
     const el = messagesRef.current;
@@ -727,7 +762,12 @@ export default function ChartSummaryConsultChatPage() {
         model?: string;
       };
       const reply = data.ok && data.reply ? data.reply : data.error || "ขออภัยครับ ตอบกลับไม่สำเร็จ";
-      setAssistantError(threadId, reply);
+      const quota = parseChatQuotaNotice(reply);
+      if (quota) {
+        setChatQuotaNotice(quota);
+        setComposerHint(quota.resetAtText ? `แชทถูกพักไว้ชั่วคราว · รอถึง ${quota.resetAtText}` : "แชทถูกพักไว้ชั่วคราว");
+      }
+      setAssistantError(threadId, quota ? quota.shortLabel : reply);
       finalizeAssistantMessage(threadId, { answerSource: data.answerSource });
       if (data.model) setLastModelUsed(data.model);
       return data.ok ? "done" : "error";
@@ -786,7 +826,13 @@ export default function ChartSummaryConsultChatPage() {
           status = "done";
           streamDone = true;
         } else if (payload.type === "error") {
-          setAssistantError(threadId, payload.message || "เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง");
+          const message = payload.message || "เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง";
+          const quota = parseChatQuotaNotice(message);
+          if (quota) {
+            setChatQuotaNotice(quota);
+            setComposerHint(quota.resetAtText ? `แชทถูกพักไว้ชั่วคราว · รอถึง ${quota.resetAtText}` : "แชทถูกพักไว้ชั่วคราว");
+          }
+          setAssistantError(threadId, quota ? quota.shortLabel : message);
           status = "error";
           streamDone = true;
         }
@@ -815,7 +861,13 @@ export default function ChartSummaryConsultChatPage() {
             status = "done";
             streamDone = true;
           } else if (payload.type === "error") {
-            setAssistantError(threadId, payload.message || "เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง");
+            const message = payload.message || "เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง";
+            const quota = parseChatQuotaNotice(message);
+            if (quota) {
+              setChatQuotaNotice(quota);
+              setComposerHint(quota.resetAtText ? `แชทถูกพักไว้ชั่วคราว · รอถึง ${quota.resetAtText}` : "แชทถูกพักไว้ชั่วคราว");
+            }
+            setAssistantError(threadId, quota ? quota.shortLabel : message);
             status = "error";
             streamDone = true;
           }
@@ -936,6 +988,14 @@ export default function ChartSummaryConsultChatPage() {
         sessionStatus === "unauthenticated"
           ? "กรุณาเข้าสู่ระบบก่อนใช้แชทผู้เชี่ยวชาญ"
           : "กำลังตรวจสอบการเข้าสู่ระบบ รอสักครู่แล้วลองอีกครั้ง"
+      );
+      return;
+    }
+    if (isChatSendLocked) {
+      setComposerHint(
+        chatQuotaNotice?.resetAtText
+          ? `โควตาเต็มชั่วคราว รอถึง ${chatQuotaNotice.resetAtText} หรืออัปเกรดแพ็กเกจ`
+          : "โควตาเต็มชั่วคราว กรุณาอัปเกรดแพ็กเกจเพื่อใช้งานต่อ"
       );
       return;
     }
@@ -1268,6 +1328,16 @@ export default function ChartSummaryConsultChatPage() {
   const renderComposerInner = (textRef: RefObject<HTMLTextAreaElement | null>) => (
     <>
       {composerHint ? <div className="mb-1 text-[11px] text-cyan-300">{composerHint}</div> : null}
+      {chatQuotaNotice ? (
+        <div className="mb-2 rounded-lg border border-amber-600/50 bg-amber-950/30 px-2.5 py-1.5 text-[11px] text-amber-100">
+          <span>{chatQuotaNotice.shortLabel}</span>
+          {chatQuotaNotice.resetAtText ? <span>{` · รอถึง ${chatQuotaNotice.resetAtText}`}</span> : null}
+          <span>{` · `}</span>
+          <Link href="/pricing" className="font-medium text-cyan-300 underline underline-offset-2 hover:text-cyan-200">
+            อัปเกรดแพ็กเกจ
+          </Link>
+        </div>
+      ) : null}
       {pendingImages.length ? (
         <div className="mb-2 flex flex-wrap gap-2">
           {pendingImages.map((img) => (
@@ -1357,7 +1427,7 @@ export default function ChartSummaryConsultChatPage() {
           <button
             type="button"
             onClick={() => void sendMessage()}
-            disabled={loading || (!input.trim() && !pendingImages.length) || !sessionAuthed}
+            disabled={loading || isChatSendLocked || (!input.trim() && !pendingImages.length) || !sessionAuthed}
             className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-cyan-600 text-white hover:bg-cyan-500 disabled:opacity-50 sm:h-8 sm:w-8"
             title={loading ? "กำลังตอบ..." : "ส่ง"}
             aria-label={loading ? "กำลังตอบ..." : "ส่ง"}
@@ -1476,6 +1546,16 @@ export default function ChartSummaryConsultChatPage() {
   const renderMobileQuickComposer = () => (
     <>
       {composerHint ? <div className="mb-1 text-[11px] text-cyan-300">{composerHint}</div> : null}
+      {chatQuotaNotice ? (
+        <div className="mb-2 rounded-lg border border-amber-600/50 bg-amber-950/30 px-2.5 py-1.5 text-[11px] text-amber-100">
+          <span>{chatQuotaNotice.shortLabel}</span>
+          {chatQuotaNotice.resetAtText ? <span>{` · รอถึง ${chatQuotaNotice.resetAtText}`}</span> : null}
+          <span>{` · `}</span>
+          <Link href="/pricing" className="font-medium text-cyan-300 underline underline-offset-2 hover:text-cyan-200">
+            อัปเกรดแพ็กเกจ
+          </Link>
+        </div>
+      ) : null}
       {pendingImages.length ? (
         <div className="mb-2 flex flex-wrap gap-2">
           {pendingImages.map((img) => (
@@ -1551,7 +1631,7 @@ export default function ChartSummaryConsultChatPage() {
           <button
             type="button"
             onClick={() => void sendMessage()}
-            disabled={loading || (!input.trim() && !pendingImages.length) || !sessionAuthed}
+            disabled={loading || isChatSendLocked || (!input.trim() && !pendingImages.length) || !sessionAuthed}
             className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-cyan-600 text-white hover:bg-cyan-500 disabled:opacity-50"
             title={loading ? "กำลังตอบ..." : "ส่ง"}
             aria-label={loading ? "กำลังตอบ..." : "ส่ง"}

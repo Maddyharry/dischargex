@@ -107,6 +107,10 @@ type RecalcCompareResult = {
   before: RecalcCompareSnapshot;
   after: RecalcCompareSnapshot;
 };
+type SummaryQuotaNotice = {
+  shortLabel: string;
+  resetAtText: string | null;
+};
 type UploadedImageInput = {
   id: string;
   name: string;
@@ -254,6 +258,7 @@ function PageContent() {
   const [recalcLoading, setRecalcLoading] = useState(false);
   const [copiedKey, setCopiedKey] = useState("");
   const [error, setError] = useState("");
+  const [summaryQuotaNotice, setSummaryQuotaNotice] = useState<SummaryQuotaNotice | null>(null);
 
   const [deviceId, setDeviceId] = useState<string | null>(null);
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
@@ -784,6 +789,15 @@ function PageContent() {
     );
   }
 
+  function parseSummaryQuotaNotice(message: string): SummaryQuotaNotice | null {
+    if (!isUsageLimitMessage(message)) return null;
+    const resetMatch = message.match(/รีเซ็ตอีกครั้งประมาณ\s*(.+?)(?:\s+หรือ|$)/);
+    return {
+      shortLabel: "โควตาสรุปชาร์จเต็มชั่วคราว",
+      resetAtText: resetMatch?.[1]?.trim() || null,
+    };
+  }
+
   async function recalcFromBlocks(
     nextBlocks: NormalizedBlock[],
     silent = false,
@@ -843,8 +857,10 @@ function PageContent() {
       if (!isUsageLimitMessage(message)) {
         console.error(err);
       }
+      const quota = parseSummaryQuotaNotice(message);
+      if (quota) setSummaryQuotaNotice(quota);
       if (!silent) {
-        setError(message);
+        setError(quota ? quota.shortLabel : message);
       }
     } finally {
       setRecalcLoading(false);
@@ -1056,7 +1072,9 @@ function PageContent() {
         console.error(err);
       }
       if (isLimitReached) {
-        setError(`${message} ไปที่หน้า pricing เพื่อดูแพ็กเกจที่เหมาะกับคุณ`);
+        const quota = parseSummaryQuotaNotice(message);
+        if (quota) setSummaryQuotaNotice(quota);
+        setError(quota?.shortLabel || "โควตาสรุปชาร์จเต็มชั่วคราว");
       } else {
         setError(message);
       }
@@ -1905,11 +1923,15 @@ function PageContent() {
               <button
                 type="button"
                 onClick={handleGenerate}
-                disabled={loading || !hasClinicalInput}
+                disabled={loading || !hasClinicalInput || Boolean(summaryQuotaNotice)}
                 title={
-                  hasClinicalInput
-                    ? undefined
-                    : "วางข้อความ order sheet หรืออัปโหลดรูปอย่างน้อย 1 อย่าง"
+                  !hasClinicalInput
+                    ? "วางข้อความ order sheet หรืออัปโหลดรูปอย่างน้อย 1 อย่าง"
+                    : summaryQuotaNotice
+                    ? summaryQuotaNotice.resetAtText
+                      ? `โควตาเต็มชั่วคราว รอถึง ${summaryQuotaNotice.resetAtText} หรืออัปเกรดแพ็กเกจ`
+                      : "โควตาเต็มชั่วคราว กรุณาอัปเกรดแพ็กเกจเพื่อใช้งานต่อ"
+                    : undefined
                 }
                 className="inline-flex min-w-[148px] items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-cyan-900/30 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
               >
@@ -1942,6 +1964,16 @@ function PageContent() {
                 {copiedKey === "copy-all" ? "คัดลอกแล้ว" : "คัดลอกทั้งหมด"}
               </button>
             </div>
+            {summaryQuotaNotice ? (
+              <div className="rounded-xl border border-amber-600/50 bg-amber-950/30 px-3 py-2 text-xs text-amber-100">
+                <span>{summaryQuotaNotice.shortLabel}</span>
+                {summaryQuotaNotice.resetAtText ? <span>{` · รอถึง ${summaryQuotaNotice.resetAtText}`}</span> : null}
+                <span>{` · `}</span>
+                <a href="/pricing" className="font-medium underline hover:text-amber-200">
+                  อัปเกรดแพ็กเกจ
+                </a>
+              </div>
+            ) : null}
             </div>
 
             {error ? (
@@ -1949,10 +1981,12 @@ function PageContent() {
                 {error.includes("Credit limit reached") ||
                 error.includes("ครบโควตาโดยประมาณแล้ว") ||
                 error.includes("โควตาการใช้งานเดือนนี้ครบแล้ว") ||
-                error.includes("หมดรอบการใช้งานแล้ว") ? (
+                error.includes("หมดรอบการใช้งานแล้ว") ||
+                error.includes("โควตาสรุปชาร์จเต็มชั่วคราว") ? (
                   <>
-                    {error.split(" ไปที่หน้า pricing")[0]}
-                    {" "}
+                    {summaryQuotaNotice?.shortLabel || "โควตาสรุปชาร์จเต็มชั่วคราว"}
+                    {summaryQuotaNotice?.resetAtText ? ` · รอถึง ${summaryQuotaNotice.resetAtText}` : ""}
+                    {" · "}
                     <a href="/pricing" className="font-medium underline hover:text-red-200">
                       ไปที่หน้า pricing
                     </a>
