@@ -399,6 +399,10 @@ function PageContent() {
   }, []);
 
   useEffect(() => {
+    if (!session?.user?.email) {
+      setSummaryQuotaNotice(null);
+      return;
+    }
     let cancelled = false;
     const refreshQuotaNotice = async () => {
       try {
@@ -436,7 +440,7 @@ function PageContent() {
       cancelled = true;
       window.removeEventListener("usage-updated", onUsageUpdated);
     };
-  }, []);
+  }, [session?.user?.email]);
 
   useEffect(() => {
     try {
