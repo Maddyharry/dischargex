@@ -111,6 +111,9 @@ export default function KnowledgePage() {
                 เกณฑ์ตัวเลข (เช่น cutoff ของ lab/vital signs) จะแสดงเฉพาะที่มีใน reference set เท่านั้น; หากหัวข้อใดยังไม่ระบุตัวเลข
                 ให้ยึด guideline ต้นทางของหน่วยงานและอย่าเดาเกณฑ์เพิ่มเอง
               </div>
+              <div className="rounded-xl border border-slate-600/40 bg-slate-900/40 p-3 text-xs text-slate-300">
+                คู่มือตรวจทานรหัสภายในทีม (audit list): <code className="text-cyan-300">docs/KNOWLEDGE_ICD_AUDIT_LIST.md</code>
+              </div>
 
               <Block title="วินิจฉัยที่ควรเขียน" items={active.diagnosisToWrite} />
               <Block title="คิดถึงโรคนี้เมื่อ" items={active.thinkWhen} />
