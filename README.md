@@ -1,5 +1,28 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Analytics Setup (GA/Google Ads)
+
+Set the following environment variables in your deployment environment:
+
+- `NEXT_PUBLIC_GA_MEASUREMENT_ID` (optional): Google Analytics 4 Measurement ID, for example `G-XXXXXXXXXX`
+- `NEXT_PUBLIC_GOOGLE_ADS_ID` (optional): Google Ads tag ID, for example `AW-XXXXXXXXX`
+- `NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION` (optional): Google Search Console verification token
+
+Notes:
+
+- If both GA and Ads IDs are provided, the app initializes both tags.
+- Conversion events are only sent when `NEXT_PUBLIC_GOOGLE_ADS_ID` is configured.
+- If none of the IDs are set, tracking components no-op safely.
+
+## Analytics Smoke Test
+
+Quick checks after deploy:
+
+1. Open homepage and verify network requests to `googletagmanager.com/gtag/js`.
+2. Navigate between pages and confirm `page_view` events in GA DebugView.
+3. Click tracked CTAs (`/chat`, `/pricing`, `/signup`) and verify conversion events fire in Google Tag Assistant.
+4. Confirm `/chat` is excluded from indexing and public pages are listed in `sitemap.xml`.
+
 ## Getting Started
 
 First, run the development server:
