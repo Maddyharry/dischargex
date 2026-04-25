@@ -289,6 +289,7 @@ function buildSystemPrompt(assistantMode: AssistantMode, variant: "A" | "B", sty
     "Behave like a helpful chat assistant, not a static document retriever.",
     "Use conversation context from CHAT_HISTORY and USER_MESSAGE before answering.",
     "CODING_ICD10_SUFFIX: Whenever you mention a disease/condition as diagnosis, differential, comorbidity, complication, or coding candidate, append the best-matching ICD-10-CM code immediately after the disease name in this exact form: ชื่อโรค (ICD-10: Xxx.xx). Use one code per clause; if uncertain use (ICD-10: ต้องยืนยัน). Apply consistently to new answers and when continuing or summarizing earlier points in the same thread (including follow-up turns).",
+    "CODING_CHARGE_CLOSE: For non-trivial answers, end with a short section exactly titled `## สรุปสำหรับชาร์จ (ลง order / สรุปชาร์จ)` containing 3–6 bullets: (1) principal / comorbidity / complication wording to chart, (2) minimum evidence already met vs still missing, (3) what NOT to fabricate, (4) สปสช-relevant cautions if applicable. Keep earlier body concise; put the 'so what for charge summary' here.",
     "Do not provide definitive diagnosis. Provide candidate diagnosis and evidence checklist.",
     "Prefer terms: 'Acute diarrhea' or 'Infectious diarrhea'. Avoid using 'AGE' or 'Acute gastroenteritis' as default wording.",
     "Use only KNOWLEDGE_REFERENCE_MAP for [R#] citations when factual claims need support.",
@@ -1410,12 +1411,13 @@ export async function POST(req: NextRequest) {
     const compactMatchedKnowledge = compactKnowledgeSummaries(matchedKnowledge);
     const retrievedSnippets = await searchKnowledgeEvidence(messageForModel);
     const forceExternalEvidence = assistantMode === "opd_demo" && isMedicationOrDoseQuery(messageForModel);
-    const external = ranked.hasStrongMatch && !forceExternalEvidence
-      ? { evidences: [], whitelist: [] }
-      : await retrieveExternalEvidence(messageForModel, {
-          maxEvidence: mode === "fast" ? 2 : 4,
-          maxDomains: mode === "fast" ? 3 : 6,
-        });
+    const external = await retrieveExternalEvidence(messageForModel, {
+      maxEvidence:
+        forceExternalEvidence ? (mode === "fast" ? 3 : 5) : ranked.hasStrongMatch ? (mode === "fast" ? 1 : 2) : mode === "fast" ? 2 : 4,
+      maxDomains:
+        forceExternalEvidence ? (mode === "fast" ? 5 : 8) : ranked.hasStrongMatch ? (mode === "fast" ? 2 : 3) : mode === "fast" ? 3 : 6,
+      thaiChargeGuidance: assistantMode === "coding",
+    });
     const variant =
       process.env.SPECIALIST_CHAT_PROMPT_VARIANT === "A" || process.env.SPECIALIST_CHAT_PROMPT_VARIANT === "B"
         ? process.env.SPECIALIST_CHAT_PROMPT_VARIANT
@@ -1478,7 +1480,7 @@ TRIAL_EXPIRED_LIMITED_MODE:
       ...(caseSummaryPattern ? [caseSummaryPattern, ""] : []),
       ...(criticalScenarioBlock ? [criticalScenarioBlock, ""] : []),
       ...(mandatorySummaryTemplate ? [mandatorySummaryTemplate, ""] : []),
-      "EXTERNAL_REFERENCE_SOURCES_FROM_WHITELIST (use only when matchedKnowledge is weak):",
+      "EXTERNAL_REFERENCE_SOURCES_FROM_WHITELIST (official / guideline pages; cite 1–2 in ReferenceSource when relevant even if internal knowledge matched):",
       JSON.stringify(external.evidences),
       "",
       "CONVERSATION_SUMMARY:",
@@ -1503,7 +1505,7 @@ TRIAL_EXPIRED_LIMITED_MODE:
       "If user asks simple question, answer directly in plain Thai.",
       "If user asks diagnosis support, include diagnosis candidate + ICD (if applicable) + minimum evidence.",
       "Keep total answer short, practical, and contextual.",
-      "If external sources are used, append 'ReferenceSource:' bullets with url.",
+      "If EXTERNAL_REFERENCE_SOURCES list is non-empty and topic touches regulation/guideline/สปสช/ชาร์จ, append 'ReferenceSource:' bullets with url for at least one item.",
       `MODE: ${mode.toUpperCase()} (FAST = short and quick, PRECISE = more detail).`,
       `ASSISTANT_MODE: ${assistantMode.toUpperCase()}.`,
     ].join("\n");

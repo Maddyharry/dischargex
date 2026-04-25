@@ -8,6 +8,8 @@ type ChatMessage = {
   role: "user" | "assistant";
   content: string;
   answerSource?: "internal" | "mixed" | "external";
+  /** แสดงใน UI เท่านั้น — ไม่ sync ขึ้น cloud (ลดขนาด payload) */
+  images?: { id: string; name: string; dataUrl: string }[];
 };
 type TokenUsageMeta = {
   inputTokens: number;
@@ -16,6 +18,39 @@ type TokenUsageMeta = {
   estimatedCostThb: number;
 };
 type Thread = { id: string; title: string; messages: ChatMessage[] };
+
+function stripThreadsForCloud(threads: Thread[]): Thread[] {
+  return threads.map((t) => ({
+    ...t,
+    messages: t.messages.map((m) => {
+      if (m.role === "user" && m.images?.length) {
+        const { images: _omit, ...rest } = m;
+        return rest;
+      }
+      return m;
+    }),
+  }));
+}
+
+function splitChatReferenceTail(content: string): { main: string; tail: string | null } {
+  const patterns = [
+    /[\n\r]+\s*ReferenceSource:\s*/i,
+    /[\n\r]+\s*อ่านแนวทางเพิ่มเติม \(แหล่งไทย\):\s*/i,
+    /^ReferenceSource:\s*/im,
+    /^อ่านแนวทางเพิ่มเติม \(แหล่งไทย\):\s*/im,
+  ];
+  let best = -1;
+  for (const re of patterns) {
+    const m = content.match(re);
+    if (m && typeof m.index === "number" && (best === -1 || m.index < best)) {
+      best = m.index;
+    }
+  }
+  if (best === -1) return { main: content, tail: null };
+  const main = content.slice(0, best).trimEnd();
+  const tail = content.slice(best).trim();
+  return { main, tail: tail || null };
+}
 type ChatMode = "fast" | "precise";
 type AssistantMode = "coding" | "opd_demo";
 type StreamDonePayload = {
@@ -200,7 +235,8 @@ function renderInlineCitations(line: string) {
 }
 
 function ChatMessageBody({ content }: { content: string }) {
-  const codeSplit = content.split("```");
+  const { main, tail } = useMemo(() => splitChatReferenceTail(content), [content]);
+  const codeSplit = main.split("```");
   return (
     <div className="space-y-2 leading-relaxed">
       {codeSplit.map((block, blockIdx) => {
@@ -272,6 +308,24 @@ function ChatMessageBody({ content }: { content: string }) {
           </div>
         );
       })}
+      {tail ? (
+        <details className="mt-1 rounded-lg border border-slate-700/50 bg-slate-950/40 px-2 py-1">
+          <summary className="cursor-pointer list-none text-[10px] text-slate-400 marker:content-none [&::-webkit-details-marker]:hidden hover:text-slate-300">
+            อ้างอิงภายนอก · แตะเพื่อเปิด
+          </summary>
+          <div className="mt-1.5 space-y-1 border-t border-slate-700/40 pt-1.5 text-[11px] text-slate-400">
+            {tail.split(/\r?\n/).map((line, i) => {
+              const t = line.trim();
+              if (!t) return null;
+              return (
+                <div key={`tail-${i}`} className="leading-snug">
+                  {renderInlineCitations(t)}
+                </div>
+              );
+            })}
+          </div>
+        </details>
+      ) : null}
     </div>
   );
 }
@@ -665,7 +719,7 @@ export default function ChartSummaryConsultChatPage() {
       void fetch("/api/chat-threads", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ threads, activeId }),
+        body: JSON.stringify({ threads: stripThreadsForCloud(threads), activeId }),
       }).catch(() => {
         // ignore cloud sync save failure
       });
@@ -1146,7 +1200,13 @@ export default function ChartSummaryConsultChatPage() {
 
     const attachmentLine = attachments?.length ? `\n[แนบรูป ${attachments.length} ภาพ]` : "";
     const displayBody = opts?.displayContent ?? text;
-    const userMsg: ChatMessage = { role: "user", content: `${displayBody}${attachmentLine}` };
+    const userMsg: ChatMessage = {
+      role: "user",
+      content: `${displayBody}${attachmentLine}`,
+      ...(attachments?.length
+        ? { images: attachments.map(({ id, name, dataUrl }) => ({ id, name, dataUrl })) }
+        : {}),
+    };
     const firstTitle =
       opts?.displayContent === IMAGE_ONLY_DISPLAY_LINE
         ? "แนบรูปตรวจ"
@@ -2025,6 +2085,18 @@ export default function ChartSummaryConsultChatPage() {
                       {m.role === "user" ? (
                         <div className="flex max-w-[min(92%,30rem)] flex-row-reverse items-start gap-0.5 sm:gap-1">
                           <div className="min-w-0 flex-1 rounded-2xl bg-cyan-700/35 px-3 py-2 text-[15px] leading-relaxed whitespace-pre-wrap text-cyan-100 sm:text-sm">
+                            {m.images && m.images.length > 0 ? (
+                              <div className="mb-2 flex flex-wrap gap-1.5">
+                                {m.images.map((img) => (
+                                  <img
+                                    key={img.id}
+                                    src={img.dataUrl}
+                                    alt={img.name}
+                                    className="h-14 w-14 rounded-lg object-cover ring-1 ring-cyan-900/50 sm:h-16 sm:w-16"
+                                  />
+                                ))}
+                              </div>
+                            ) : null}
                             <ChatMessageBody content={m.content} />
                           </div>
                           <button
@@ -2049,14 +2121,18 @@ export default function ChartSummaryConsultChatPage() {
                           <div className="w-full px-1 py-0.5 text-[15px] leading-relaxed whitespace-pre-wrap text-slate-100 sm:text-sm md:max-w-[94%]">
                             <ChatMessageBody content={m.content} />
                           </div>
-                          <div className="mt-1 text-[10px] text-slate-500">
-                            source:{" "}
-                            {m.answerSource === "mixed"
-                              ? "mixed (internal+external)"
-                              : m.answerSource === "external"
-                              ? "external references"
-                              : "internal knowledge"}
-                          </div>
+                          <details className="mt-0.5 w-full max-w-[94%] rounded-md border border-slate-800/60 bg-slate-950/25 px-2 py-0.5 text-[10px] text-slate-500 open:bg-slate-950/40">
+                            <summary className="cursor-pointer list-none text-slate-500 marker:content-none hover:text-slate-400 [&::-webkit-details-marker]:hidden">
+                              ที่มาคำตอบ
+                            </summary>
+                            <p className="mt-1 leading-snug text-slate-500">
+                              {m.answerSource === "mixed"
+                                ? "องค์ความรู้ภายใน + แหล่งอ้างอิงภายนอก (โดเมนที่อนุญาต)"
+                                : m.answerSource === "external"
+                                ? "อ้างอิงภายนอกเป็นหลัก"
+                                : "องค์ความรู้ภายใน / reasoning"}
+                            </p>
+                          </details>
                         </>
                       )}
                     </div>

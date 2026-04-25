@@ -162,6 +162,11 @@ export default function AdminKnowledgePage() {
       <div className="mx-auto max-w-5xl px-4 py-8">
         <h1 className="text-2xl font-semibold">Admin Knowledge</h1>
         <p className="mt-2 text-sm text-slate-400">จัดการหัวข้อความรู้ที่ active/deprecate ได้ทันที เพื่อตัดข้อมูลเก่าออกจาก search/chat</p>
+        <p className="mt-2 rounded-lg border border-cyan-500/20 bg-cyan-950/25 px-3 py-2 text-xs text-cyan-50/95">
+          เกณฑ์เนื้อหา: อัปเดตล่าสุด ชัดเจนต่อการสรุปชาร์จและแนวทาง{" "}
+          <span className="font-medium text-cyan-100">สปสช</span> — ระบุแหล่ง/ฉบับเอกสาร; ICD-10 ควรอ้างคู่มือหรือประกาศ สปสช
+          ที่ตรวจสอบได้
+        </p>
         <div className="mt-4 rounded-xl border border-amber-500/30 bg-amber-950/20 p-3 text-sm text-amber-100">
           มีข้อมูลใหม่รออนุมัติ {pendingGaps.length + pendingDocuments.length} รายการ
         </div>

@@ -75,6 +75,11 @@ export default function KnowledgePage() {
           <h1 className="text-base font-semibold">Clinical Knowledge Search</h1>
           <p className="mt-1 text-xs text-slate-400">ค้นจากโรค อาการ Investigation และ ICD-10 โดยไม่เรียก LLM</p>
           <p className="mt-1 text-xs text-slate-500">เนื้อหาสรุปเพื่อใช้งานเร็ว และอ้างอิงเอกสารมาตรฐานด้วยรหัส [R#]</p>
+          <p className="mt-2 rounded-lg border border-amber-500/25 bg-amber-950/20 px-2 py-1.5 text-[11px] leading-snug text-amber-100/95">
+            ชุดข้อมูลควรอัปเดตและเจาะจงกับการสรุปชาร์จ / แนวทาง{" "}
+            <span className="font-medium text-amber-50">สปสช</span> เป็นหลัก; รหัส ICD-10 ควรอิงเอกสารคู่มือ/ประกาศ สปสช
+            หรือแนวทางที่เทียบเคียงได้ ไม่ใช่ข้อความทั่วไป
+          </p>
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}

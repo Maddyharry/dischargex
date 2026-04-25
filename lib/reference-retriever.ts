@@ -13,6 +13,8 @@ type ExternalEvidenceResult = {
 type RetrieveOptions = {
   maxEvidence?: number;
   maxDomains?: number;
+  /** จัดลำดับ nhso/moph/dms ก่อน เมื่อถามเรื่องสรุปชาร์จ / สปสช / DRG / IPD coding */
+  thaiChargeGuidance?: boolean;
 };
 
 const DEFAULT_WHITELIST = [
@@ -216,7 +218,11 @@ async function fetchText(url: string, timeoutMs = 10000) {
 export async function retrieveExternalEvidence(question: string, options?: RetrieveOptions): Promise<ExternalEvidenceResult> {
   const trimmed = question.trim();
   const whitelist = getWhitelistDomains();
-  const prioritizedWhitelist = buildPrioritizedWhitelist(trimmed, whitelist);
+  let prioritizedWhitelist = buildPrioritizedWhitelist(trimmed, whitelist);
+  if (options?.thaiChargeGuidance) {
+    const seeds = ["nhso.go.th", "moph.go.th", "dms.go.th"].filter((d) => prioritizedWhitelist.includes(d));
+    prioritizedWhitelist = [...seeds, ...prioritizedWhitelist.filter((d) => !seeds.includes(d))];
+  }
   if (!trimmed) return { evidences: [], whitelist };
   const maxEvidence = Math.max(1, Math.min(8, Number(options?.maxEvidence || 4)));
   const maxDomains = Math.max(1, Math.min(10, Number(options?.maxDomains || 5)));
