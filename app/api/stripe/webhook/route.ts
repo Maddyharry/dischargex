@@ -5,6 +5,7 @@ import { getCreditCycleBounds, getPeriodBounds, getPlanDefinition, normalizePlan
 import { getPlanIdByStripePriceId, getStripe, getStripeWebhookSecret } from "@/lib/stripe";
 import { notifyUser } from "@/lib/notifications";
 import { markReferralFirstPurchase } from "@/lib/referral";
+import { sendAdminAlertEmail } from "@/lib/admin-alert";
 
 export const runtime = "nodejs";
 
@@ -193,6 +194,20 @@ export async function POST(req: Request) {
             ? `เติมวงเงินเสริม ${payment.addCredits || 0} สำเร็จแล้ว`
             : `เปิดใช้งานแพ็กเกจ ${targetPlanId} สำเร็จแล้ว`,
         meta: { paymentRequestId: payment.id, stripeSessionId },
+      });
+
+      await sendAdminAlertEmail({
+        subject: "DischargeX: Payment received",
+        lines: [
+          `User ID: ${user.id}`,
+          `Payment ID: ${payment.id}`,
+          `Type: ${payment.type}`,
+          `Plan target: ${payment.toPlanId || "-"}`,
+          `Add credits: ${payment.addCredits || 0}`,
+          `Amount THB: ${payment.amount}`,
+          `Stripe session: ${stripeSessionId}`,
+          `Mode: ${session.mode}`,
+        ],
       });
     } else if (event.type === "invoice.paid") {
       const invoice = event.data.object;

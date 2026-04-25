@@ -19,13 +19,13 @@ function buildHtmlBody(payload: AdminAlertPayload) {
 }
 
 export async function sendAdminAlertEmail(payload: AdminAlertPayload) {
-  const to = process.env.ADMIN_ALERT_EMAIL?.trim();
+  const to = process.env.ADMIN_ALERT_EMAIL?.trim() || process.env.ADMIN_EMAIL?.trim();
   const apiKey = process.env.RESEND_API_KEY?.trim();
   const from = process.env.EMAIL_FROM?.trim();
   if (!to || !apiKey || !from) return;
 
   try {
-    await fetch("https://api.resend.com/emails", {
+    const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -39,6 +39,10 @@ export async function sendAdminAlertEmail(payload: AdminAlertPayload) {
         html: buildHtmlBody(payload),
       }),
     });
+    if (!res.ok) {
+      const body = await res.text();
+      console.error("sendAdminAlertEmail non-200:", res.status, body);
+    }
   } catch (err) {
     console.error("sendAdminAlertEmail failed:", err);
   }
