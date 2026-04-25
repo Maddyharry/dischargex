@@ -204,7 +204,7 @@ export async function POST(req: Request) {
           `Type: ${payment.type}`,
           `Plan target: ${payment.toPlanId || "-"}`,
           `Add credits: ${payment.addCredits || 0}`,
-          `Amount THB: ${payment.amount}`,
+          `Amount THB: ${payment.finalAmount}`,
           `Stripe session: ${stripeSessionId}`,
           `Mode: ${session.mode}`,
         ],

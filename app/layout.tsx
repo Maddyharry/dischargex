@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { Providers } from "./providers";
 import { Header } from "./components/Header";
@@ -10,6 +10,7 @@ import { GoogleTag } from "./components/GoogleTag";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://dischargex.net"),
+  manifest: "/manifest.json",
   title: {
     default: "DischargeX",
     template: "%s | DischargeX",
@@ -50,11 +51,20 @@ export const metadata: Metadata = {
     : undefined,
 };
 
+export const viewport: Viewport = {
+  themeColor: "#000000",
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="th" suppressHydrationWarning>
+      <head>
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+      </head>
       <body className="bg-slate-50 text-slate-900 antialiased dark:bg-slate-950 dark:text-slate-50">
         <Providers>
           <FeedbackProvider>

@@ -47,6 +47,7 @@ import {
 import { deidentify } from "@/lib/deidentify";
 import { getMergedKnowledge, queuePendingKnowledgeEntry } from "@/lib/knowledge-store";
 import { retrieveExternalEvidence } from "@/lib/reference-retriever";
+import { getTrialExpiredPolicy } from "@/lib/trial-expired-policy";
 
 export const runtime = "nodejs";
 
@@ -1264,7 +1265,8 @@ export async function POST(req: Request) {
     const tokenSpendThb = Number(tokenSpendMonth._sum.estimatedCostThb || 0);
     const tokenBudgetThb = getPlanTokenBudgetThb(plan);
 
-    if (mode === "generate" && isLimitedTrialExpired) {
+    const trialExpiredPolicy = await getTrialExpiredPolicy();
+    if (mode === "generate" && isLimitedTrialExpired && trialExpiredPolicy.enabled && !trialExpiredPolicy.allowSummarize) {
       return json(
         {
           error:

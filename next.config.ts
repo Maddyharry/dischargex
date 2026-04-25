@@ -1,6 +1,11 @@
 import type { NextConfig } from "next";
+import withPWAInit from "next-pwa";
 
 const isDev = process.env.NODE_ENV !== "production";
+const withPWA = withPWAInit({
+  dest: "public",
+  disable: false,
+});
 
 const securityHeaders = [
   {
@@ -46,6 +51,7 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  turbopack: {},
   async headers() {
     return [
       {
@@ -56,4 +62,4 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default withPWA(nextConfig);

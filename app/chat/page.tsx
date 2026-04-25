@@ -253,7 +253,7 @@ export default function ChartSummaryConsultChatPage() {
   const [canRetryStream, setCanRetryStream] = useState(false);
   const [isStopping, setIsStopping] = useState(false);
   const [showPromptSuggestions, setShowPromptSuggestions] = useState(false);
-  const [showMobileTools, setShowMobileTools] = useState(false);
+  const [showMobileTools, setShowMobileTools] = useState(true);
   const [isMicSupported, setIsMicSupported] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [pendingImages, setPendingImages] = useState<UploadedImage[]>([]);
@@ -263,6 +263,15 @@ export default function ChartSummaryConsultChatPage() {
   const [chatStyleReady, setChatStyleReady] = useState(false);
   const [lastModelUsed, setLastModelUsed] = useState<string>("");
   const [limitedTrialExpired, setLimitedTrialExpired] = useState(false);
+  const [trialPolicy, setTrialPolicy] = useState<{
+    chatScope: "icd10_only" | "icd10_guidance";
+    allowOpdDemo: boolean;
+    allowSummarize: boolean;
+  }>({
+    chatScope: "icd10_only",
+    allowOpdDemo: false,
+    allowSummarize: false,
+  });
   const messagesRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
@@ -353,17 +362,28 @@ export default function ChartSummaryConsultChatPage() {
     let cancelled = false;
     void (async () => {
       try {
-        const res = await fetch("/api/usage", { cache: "no-store" });
+        const res = await fetch("/api/trial-expired-policy", { cache: "no-store" });
         const data = (await res.json()) as {
           ok?: boolean;
-          plan?: string;
-          subscriptionStatus?: string;
+          effective?: {
+            limited: boolean;
+            chatScope: "icd10_only" | "icd10_guidance";
+            allowOpdDemo: boolean;
+            allowSummarize: boolean;
+          };
         };
         if (cancelled || !data?.ok) return;
-        const limited = data.plan === "trial" && data.subscriptionStatus === "expired";
+        const limited = Boolean(data.effective?.limited);
         setLimitedTrialExpired(limited);
+        if (data.effective) {
+          setTrialPolicy({
+            chatScope: data.effective.chatScope,
+            allowOpdDemo: data.effective.allowOpdDemo,
+            allowSummarize: data.effective.allowSummarize,
+          });
+        }
         if (limited) {
-          setAssistantMode("coding");
+          if (!data.effective?.allowOpdDemo) setAssistantMode("coding");
           setMode("fast");
         }
       } catch {
@@ -924,12 +944,18 @@ export default function ChartSummaryConsultChatPage() {
       return;
     }
     if (limitedTrialExpired) {
-      if (assistantMode === "opd_demo") {
+      if (assistantMode === "opd_demo" && !trialPolicy.allowOpdDemo) {
         setComposerHint("Trial หมดอายุแล้ว: โหมด OPD ถูกปิดไว้ชั่วคราว");
         return;
       }
-      if (!isIcdLookupOnlyQuery(text)) {
-        setComposerHint("Trial หมดอายุแล้ว: ใช้งานได้เฉพาะค้นหารหัส ICD-10");
+      const allowed =
+        trialPolicy.chatScope === "icd10_only" ? isIcdLookupOnlyQuery(text) : isIcdLookupOnlyQuery(text) || /guideline|แนวทาง|หลักเกณฑ์/i.test(text);
+      if (!allowed) {
+        setComposerHint(
+          trialPolicy.chatScope === "icd10_only"
+            ? "Trial หมดอายุแล้ว: ใช้งานได้เฉพาะค้นหารหัส ICD-10"
+            : "Trial หมดอายุแล้ว: ใช้งานได้เฉพาะ ICD-10 และ coding guidance"
+        );
         return;
       }
     }
@@ -969,7 +995,7 @@ export default function ChartSummaryConsultChatPage() {
   }
 
   async function sendSummary(kind: SummaryKind) {
-    if (limitedTrialExpired) {
+    if (limitedTrialExpired && !trialPolicy.allowSummarize) {
       setComposerHint("Trial หมดอายุแล้ว: ปิดปุ่มสรุปชั่วคราว กรุณาอัปเกรดแพ็กเกจเพื่อใช้งานต่อ");
       return;
     }
@@ -1169,6 +1195,11 @@ export default function ChartSummaryConsultChatPage() {
           "ถ้าสงสัย pneumonia ต้องมีหลักฐานขั้นต่ำอะไรถึงจะพิจารณาลงได้",
           "ช่วยแยก differential และบอกเกณฑ์ที่ต้องมีก่อนลงวินิจฉัย",
         ];
+  const assistantModeLabel = assistantMode === "opd_demo" ? "OPD" : "Coding";
+  const assistantModeHint =
+    assistantMode === "opd_demo"
+      ? "ซักประวัติ · ตรวจร่างกาย · DDx · RDU/ICD-10"
+      : "ICD-10 / coding guidance · สรุปชาร์จ";
 
   const renderComposerInner = (textRef: RefObject<HTMLTextAreaElement | null>) => (
     <>
@@ -1305,7 +1336,7 @@ export default function ChartSummaryConsultChatPage() {
           <button
             type="button"
             onClick={() => void sendSummary("diagnosis")}
-            disabled={loading || !active?.messages.length || !sessionAuthed || limitedTrialExpired}
+            disabled={loading || !active?.messages.length || !sessionAuthed || (limitedTrialExpired && !trialPolicy.allowSummarize)}
             className="w-full rounded-full border border-sky-700 bg-sky-900/40 px-3 py-1 text-xs text-sky-200 hover:bg-sky-800/50 disabled:opacity-50 sm:w-auto"
           >
             สรุป diagnosis
@@ -1315,7 +1346,7 @@ export default function ChartSummaryConsultChatPage() {
             <button
               type="button"
               onClick={() => void sendSummary("opd_case")}
-              disabled={loading || !active?.messages.length || !sessionAuthed || limitedTrialExpired}
+              disabled={loading || !active?.messages.length || !sessionAuthed || (limitedTrialExpired && !trialPolicy.allowSummarize)}
               className="w-full rounded-full border border-sky-700 bg-sky-900/40 px-3 py-1 text-xs text-sky-200 hover:bg-sky-800/50 disabled:opacity-50 sm:w-auto"
             >
               สรุปเคส OPD
@@ -1323,7 +1354,7 @@ export default function ChartSummaryConsultChatPage() {
             <button
               type="button"
               onClick={() => void sendSummary("opd_soap")}
-              disabled={loading || !active?.messages.length || !sessionAuthed || limitedTrialExpired}
+              disabled={loading || !active?.messages.length || !sessionAuthed || (limitedTrialExpired && !trialPolicy.allowSummarize)}
               className="w-full rounded-full border border-teal-700 bg-teal-900/40 px-3 py-1 text-xs text-teal-200 hover:bg-teal-800/50 disabled:opacity-50 sm:w-auto"
             >
               สรุป SOAP
@@ -1499,7 +1530,7 @@ export default function ChartSummaryConsultChatPage() {
         ) : null}
         {limitedTrialExpired ? (
           <div className="rounded-xl border border-amber-600/50 bg-amber-950/40 px-3 py-2.5 text-sm leading-relaxed text-amber-100 md:col-span-2">
-            Trial หมดอายุแล้ว: ใช้งานต่อได้เฉพาะ AI Chat แบบค้นหารหัส ICD-10 ในโหมด Coding (Fast) ชั่วคราว
+            Trial หมดอายุแล้ว: ใช้งานแบบจำกัดชั่วคราว ({trialPolicy.chatScope === "icd10_only" ? "ICD-10 only" : "ICD-10 + guidance"})
             {" · "}
             <Link href="/pricing" className="font-medium text-cyan-300 underline underline-offset-2 hover:text-cyan-200">
               อัปเกรดแพ็กเกจ
@@ -1617,44 +1648,70 @@ export default function ChartSummaryConsultChatPage() {
                 AI
               </div>
               <div className="min-w-0 flex-1">
-                <h1 className="truncate text-base font-semibold sm:text-xl">
-                  {assistantMode === "opd_demo" ? "OPD Assistant Demo" : "แชทปรึกษาสรุปชาร์จ"}
-                </h1>
-                <p className="hidden text-[11px] text-cyan-300 sm:block">
-                  {assistantMode === "opd_demo"
-                    ? "ซักประวัติ · ตรวจร่างกาย · DDx · RDU/ICD-10"
-                    : "Medical coding assistant · evidence-first"}
-                </p>
+                <div className="flex items-center gap-2">
+                  <h1 className="truncate text-base font-semibold sm:text-xl">
+                    {assistantMode === "opd_demo" ? "OPD Assistant Demo" : "แชทปรึกษาสรุปชาร์จ"}
+                  </h1>
+                  <span className="hidden rounded-full border border-slate-700 bg-slate-900/70 px-2 py-0.5 text-[10px] text-cyan-200 sm:inline-block">
+                    {assistantModeLabel}
+                  </span>
+                </div>
+                <p className="hidden text-[11px] text-cyan-300 sm:block">{assistantModeHint}</p>
+                <p className="text-[11px] text-slate-500 sm:hidden">{assistantModeHint}</p>
               </div>
-            </div>
-            <div className="mt-2 flex items-center justify-between gap-2 text-xs">
-              <span className="text-slate-400">
-                {assistantMode === "opd_demo" ? "OPD" : "Coding"} · {mode === "fast" ? "Fast" : "Precise"}
-              </span>
               <button
                 type="button"
                 onClick={() => setShowMobileTools((prev) => !prev)}
-                className="ml-auto rounded-full border border-slate-700 bg-slate-900/70 px-3 py-1 text-slate-200"
+                className="ml-auto rounded-full border border-slate-700 bg-slate-900/70 px-3 py-1 text-xs text-slate-200"
               >
                 {showMobileTools ? "ซ่อนตั้งค่า" : "ตั้งค่า"}
               </button>
             </div>
-            <div className={`mt-2 ${showMobileTools ? "flex" : "hidden"} md:flex flex-wrap items-center gap-2 text-xs`}>
-              <button
-                type="button"
-                onClick={() => setAssistantMode("coding")}
-                className={`rounded-full px-3 py-1 ${assistantMode === "coding" ? "bg-cyan-500/25 text-cyan-100" : "bg-slate-800 text-slate-300"}`}
-              >
-                เน้น Coding
-              </button>
-              <button
-                type="button"
-                onClick={() => setAssistantMode("opd_demo")}
-                disabled={limitedTrialExpired}
-                className={`rounded-full px-3 py-1 disabled:cursor-not-allowed disabled:opacity-50 ${assistantMode === "opd_demo" ? "bg-violet-500/25 text-violet-100" : "bg-slate-800 text-slate-300"}`}
-              >
-                เน้น OPD
-              </button>
+            <div className="mt-2 flex items-center gap-2">
+              <div className="inline-flex overflow-hidden rounded-xl border border-slate-700 bg-slate-900/70 p-0.5 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setAssistantMode("coding")}
+                  className={`rounded-lg px-3 py-1.5 transition ${
+                    assistantMode === "coding" ? "bg-cyan-500/25 text-cyan-100" : "text-slate-300 hover:bg-slate-800"
+                  }`}
+                >
+                  Coding
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAssistantMode("opd_demo")}
+                  disabled={limitedTrialExpired && !trialPolicy.allowOpdDemo}
+                  className={`rounded-lg px-3 py-1.5 transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                    assistantMode === "opd_demo"
+                      ? "bg-violet-500/25 text-violet-100"
+                      : "text-slate-300 hover:bg-slate-800"
+                  }`}
+                >
+                  OPD
+                </button>
+              </div>
+              <span className="text-[11px] text-slate-500">
+                {assistantMode === "opd_demo" ? "โหมด OPD เน้นแนวทางคลินิก" : "โหมด Coding เน้นรหัสและสรุปชาร์จ"}
+              </span>
+            </div>
+            <div className="mt-2 flex items-center gap-2 text-xs">
+              <span className="text-slate-400">
+                {assistantModeLabel} · {mode === "fast" ? "Fast" : "Precise"}
+              </span>
+              {lastModelUsed ? (
+                <span className="rounded-full border border-slate-700 bg-slate-900/70 px-2 py-0.5 text-[11px] text-slate-300">
+                  model: {lastModelUsed}
+                </span>
+              ) : null}
+              {loading ? (
+                <span className="inline-flex items-center gap-1 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 text-[11px] text-cyan-200">
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-cyan-300" />
+                  Streaming...
+                </span>
+              ) : null}
+            </div>
+            <div className={`mt-2 ${showMobileTools ? "flex" : "hidden"} flex-wrap items-center gap-2 text-xs`}>
               <button
                 type="button"
                 onClick={() => setMode("fast")}
@@ -1674,20 +1731,9 @@ export default function ChartSummaryConsultChatPage() {
                   ? "ตอบเร็ว/คุ้มโควต้า (เหมาะใช้ต่อเนื่อง)"
                   : "ฉลาดและละเอียดขึ้น แต่ใช้โควต้ามากกว่า"}
               </span>
-              {lastModelUsed ? (
-                <span className="rounded-full border border-slate-700 bg-slate-900/70 px-2 py-0.5 text-[11px] text-slate-300">
-                  model: {lastModelUsed}
-                </span>
-              ) : null}
-              {loading ? (
-                <span className="inline-flex items-center gap-1 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 text-[11px] text-cyan-200">
-                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-cyan-300" />
-                  Streaming...
-                </span>
-              ) : null}
             </div>
             <div
-              className={`mt-2 ${showMobileTools ? "flex" : "hidden"} md:flex flex-wrap items-center gap-2 text-[11px] text-slate-300`}
+              className={`mt-2 ${showMobileTools ? "flex" : "hidden"} flex-wrap items-center gap-2 text-[11px] text-slate-300`}
             >
               <span className="text-slate-500">สไตล์ตอบ:</span>
               <select
@@ -1734,16 +1780,16 @@ export default function ChartSummaryConsultChatPage() {
               </select>
               <span className="text-slate-500">ระบบจะจำรายผู้ใช้ให้อัตโนมัติ</span>
             </div>
-            <p className={`${showMobileTools ? "block" : "hidden"} md:block mt-1 text-xs text-slate-400`}>
+            <p className={`${showMobileTools ? "block" : "hidden"} mt-1 text-xs text-slate-400`}>
               {assistantMode === "opd_demo"
                 ? "โหมด OPD รวม: ซักประวัติ/ตรวจร่างกาย/DDx/แผนรักษา + RDU โดยต้องเช็กข้อบ่งชี้ยาฆ่าเชื้อ และชื่อโรคให้ใส่ (ICD-10: ...)"
                 : "ถามโรค/แนวทางลง diagnosis และการบันทึกสรุป โดยอิงชุดความรู้ในระบบและอ้างอิงเอกสารมาตรฐานเป็น [R#] (ไม่ใช่คำแนะทางการรักษาแทนแพทย์)"}
             </p>
-            <p className={`${showMobileTools ? "block" : "hidden"} md:block mt-1 text-[11px] text-slate-500`}>
+            <p className={`${showMobileTools ? "block" : "hidden"} mt-1 text-[11px] text-slate-500`}>
               ทั้งสองโหมดคุยได้ทุกเรื่องในแชทเดียวกัน ต่างกันที่โครงคำตอบเริ่มต้น
             </p>
             <div
-              className={`mt-2 ${showMobileTools ? "flex" : "hidden"} md:flex flex-wrap items-center gap-2 text-[11px] text-slate-300`}
+              className={`mt-2 ${showMobileTools ? "flex" : "hidden"} flex-wrap items-center gap-2 text-[11px] text-slate-300`}
             >
               <span className="text-slate-500">ลัดไปหน้าอื่น:</span>
               <a href="/app" className="rounded-full border border-slate-700 px-2 py-0.5 hover:border-cyan-500/50 hover:text-cyan-200">
@@ -1757,9 +1803,9 @@ export default function ChartSummaryConsultChatPage() {
               </a>
             </div>
             {assistantMode === "coding" ? (
-              <p className={`${showMobileTools ? "block" : "hidden"} md:block mt-1 text-xs text-slate-500`}>
+              <p className={`${showMobileTools ? "block" : "hidden"} mt-1 text-xs text-slate-500`}>
                 [R#] คือเลขเอกสารอ้างอิง เช่น [R2] = เอกสารลำดับที่ 2 ในชุดมาตรฐานของระบบ
-              </p>
+                </p>
             ) : null}
           </div>
           <div

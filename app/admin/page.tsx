@@ -55,6 +55,15 @@ export default function AdminPage() {
             </p>
           </Link>
           <Link
+            href="/admin/trial-expired-policy"
+            className="block rounded-2xl border border-orange-500/20 bg-orange-500/5 p-5 text-slate-100 transition hover:bg-orange-500/10"
+          >
+            <span className="font-medium">Trial Expired Policy</span>
+            <p className="mt-1 text-sm text-slate-400">
+              ตั้งค่า limited mode หลัง trial หมดอายุ (scope แชท, OPD, summarize, และโมเดล)
+            </p>
+          </Link>
+          <Link
             href="/admin/review-queue"
             className="block rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-5 text-slate-100 transition hover:bg-emerald-500/10"
           >

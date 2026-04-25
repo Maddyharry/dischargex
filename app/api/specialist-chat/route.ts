@@ -19,6 +19,7 @@ import { estimateTokenBillingThbByModel, getPlanTokenBudgetThb, readUsageSummary
 import { extractIcd10Candidates, retrieveExternalEvidence } from "@/lib/reference-retriever";
 import { analyzeOpdCase } from "@/lib/chartAssist/analyzeCase";
 import { consumeRateLimit, getRequestIdentity } from "@/lib/request-rate-limit";
+import { getTrialExpiredPolicy } from "@/lib/trial-expired-policy";
 
 export const runtime = "nodejs";
 
@@ -302,6 +303,11 @@ function resolveLimitedIcdLookupModel() {
 function isIcdLookupOnlyQuery(message: string) {
   const q = message.toLowerCase();
   return /icd[\s\-]?10|รหัส|code|coding/.test(q) && /(วินิจฉัย|diagnosis|โรค|dx|icd)/.test(q);
+}
+
+function isIcdGuidanceQuery(message: string) {
+  const q = message.toLowerCase();
+  return /icd[\s\-]?10|รหัส|code|coding|guideline|แนวทาง|หลักเกณฑ์/.test(q);
 }
 
 function buildCaseSummaryPatternBlock(assistantMode: AssistantMode) {
@@ -1134,12 +1140,13 @@ export async function POST(req: NextRequest) {
       );
     }
     const normalizedPlan = normalizePlanId(dbUser?.plan ?? "trial");
+    const trialExpiredPolicy = await getTrialExpiredPolicy();
     const now = new Date();
     const periodStartDate = dbUser?.periodStartedAt ?? dbUser?.createdAt ?? now;
     const periodEnd = dbUser?.subscriptionExpiresAt ?? getPeriodBounds(periodStartDate, normalizedPlan).end;
     const isLimitedTrialExpired = normalizedPlan === "trial" && now.getTime() > periodEnd.getTime();
-    if (isLimitedTrialExpired) {
-      if (assistantMode === "opd_demo") {
+    if (isLimitedTrialExpired && trialExpiredPolicy.enabled) {
+      if (assistantMode === "opd_demo" && !trialExpiredPolicy.allowOpdDemo) {
         return jsonUtf8(
           {
             ok: false,
@@ -1150,7 +1157,11 @@ export async function POST(req: NextRequest) {
           402
         );
       }
-      if (!isIcdLookupOnlyQuery(messageForPrompt)) {
+      const allowedByScope =
+        trialExpiredPolicy.chatScope === "icd10_only"
+          ? isIcdLookupOnlyQuery(messageForPrompt)
+          : isIcdGuidanceQuery(messageForPrompt);
+      if (!allowedByScope) {
         return jsonUtf8(
           {
             ok: false,
@@ -1161,7 +1172,9 @@ export async function POST(req: NextRequest) {
           402
         );
       }
-      mode = "fast";
+      if (trialExpiredPolicy.forceFastModel) {
+        mode = "fast";
+      }
     }
     const stylePatchFromMessage = inferStylePatchFromMessage(userMessageTrimmed);
     const stylePatchFromRequest = body.styleProfile || {};
@@ -1248,7 +1261,7 @@ export async function POST(req: NextRequest) {
         : pickPromptVariant(userId || userMessageTrimmed.slice(0, 16) || (safeImages.length ? "image" : "u"));
     const intent = detectChatIntent(messageForModel, recentHistory);
     const systemBase = buildSystemPrompt(assistantMode, variant, styleProfile);
-    const system = isLimitedTrialExpired
+    const system = isLimitedTrialExpired && trialExpiredPolicy.enabled
       ? `${systemBase}
 TRIAL_EXPIRED_LIMITED_MODE:
 - Only answer ICD-10 lookup and short coding guidance.
@@ -1316,7 +1329,7 @@ TRIAL_EXPIRED_LIMITED_MODE:
     const userContentPayload = buildUserContentPayload(prompt, safeImages);
 
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    const modelRoute = isLimitedTrialExpired
+    const modelRoute = isLimitedTrialExpired && trialExpiredPolicy.enabled && trialExpiredPolicy.forceFastModel
       ? { preferred: resolveLimitedIcdLookupModel(), candidates: [resolveLimitedIcdLookupModel()] }
       : resolveSpecialistChatModel(mode);
     const preferredModel = modelRoute.preferred;
