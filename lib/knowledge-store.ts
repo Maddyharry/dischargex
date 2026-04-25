@@ -81,6 +81,102 @@ function pickTopBullets(text: string, limit = 5) {
     .slice(0, limit);
 }
 
+type TopicSectionKey =
+  | "diagnosisToWrite"
+  | "thinkWhen"
+  | "considerMore"
+  | "notYetDiagnosis"
+  | "investigations"
+  | "checklistMust"
+  | "checklistSupport"
+  | "checklistAvoid"
+  | "icd10"
+  | "refs";
+
+function detectSectionKey(input: string): TopicSectionKey | null {
+  const heading = input.trim().toLowerCase();
+  if (!heading) return null;
+  if (
+    /(วินิจฉัยที่ควรเขียน|diagnosis to write|diagnosis|เขียนวินิจฉัย|diagnoses?)/i.test(heading)
+  ) {
+    return "diagnosisToWrite";
+  }
+  if (/(คิดเมื่อ|think when|สิ่งที่ควรคิดเพิ่ม|พิจารณาเมื่อ)/i.test(heading)) {
+    return "thinkWhen";
+  }
+  if (/(consider more|สิ่งที่ควรพิจารณาเพิ่ม|ประเด็นเพิ่มเติม)/i.test(heading)) {
+    return "considerMore";
+  }
+  if (/(ยังไม่ควรวินิจฉัย|not yet diagnosis|ข้อควรระวัง|avoid|ไม่ควร)/i.test(heading)) {
+    return "notYetDiagnosis";
+  }
+  if (/(investigation|การตรวจ|ตรวจที่ควรพิจารณา|ส่งตรวจ)/i.test(heading)) {
+    return "investigations";
+  }
+  if (/(checklist|must have|ต้องมี)/i.test(heading)) {
+    return "checklistMust";
+  }
+  if (/(supporting|หลักฐานสนับสนุน|บริบทสนับสนุน)/i.test(heading)) {
+    return "checklistSupport";
+  }
+  if (/(avoid if|ห้ามใช้|หลีกเลี่ยง|ยังไม่ควรลง)/i.test(heading)) {
+    return "checklistAvoid";
+  }
+  if (/(icd-?10|รหัสโรค)/i.test(heading)) {
+    return "icd10";
+  }
+  if (/(ref|reference|เอกสารอ้างอิง|แหล่งอ้างอิง)/i.test(heading)) {
+    return "refs";
+  }
+  return null;
+}
+
+function parseSectionedDraft(text: string) {
+  const sections: Record<TopicSectionKey, string[]> = {
+    diagnosisToWrite: [],
+    thinkWhen: [],
+    considerMore: [],
+    notYetDiagnosis: [],
+    investigations: [],
+    checklistMust: [],
+    checklistSupport: [],
+    checklistAvoid: [],
+    icd10: [],
+    refs: [],
+  };
+  let active: TopicSectionKey | null = null;
+  const lines = text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+  for (const line of lines) {
+    const section = detectSectionKey(line.replace(/[:：\-]+$/, ""));
+    if (section) {
+      active = section;
+      continue;
+    }
+    const bullet = line.replace(/^[-•*\d\)\.]+\s*/, "").trim();
+    if (!bullet || bullet.length < 4) continue;
+    if (!active) continue;
+    sections[active].push(bullet);
+  }
+  return sections;
+}
+
+function extractIcd10FromText(text: string) {
+  const matches = text.match(/\b[A-Z][0-9]{1,2}(?:\.[0-9A-Z]{1,3})?\b/gi) || [];
+  return uniq(matches.map((x) => x.toUpperCase()));
+}
+
+function compactKnowledgeLines(lines: string[], max = 6) {
+  return uniq(
+    lines
+      .map((x) => x.trim())
+      .filter(Boolean)
+      .filter((x) => x.length <= 260)
+  ).slice(0, max);
+}
+
 function summarizeDraft(entry: PendingKnowledgeEntry) {
   const bullets = pickTopBullets(entry.draftSummary, 4);
   if (bullets.length) return bullets.join("\n");
@@ -89,6 +185,47 @@ function summarizeDraft(entry: PendingKnowledgeEntry) {
 
 function mergeUniqueLimited(base: string[], incoming: string[], max = 20) {
   return uniq([...base, ...incoming.map((x) => x.trim()).filter(Boolean)]).slice(0, max);
+}
+
+function normalizeIcdCode(raw: string) {
+  const cleaned = raw.trim().toUpperCase();
+  if (!cleaned) return "";
+  const firstToken = cleaned.split(/\s+/)[0] ?? "";
+  return firstToken.replace(/[(),]/g, "");
+}
+
+function extractIcd10FromLine(text: string) {
+  const matches = text.match(/\b[A-Z][0-9]{1,2}(?:\.[0-9A-Z]{1,3}|-\.)?\b/gi) || [];
+  return uniq(matches.map((x) => normalizeIcdCode(x)).filter(Boolean));
+}
+
+function ensureDiagnosisLineHasIcd10(line: string, fallbackCode: string | null) {
+  const raw = line.trim();
+  if (!raw) return "";
+  const hasIcdTag = /\(.*icd-?10.*\)/i.test(raw);
+  if (hasIcdTag) return raw;
+  const inLineCodes = extractIcd10FromLine(raw);
+  const chosenCodes = inLineCodes.length ? inLineCodes : fallbackCode ? [fallbackCode] : [];
+  const cleanName = raw
+    .replace(/\([^)]*\)/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!cleanName) return raw;
+  if (chosenCodes.length === 0) {
+    return `${cleanName} (ICD-10: ยังไม่มีข้อมูลอ้างอิง)`;
+  }
+  return `${cleanName} (ICD-10: ${chosenCodes.join(", ")})`;
+}
+
+function normalizeDiagnosisToWrite(lines: string[], icd10List: string[]) {
+  const knownTopicCodes = uniq(icd10List.map((x) => normalizeIcdCode(x)).filter(Boolean));
+  const singleReliableCode = knownTopicCodes.length === 1 ? knownTopicCodes[0] : null;
+  return uniq(
+    lines
+      .map((line) => ensureDiagnosisLineHasIcd10(line, singleReliableCode))
+      .map((x) => x.trim())
+      .filter(Boolean)
+  ).slice(0, 20);
 }
 
 function isLowSignalQuestion(question: string) {
@@ -150,17 +287,57 @@ function parseRefs(text: string) {
 }
 
 function parseDraftToDisease(entry: PendingKnowledgeEntry): DiseaseSummary {
-  const lines = entry.draftSummary
-    .split("\n")
-    .map((s) => s.trim())
-    .filter(Boolean);
-  const bullets = lines
-    .filter((s) => s.startsWith("-") || s.startsWith("•"))
-    .map((s) => s.replace(/^[-•]\s*/, "").trim())
-    .filter(Boolean);
+  const sectioned = parseSectionedDraft(entry.draftSummary);
+  const lines = compactKnowledgeLines(
+    entry.draftSummary
+      .split("\n")
+      .map((s) => s.trim())
+      .filter(Boolean)
+  , 20);
+  const bullets = compactKnowledgeLines(
+    lines
+      .filter((s) => s.startsWith("-") || s.startsWith("•") || /^\d+[\.\)]\s/.test(s))
+      .map((s) => s.replace(/^[-•\d\)\.]+\s*/, "").trim()),
+    10
+  );
   const defaultBullet = `ตรวจทานเพิ่มเติมจากคำถาม: ${entry.question}`;
-  const diagnosisToWrite = bullets.slice(0, 4);
-  const thinkWhen = bullets.slice(4, 8);
+  const diagnosisToWrite = compactKnowledgeLines(
+    sectioned.diagnosisToWrite.length ? sectioned.diagnosisToWrite : bullets.slice(0, 4),
+    6
+  );
+  const thinkWhen = compactKnowledgeLines(
+    sectioned.thinkWhen.length ? sectioned.thinkWhen : bullets.slice(4, 8),
+    6
+  );
+  const considerMore = compactKnowledgeLines(
+    sectioned.considerMore.length ? sectioned.considerMore : [`สรุปจากคำถามผู้ใช้: ${entry.question.slice(0, 180)}`],
+    6
+  );
+  const notYetDiagnosis = compactKnowledgeLines(
+    sectioned.notYetDiagnosis.length
+      ? sectioned.notYetDiagnosis
+      : ["ยังไม่ควรลงวินิจฉัยแบบฟันธง หากยังไม่มีหลักฐานจากเอกสารมาตรฐานที่เพียงพอ"],
+    5
+  );
+  const investigations = compactKnowledgeLines(
+    sectioned.investigations.length
+      ? sectioned.investigations
+      : ["ตรวจสอบหลักฐานจากเวชระเบียนและ guideline ต้นทางก่อนลงรหัส"],
+    6
+  );
+  const icd10 = compactKnowledgeLines(
+    sectioned.icd10.length
+      ? sectioned.icd10
+      : [...(entry.icd10Candidates || []), ...extractIcd10FromText(entry.draftSummary)],
+    12
+  );
+  const refs = compactKnowledgeLines(
+    sectioned.refs.length ? sectioned.refs : entry.refs,
+    12
+  );
+  const checklistMust = compactKnowledgeLines(sectioned.checklistMust, 6);
+  const checklistSupport = compactKnowledgeLines(sectioned.checklistSupport, 6);
+  const checklistAvoid = compactKnowledgeLines(sectioned.checklistAvoid, 6);
 
   return {
     slug: normalizeSlug(entry.suggestedTitle || entry.question),
@@ -171,26 +348,62 @@ function parseDraftToDisease(entry: PendingKnowledgeEntry): DiseaseSummary {
     aliases: [],
     diagnosisToWrite: diagnosisToWrite.length ? diagnosisToWrite : [defaultBullet],
     thinkWhen: thinkWhen.length ? thinkWhen : [defaultBullet],
-    considerMore: [`สรุปจากคำถามผู้ใช้: ${entry.question.slice(0, 180)}`],
-    notYetDiagnosis: ["ยังไม่ควรลงวินิจฉัยแบบฟันธง หากยังไม่มีหลักฐานจากเอกสารมาตรฐานที่เพียงพอ"],
-    investigations: ["ตรวจสอบหลักฐานจากเวชระเบียนและ guideline ต้นทางก่อนลงรหัส"],
-    icd10: [],
+    considerMore,
+    notYetDiagnosis,
+    investigations,
+    icd10,
     seeAlso: [],
-    refs: entry.refs,
+    refs,
+    chartChecklist:
+      checklistMust.length || checklistSupport.length || checklistAvoid.length
+        ? {
+            mustHave: checklistMust.length ? checklistMust : ["มีหลักฐานเวชระเบียนรองรับ diagnosis"],
+            supporting: checklistSupport.length ? checklistSupport : undefined,
+            avoidIf: checklistAvoid.length
+              ? checklistAvoid
+              : ["ยังไม่มีหลักฐานสนับสนุนเพียงพอสำหรับการลง diagnosis แบบฟันธง"],
+          }
+        : undefined,
   };
 }
 
 function parseDraftToSupplement(entry: PendingKnowledgeEntry): Omit<KnowledgeSupplement, "updatedAt"> {
-  const bullets = pickTopBullets(entry.draftSummary, 8);
+  const sectioned = parseSectionedDraft(entry.draftSummary);
+  const bullets = compactKnowledgeLines(pickTopBullets(entry.draftSummary, 8), 8);
   const fallback = `เติมความรู้จากคำถามผู้ใช้: ${entry.question}`.slice(0, 220);
   const keyPoints = bullets.length ? bullets : [fallback];
+  const diagnosisToWrite = compactKnowledgeLines(
+    sectioned.diagnosisToWrite.length ? sectioned.diagnosisToWrite : keyPoints.slice(0, 4),
+    8
+  );
+  const thinkWhen = compactKnowledgeLines(
+    sectioned.thinkWhen.length ? sectioned.thinkWhen : keyPoints.slice(4, 8).length ? keyPoints.slice(4, 8) : keyPoints.slice(0, 2),
+    8
+  );
+  const considerMore = compactKnowledgeLines(
+    sectioned.considerMore.length ? sectioned.considerMore : [`ประเด็นเพิ่มเติม: ${entry.question.slice(0, 200)}`],
+    8
+  );
+  const investigations = compactKnowledgeLines(
+    sectioned.investigations.length
+      ? sectioned.investigations
+      : keyPoints.filter((x) => /(ตรวจ|cbc|coag|renal|bun|creatin|x-ray|ct|mri|lab|investigation)/i.test(x)).slice(0, 4),
+    8
+  );
+  const icd10 = compactKnowledgeLines(
+    sectioned.icd10.length
+      ? sectioned.icd10
+      : [...(entry.icd10Candidates || []), ...extractIcd10FromText(entry.draftSummary)],
+    12
+  );
+  const refs = compactKnowledgeLines(sectioned.refs.length ? sectioned.refs : entry.refs || [], 20);
   return {
-    diagnosisToWrite: keyPoints.slice(0, 4),
-    thinkWhen: keyPoints.slice(4, 8).length ? keyPoints.slice(4, 8) : keyPoints.slice(0, 2),
-    considerMore: [`ประเด็นเพิ่มเติม: ${entry.question.slice(0, 200)}`],
-    investigations: keyPoints.filter((x) => /(ตรวจ|cbc|coag|renal|bun|creatin|x-ray|ct|mri|lab|investigation)/i.test(x)).slice(0, 4),
-    icd10: (entry.icd10Candidates || []).slice(0, 8),
-    refs: entry.refs || [],
+    diagnosisToWrite,
+    thinkWhen,
+    considerMore,
+    investigations,
+    icd10,
+    refs,
   };
 }
 
@@ -474,13 +687,17 @@ export async function getMergedKnowledge(includeDeprecated = false): Promise<Dis
   const merged = [...dynamic, ...DISEASE_SUMMARIES].map((item) => {
     const ov = overrides[item.slug] || {};
     const supplement = supplements[item.slug];
+    const mergedIcd10 = mergeUniqueLimited(item.icd10 || [], supplement?.icd10 || [], 20);
     return {
       ...item,
-      diagnosisToWrite: mergeUniqueLimited(item.diagnosisToWrite || [], supplement?.diagnosisToWrite || [], 20),
+      diagnosisToWrite: normalizeDiagnosisToWrite(
+        mergeUniqueLimited(item.diagnosisToWrite || [], supplement?.diagnosisToWrite || [], 20),
+        mergedIcd10
+      ),
       thinkWhen: mergeUniqueLimited(item.thinkWhen || [], supplement?.thinkWhen || [], 20),
       considerMore: mergeUniqueLimited(item.considerMore || [], supplement?.considerMore || [], 20),
       investigations: mergeUniqueLimited(item.investigations || [], supplement?.investigations || [], 20),
-      icd10: mergeUniqueLimited(item.icd10 || [], supplement?.icd10 || [], 20),
+      icd10: mergedIcd10,
       refs: mergeUniqueLimited(item.refs || [], supplement?.refs || [], 20),
       deprecated: ov.deprecated ?? item.deprecated ?? false,
       version: ov.version ?? item.version ?? "2026.04",

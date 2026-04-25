@@ -152,30 +152,35 @@ function formatIcdDisplay(disease: DiseaseSummary): string[] {
   const formatted: string[] = [];
 
   for (const entry of disease.diagnosisToWrite) {
-    const matched = entry.match(/^(.*?)\s*\(([^)]+)\)/);
+    const withTag = entry.match(/^(.*?)\s*\((?:ICD-10:\s*)?([^)]+)\)/i);
+    const legacy = entry.match(/^(.*?)\s*\(([^)]+)\)/);
+    const matched = withTag ?? legacy;
     if (!matched) continue;
 
     const diagnosisName = matched[1].trim();
     const normalizedCodes = matched[2]
-      .split(",")
+      .split(/[;,]/)
       .map((c) => normalizeIcdCode(c))
       .filter(Boolean);
 
     const availableCodes = normalizedCodes.filter((code) => codeToRawDisplay.has(code));
-    if (availableCodes.length === 0) continue;
+    if (availableCodes.length === 0) {
+      formatted.push(`${diagnosisName} (ICD-10: ยังไม่มีข้อมูลอ้างอิง)`);
+      continue;
+    }
 
     for (const code of availableCodes) {
       usedCodes.add(code);
     }
 
     const codeDisplay = availableCodes.map((code) => codeToRawDisplay.get(code) ?? code);
-    formatted.push(`${diagnosisName} (${codeDisplay.join(", ")})`);
+    formatted.push(`${diagnosisName} (ICD-10: ${codeDisplay.join(", ")})`);
   }
 
   for (const rawItem of disease.icd10) {
     const code = normalizeIcdCode(rawItem);
     if (!code || usedCodes.has(code)) continue;
-    formatted.push(rawItem);
+    formatted.push(`รหัสที่เกี่ยวข้อง (ICD-10: ${rawItem})`);
   }
 
   return formatted;
