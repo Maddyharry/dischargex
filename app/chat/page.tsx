@@ -81,16 +81,27 @@ function isSummaryCommandText(text: string) {
   return /ช่วยสรุปเป็นเฉพาะกลุ่ม diagnosis|ช่วยสรุปเคสแบบ opd ไทย|ช่วยสรุปแบบ soap/i.test(text);
 }
 
+function isSummaryLikeAssistantText(text: string) {
+  return /ช่วยสรุปเคสแบบ opd ไทย|ช่วยสรุปแบบ soap|mandatory_summary_output_template|thai opd case summary|##\s*soap/i.test(
+    text
+  );
+}
+
 function buildSummaryContextFromThread(messages: ChatMessage[]) {
   const relevant = messages.filter((m) => !isSummaryCommandText(m.content));
   const userFirst = relevant
     .filter((m) => m.role === "user")
     .slice(-80)
     .map((m) => `ผู้ใช้: ${m.content}`);
+  const assistantSupport = relevant
+    .filter((m) => m.role === "assistant" && !isSummaryLikeAssistantText(m.content))
+    .slice(-8)
+    .map((m) => `ผู้ช่วย: ${m.content.slice(0, 1200)}`);
   const fallback = relevant
     .slice(-36)
     .map((m) => `${m.role === "user" ? "ผู้ใช้" : "ผู้ช่วย"}: ${m.content}`);
-  const primaryLines = userFirst.length ? userFirst : fallback;
+  const mergedPrimary = [...userFirst, ...assistantSupport].slice(-96);
+  const primaryLines = mergedPrimary.length ? mergedPrimary : fallback;
   return primaryLines.join("\n").slice(-9000);
 }
 
@@ -730,6 +741,7 @@ export default function ChartSummaryConsultChatPage() {
     let buffer = "";
     let streamDone = false;
     let status: "done" | "error" = "error";
+    let gotAnyEvent = false;
     while (!streamDone) {
       const { value, done } = await reader.read();
       if (done) break;
@@ -743,7 +755,7 @@ export default function ChartSummaryConsultChatPage() {
         if (!dataLine) continue;
         const payloadRaw = dataLine.slice(6).trim();
         if (!payloadRaw) continue;
-        const payload = JSON.parse(payloadRaw) as {
+        let payload: {
           type?: "delta" | "done" | "error";
           delta?: string;
           message?: string;
@@ -752,6 +764,20 @@ export default function ChartSummaryConsultChatPage() {
           variant?: string;
           model?: string;
         };
+        try {
+          payload = JSON.parse(payloadRaw) as {
+            type?: "delta" | "done" | "error";
+            delta?: string;
+            message?: string;
+            answerSource?: "internal" | "mixed" | "external";
+            usage?: TokenUsageMeta;
+            variant?: string;
+            model?: string;
+          };
+        } catch {
+          continue;
+        }
+        gotAnyEvent = true;
         if (payload.type === "delta") {
           appendAssistantChunk(threadId, payload.delta || "");
         } else if (payload.type === "done") {
@@ -764,6 +790,44 @@ export default function ChartSummaryConsultChatPage() {
           status = "error";
           streamDone = true;
         }
+      }
+    }
+    const tail = buffer.trim();
+    if (!streamDone && tail.startsWith("data:")) {
+      const payloadRaw = tail.replace(/^data:\s*/, "").trim();
+      if (payloadRaw) {
+        try {
+          const payload = JSON.parse(payloadRaw) as {
+            type?: "delta" | "done" | "error";
+            delta?: string;
+            message?: string;
+            answerSource?: "internal" | "mixed" | "external";
+            usage?: TokenUsageMeta;
+            variant?: string;
+            model?: string;
+          };
+          gotAnyEvent = true;
+          if (payload.type === "delta") {
+            appendAssistantChunk(threadId, payload.delta || "");
+          } else if (payload.type === "done") {
+            finalizeAssistantMessage(threadId, payload);
+            if (payload.model) setLastModelUsed(payload.model);
+            status = "done";
+            streamDone = true;
+          } else if (payload.type === "error") {
+            setAssistantError(threadId, payload.message || "เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง");
+            status = "error";
+            streamDone = true;
+          }
+        } catch {
+          // ignore malformed tail payload
+        }
+      }
+    }
+    if (status === "error" && !streamDone) {
+      const current = getLastAssistantContent(threadId).trim();
+      if (!current) {
+        setAssistantError(threadId, gotAnyEvent ? "สตรีมขาดช่วง กรุณากด Retry stream" : "ขออภัยครับ ตอบกลับไม่สำเร็จ");
       }
     }
     return status;

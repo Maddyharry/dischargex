@@ -668,6 +668,25 @@ function enforceIcd10SuffixPerLine(raw: string) {
     .join("\n");
 }
 
+function inferDiagnosisLinesFromContext(sourceText: string) {
+  const lines = String(sourceText || "")
+    .replace(/\r/g, "\n")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => line.replace(/^[-*•]\s*/, "").trim())
+    .map((line) => line.replace(/\*\*/g, "").trim())
+    .filter((line) => /\(ICD-10:\s*[^)]+\)/i.test(line))
+    .slice(0, 8);
+  if (!lines.length) return { diagnosis: "ไม่พบข้อมูล", differential: "ไม่พบข้อมูล" };
+  const diagnosis = lines.slice(0, 3).join("\n");
+  const differential = lines.slice(1, 4).join("\n") || lines[0];
+  return {
+    diagnosis: diagnosis || "ไม่พบข้อมูล",
+    differential: differential || "ไม่พบข้อมูล",
+  };
+}
+
 function toThaiClinicalText(text: string) {
   return text
     .replace(/\blung crepitation\b/gi, "เสียงครืดคราดที่ปอด")
@@ -727,10 +746,10 @@ function normalizeSummaryTemplateOutput(reply: string, assistantMode: AssistantM
   const phi = stripIcd10Suffix(extractSectionValue(reply, ["PHI/PMH", "PHI", "PMH"])) || "ไม่พบข้อมูล";
   const pe = normalizePeToMedicalEnglish(extractSectionValue(reply, ["PE"]));
   const invRaw = stripIcd10Suffix(extractSectionValue(reply, ["Investigation"])) || "ไม่พบข้อมูล";
-  const dx = enforceIcd10SuffixPerLine(
+  let dx = enforceIcd10SuffixPerLine(
     ensureDiagnosisLines(extractSectionValue(reply, ["Diagnosis", "Assessment/Dx", "Assessment"]))
   );
-  const ddx = enforceIcd10SuffixPerLine(
+  let ddx = enforceIcd10SuffixPerLine(
     ensureDiagnosisLines(extractSectionValue(reply, ["Differential diagnosis", "DDx", "Differential"]))
   );
   const treatment = stripIcd10Suffix(extractSectionValue(reply, ["Treatment"])) || "ไม่พบข้อมูล";
@@ -758,6 +777,15 @@ function normalizeSummaryTemplateOutput(reply: string, assistantMode: AssistantM
   const plan = mergePlanWithSuggestions(basePlan, invSplit.suggested);
   const p = stripIcd10Suffix(extractSectionValue(reply, ["P"])) || basePlan || "ไม่พบข้อมูล";
   const patientLead = buildPatientLeadLine([sourceContext, reply].filter(Boolean).join("\n"), ud);
+  if (dx === "ไม่พบข้อมูล" || ddx === "ไม่พบข้อมูล") {
+    const inferred = inferDiagnosisLinesFromContext(sourceContext);
+    if (dx === "ไม่พบข้อมูล" && inferred.diagnosis !== "ไม่พบข้อมูล") {
+      dx = inferred.diagnosis;
+    }
+    if (ddx === "ไม่พบข้อมูล" && inferred.differential !== "ไม่พบข้อมูล") {
+      ddx = inferred.differential;
+    }
+  }
 
   if (intent === "opd_case") {
     if (missingDurationQuestion) {
@@ -913,7 +941,9 @@ function normalizeOpenAiError(err: unknown) {
 
 function isMedicationOrDoseQuery(text: string) {
   const q = text.toLowerCase();
-  return /ขนาดยา|โดส|ยา|ยาฆ่าเชื้อ|antibiotic|dose|dosing|mg|bid|tid|qid|q\d+h|po|iv/.test(q);
+  return /ขนาดยา|โดส|ยา|ยาฆ่าเชื้อ|antibiotic|dose|dosing|mg|bid|tid|qid|q\d+h|po|iv|ผลข้างเคียง|side[\s\-]?effect|drug[\s\-]?interaction|interaction|ตีกัน|คนท้อง|pregnan|lactat|ให้นม/.test(
+    q
+  );
 }
 
 function hasMedicationDosePattern(text: string) {
@@ -921,6 +951,46 @@ function hasMedicationDosePattern(text: string) {
   return /(\d+(\.\d+)?\s?(mg|mcg|g|ml))(\/(kg|day|dose))?|bid|tid|qid|q\d+h|once daily|วันละ\s*\d+\s*ครั้ง|ทุก\s*\d+\s*ชั่วโมง/.test(
     t
   );
+}
+
+function isMedicationSafetyQuery(text: string) {
+  const q = text.toLowerCase();
+  return /ยา|medication|drug|antibiotic|ผลข้างเคียง|side[\s\-]?effect|adverse|interaction|ตีกัน|contraind|pregnan|คนท้อง|ให้นม|lactat/.test(
+    q
+  );
+}
+
+function isPregnancyMedicationQuery(text: string) {
+  const q = text.toLowerCase();
+  return /pregnan|คนท้อง|ตั้งครรภ์|trimester|ให้นม|lactat/.test(q);
+}
+
+function buildMedicationSafetyBlock(message: string, sourceContext: string) {
+  if (!isMedicationSafetyQuery(`${message}\n${sourceContext}`)) return "";
+  const includePregnancyGuard = isPregnancyMedicationQuery(`${message}\n${sourceContext}`);
+  return [
+    "MEDICATION_SAFETY_MODE:",
+    "- If user asks about drug safety, answer with practical medication-safety structure.",
+    "- Keep concise, clinically usable, and in Thai.",
+    "- Use sections in this order:",
+    "  1) Indication fit for this case",
+    "  2) Common adverse effects",
+    "  3) Serious red-flag adverse effects",
+    "  4) Major drug-drug interactions",
+    "  5) Contraindications / cautions",
+    "  6) Monitoring and follow-up",
+    "  7) Short actionable recommendation",
+    "- If medication history is incomplete, ask focused clarifying questions before firm recommendation.",
+    "- Never claim absolute safety; include uncertainty and what must be verified locally.",
+    ...(includePregnancyGuard
+      ? [
+          "- Pregnancy/lactation guardrail:",
+          "  - Explicitly state this is preliminary support and must be verified with institutional formulary/obstetric guidance.",
+          "  - If trimester or lactation status is unknown, ask to confirm before final recommendation.",
+          "  - Mention maternal-fetal risk balance and safer alternatives when possible.",
+        ]
+      : []),
+  ].join("\n");
 }
 
 function isToxicologyQuestion(text: string) {
@@ -1279,6 +1349,14 @@ TRIAL_EXPIRED_LIMITED_MODE:
     const summarySourceContext = buildFocusedSourceContext(rawHistory, messageForModel);
     const opdRuleContextBlock =
       assistantMode === "opd_demo" ? buildOpdRuleContextBlock(summarySourceContext || messageForModel) : "";
+    const medicationSafetyBlock = buildMedicationSafetyBlock(messageForModel, summarySourceContext);
+    const maxOutputTokens = isMedicationSafetyQuery(`${messageForModel}\n${summarySourceContext}`)
+      ? mode === "fast"
+        ? 700
+        : 980
+      : mode === "fast"
+      ? 520
+      : 760;
 
     const prompt = [
       "KNOWLEDGE_SUMMARY (primary quick guidance):",
@@ -1294,6 +1372,7 @@ TRIAL_EXPIRED_LIMITED_MODE:
       JSON.stringify(OPD_RDU_COMMON_ICD10),
       "",
       ...(opdRuleContextBlock ? [opdRuleContextBlock, ""] : []),
+      ...(medicationSafetyBlock ? [medicationSafetyBlock, ""] : []),
       ...(caseSummaryPattern ? [caseSummaryPattern, ""] : []),
       ...(criticalScenarioBlock ? [criticalScenarioBlock, ""] : []),
       ...(mandatorySummaryTemplate ? [mandatorySummaryTemplate, ""] : []),
@@ -1350,6 +1429,7 @@ TRIAL_EXPIRED_LIMITED_MODE:
             try {
               let model = preferredModel;
               let streamReply = "";
+              let streamedAnyDelta = false;
               let usage = estimateTokenBillingThbByModel(
                 { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
                 preferredModel
@@ -1374,12 +1454,13 @@ TRIAL_EXPIRED_LIMITED_MODE:
                       { role: "system", content: system },
                       { role: "user", content: userContentPayload },
                     ],
-                    max_output_tokens: mode === "fast" ? 520 : 760,
+                    max_output_tokens: maxOutputTokens,
                   });
                   model = candidate;
                   for await (const event of responseStream) {
                     if (event.type === "response.output_text.delta" && event.delta) {
                       streamReply += event.delta;
+                      streamedAnyDelta = true;
                       if (!forceSummaryTemplate) {
                         controller.enqueue(encoder.encode(ssePack({ type: "delta", delta: event.delta })));
                       }
@@ -1419,7 +1500,7 @@ TRIAL_EXPIRED_LIMITED_MODE:
                 externalEvidenceCount: external.evidences.length,
                 reply,
               });
-              if (forceSummaryTemplate) {
+              if (forceSummaryTemplate || !streamedAnyDelta) {
                 controller.enqueue(
                   encoder.encode(
                     ssePack({
@@ -1429,116 +1510,6 @@ TRIAL_EXPIRED_LIMITED_MODE:
                   )
                 );
               }
-              if (!ranked.hasStrongMatch) {
-                await queuePendingKnowledgeEntry(messageForModel, reply, {
-                  externalSources: external.evidences.map((e) => ({
-                    title: e.title,
-                    url: e.sourceUrl,
-                    sourceName: e.sourceName,
-                  })),
-                  icd10Candidates: extractIcd10Candidates(reply),
-                });
-              }
-
-              if (userId) {
-                try {
-                  await prisma.tokenUsageLedger.create({
-                    data: {
-                      userId,
-                      source: "specialist_chat",
-                      model,
-                      inputTokens: usage.inputTokens,
-                      outputTokens: usage.outputTokens,
-                      totalTokens: usage.totalTokens,
-                      estimatedCostThb: usage.estimatedCostThb,
-                      payload: JSON.stringify({
-                        promptVariant: variant,
-                        assistantMode,
-                        intent,
-                        summaryIntent,
-                        chatMode: mode,
-                        modelRoute: {
-                          preferred: preferredModel,
-                          candidates: modelCandidates,
-                        },
-                      }),
-                    },
-                  });
-                } catch (error) {
-                  if (isMissingTableError(error)) {
-                    console.warn("specialist-chat: TokenUsageLedger table not ready; skip usage log");
-                  } else {
-                    throw error;
-                  }
-                }
-
-                await prisma.feedback.createMany({
-                  data: [
-                    {
-                      userId,
-                      type: "chat",
-                      message: logUserMessage,
-                      payload: JSON.stringify({
-                        source: "specialist_chat",
-                        role: "user",
-                        promptVariant: variant,
-                        assistantMode,
-                        intent,
-                        summaryIntent,
-                        deidentifiedBeforeModel: true,
-                      }),
-                      category: "other",
-                      shortSummary: logUserMessage.slice(0, 180),
-                      status: "pending",
-                    },
-                    {
-                      userId,
-                      type: "chat",
-                      message: reply,
-                      payload: JSON.stringify({
-                        source: "specialist_chat",
-                        role: "assistant",
-                        promptVariant: variant,
-                        assistantMode,
-                        intent,
-                        summaryIntent,
-                        answerSource,
-                        isBot: true,
-                        model,
-                        tokenUsage: usage,
-                      }),
-                      category: "other",
-                      shortSummary: reply.slice(0, 180),
-                      status: "pending",
-                    },
-                  ],
-                });
-              }
-
-              await trackTelemetry({
-                userId,
-                source: "chat",
-                event: "specialist_chat_reply",
-                payload: {
-                  inputLength: messageForPrompt.length,
-                  historyCount: historyForPrompt.length,
-                  usedConversationSummary: Boolean(conversationSummary),
-                  intent,
-                  chatMode: mode,
-                  assistantMode,
-                  summaryIntent,
-                  plan: normalizedPlan,
-                  promptVariant: variant,
-                  model,
-                  modelRoute,
-                  tokenUsage: usage,
-                  answerSource,
-                  baseAnswerSource,
-                  forcedExternalEvidence: forceExternalEvidence,
-                  hadImagesOnly: Boolean(safeImages.length && !userMessageTrimmed),
-                },
-              });
-
               controller.enqueue(
                 encoder.encode(
                   ssePack({
@@ -1551,6 +1522,123 @@ TRIAL_EXPIRED_LIMITED_MODE:
                   })
                 )
               );
+
+              // Do persistence/telemetry after signaling done to avoid UI getting stuck in streaming state.
+              void (async () => {
+                try {
+                  if (!ranked.hasStrongMatch) {
+                    await queuePendingKnowledgeEntry(messageForModel, reply, {
+                      externalSources: external.evidences.map((e) => ({
+                        title: e.title,
+                        url: e.sourceUrl,
+                        sourceName: e.sourceName,
+                      })),
+                      icd10Candidates: extractIcd10Candidates(reply),
+                    });
+                  }
+
+                  if (userId) {
+                    try {
+                      await prisma.tokenUsageLedger.create({
+                        data: {
+                          userId,
+                          source: "specialist_chat",
+                          model,
+                          inputTokens: usage.inputTokens,
+                          outputTokens: usage.outputTokens,
+                          totalTokens: usage.totalTokens,
+                          estimatedCostThb: usage.estimatedCostThb,
+                          payload: JSON.stringify({
+                            promptVariant: variant,
+                            assistantMode,
+                            intent,
+                            summaryIntent,
+                            chatMode: mode,
+                            modelRoute: {
+                              preferred: preferredModel,
+                              candidates: modelCandidates,
+                            },
+                          }),
+                        },
+                      });
+                    } catch (error) {
+                      if (isMissingTableError(error)) {
+                        console.warn("specialist-chat: TokenUsageLedger table not ready; skip usage log");
+                      } else {
+                        throw error;
+                      }
+                    }
+
+                    await prisma.feedback.createMany({
+                      data: [
+                        {
+                          userId,
+                          type: "chat",
+                          message: logUserMessage,
+                          payload: JSON.stringify({
+                            source: "specialist_chat",
+                            role: "user",
+                            promptVariant: variant,
+                            assistantMode,
+                            intent,
+                            summaryIntent,
+                            deidentifiedBeforeModel: true,
+                          }),
+                          category: "other",
+                          shortSummary: logUserMessage.slice(0, 180),
+                          status: "pending",
+                        },
+                        {
+                          userId,
+                          type: "chat",
+                          message: reply,
+                          payload: JSON.stringify({
+                            source: "specialist_chat",
+                            role: "assistant",
+                            promptVariant: variant,
+                            assistantMode,
+                            intent,
+                            summaryIntent,
+                            answerSource,
+                            isBot: true,
+                            model,
+                            tokenUsage: usage,
+                          }),
+                          category: "other",
+                          shortSummary: reply.slice(0, 180),
+                          status: "pending",
+                        },
+                      ],
+                    });
+                  }
+
+                  await trackTelemetry({
+                    userId,
+                    source: "chat",
+                    event: "specialist_chat_reply",
+                    payload: {
+                      inputLength: messageForPrompt.length,
+                      historyCount: historyForPrompt.length,
+                      usedConversationSummary: Boolean(conversationSummary),
+                      intent,
+                      chatMode: mode,
+                      assistantMode,
+                      summaryIntent,
+                      plan: normalizedPlan,
+                      promptVariant: variant,
+                      model,
+                      modelRoute,
+                      tokenUsage: usage,
+                      answerSource,
+                      baseAnswerSource,
+                      forcedExternalEvidence: forceExternalEvidence,
+                      hadImagesOnly: Boolean(safeImages.length && !userMessageTrimmed),
+                    },
+                  });
+                } catch (sideEffectErr) {
+                  console.error("specialist-chat side-effect error:", sideEffectErr);
+                }
+              })();
             } catch (err) {
               console.error("specialist-chat stream error:", err);
               controller.enqueue(
@@ -1590,7 +1678,7 @@ TRIAL_EXPIRED_LIMITED_MODE:
             { role: "system", content: system },
             { role: "user", content: userContentPayload },
           ],
-          max_output_tokens: mode === "fast" ? 520 : 760,
+          max_output_tokens: maxOutputTokens,
         });
         model = candidate;
         break;
