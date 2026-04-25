@@ -91,9 +91,30 @@ export async function GET() {
   const baseUsed = usedBaseInCycle._sum.baseCreditsUsed ?? 0;
   const baseRemaining = Math.max(0, plan.creditsPerCycle - baseUsed);
   const remaining = isActive ? baseRemaining + extraCredits : 0;
+
+  const dailyApprox = getDailyApproxLimit(normalizedPlanId);
+  const cycleSpanMs = Math.max(86_400_000, cycleWindowEnd.getTime() - cycleStart.getTime());
+  const approxCycleDays = Math.max(1, Math.ceil(cycleSpanMs / 86_400_000));
+  const approxMaxChatsInCycle = Math.max(1, dailyApprox.chatPerDay * approxCycleDays);
+  const chatTurnsInCycle =
+    dbUser?.id != null
+      ? await prisma.feedback.count({
+          where: {
+            userId: dbUser.id,
+            type: "telemetry",
+            message: "chat:specialist_chat_reply",
+            createdAt: { gte: cycleStart, lte: cycleWindowEnd },
+          },
+        })
+      : 0;
+  const virtualChatBaseCredits = Math.min(
+    Math.max(0, plan.creditsPerCycle - baseUsed),
+    Math.round((chatTurnsInCycle / approxMaxChatsInCycle) * plan.creditsPerCycle)
+  );
+  const combinedBaseUsageForPercent = Math.min(plan.creditsPerCycle, baseUsed + virtualChatBaseCredits);
   const baseUsagePercent =
     plan.creditsPerCycle > 0
-      ? Math.max(0, Math.min(100, Math.round((baseUsed / plan.creditsPerCycle) * 100)))
+      ? Math.max(0, Math.min(100, Math.round((combinedBaseUsageForPercent / plan.creditsPerCycle) * 100)))
       : 0;
   const tokenSpendInCycle =
     dbUser?.id != null
@@ -117,7 +138,6 @@ export async function GET() {
   const dayStart = new Date(now);
   dayStart.setHours(0, 0, 0, 0);
   const nextDailyResetAt = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
-  const dailyApprox = getDailyApproxLimit(normalizedPlanId);
   const chatUsedToday =
     dbUser?.id != null
       ? await prisma.feedback.count({
