@@ -51,6 +51,18 @@ function splitChatReferenceTail(content: string): { main: string; tail: string |
   const tail = content.slice(best).trim();
   return { main, tail: tail || null };
 }
+
+function getExternalReferenceUrls(content: string): string[] {
+  const { tail } = splitChatReferenceTail(content);
+  if (!tail) return [];
+  const urls = new Set<string>();
+  for (const line of tail.split(/\r?\n/)) {
+    for (const url of extractUrls(line)) {
+      urls.add(url);
+    }
+  }
+  return [...urls];
+}
 type ChatMode = "fast" | "precise";
 type AssistantMode = "coding" | "opd_demo";
 type StreamDonePayload = {
@@ -234,7 +246,7 @@ function renderInlineCitations(line: string) {
   });
 }
 
-function ChatMessageBody({ content }: { content: string }) {
+function ChatMessageBody({ content, showTailReferences = true }: { content: string; showTailReferences?: boolean }) {
   const { main, tail } = useMemo(() => splitChatReferenceTail(content), [content]);
   const codeSplit = main.split("```");
   return (
@@ -308,7 +320,7 @@ function ChatMessageBody({ content }: { content: string }) {
           </div>
         );
       })}
-      {tail ? (
+      {showTailReferences && tail ? (
         <details className="mt-1 rounded-lg border border-slate-700/50 bg-slate-950/40 px-2 py-1">
           <summary className="cursor-pointer list-none text-[10px] text-slate-400 marker:content-none [&::-webkit-details-marker]:hidden hover:text-slate-300">
             อ้างอิงภายนอก · แตะเพื่อเปิด
@@ -1439,11 +1451,41 @@ export default function ChartSummaryConsultChatPage() {
           "ถ้าสงสัย pneumonia ต้องมีหลักฐานขั้นต่ำอะไรถึงจะพิจารณาลงได้",
           "ช่วยแยก differential และบอกเกณฑ์ที่ต้องมีก่อนลงวินิจฉัย",
         ];
+  const collapsedQuickPromptCount = assistantMode === "opd_demo" ? 3 : 2;
+  const visibleQuickPrompts = showPromptSuggestions ? quickPrompts : quickPrompts.slice(0, collapsedQuickPromptCount);
   const assistantModeLabel = assistantMode === "opd_demo" ? "OPD" : "Coding";
   const assistantModeHint =
     assistantMode === "opd_demo"
       ? "ซักประวัติ · ตรวจร่างกาย · DDx · RDU/ICD-10"
       : "ICD-10 / coding guidance · สรุปชาร์จ";
+
+  const renderQuickPromptBar = (isMobile = false) => (
+    <div className={`mt-2 ${isMobile ? "" : "hidden sm:block"}`}>
+      <div className="mb-1 flex items-center justify-between gap-2">
+        <span className="text-[11px] text-slate-500">Prompt เร็ว ({assistantMode === "opd_demo" ? "OPD" : "Coding"})</span>
+        <button
+          type="button"
+          onClick={() => setShowPromptSuggestions((prev) => !prev)}
+          className="rounded-full border border-slate-700 bg-slate-900/70 px-2.5 py-0.5 text-[11px] text-slate-300 hover:border-cyan-500/50"
+        >
+          {showPromptSuggestions ? "ย่อ" : "ดูเพิ่ม"}
+        </button>
+      </div>
+      <div className="flex gap-2 overflow-x-auto pb-1">
+        {visibleQuickPrompts.map((quick) => (
+          <button
+            key={quick}
+            type="button"
+            onClick={() => setInput(quick)}
+            className="shrink-0 rounded-full border border-slate-700 bg-slate-900/70 px-3 py-1.5 text-left text-[11px] text-slate-200 hover:border-cyan-500/50"
+            title={quick}
+          >
+            <span className="block max-w-[70vw] truncate sm:max-w-[28rem]">{quick}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
 
   const renderComposerInner = (textRef: RefObject<HTMLTextAreaElement | null>) => (
     <>
@@ -1556,29 +1598,7 @@ export default function ChartSummaryConsultChatPage() {
       <div className="mt-1 hidden text-[11px] text-slate-500 sm:block">
         ระบบปกปิดข้อมูลระบุตัวผู้ป่วยอัตโนมัติก่อนส่งไป AI (เช่น ชื่อ, เลขบัตร, HN, AN)
       </div>
-      <div className="mt-2 hidden sm:block">
-        <button
-          type="button"
-          onClick={() => setShowPromptSuggestions((prev) => !prev)}
-          className="rounded-full border border-slate-700 bg-slate-900/70 px-3 py-1 text-xs text-slate-300 hover:border-cyan-500/50"
-        >
-          {showPromptSuggestions ? "ซ่อนตัวอย่าง prompt" : "แสดงตัวอย่าง prompt"}
-        </button>
-        {showPromptSuggestions ? (
-          <div className="mt-2 grid max-h-32 gap-2 overflow-y-auto rounded-xl border border-slate-700/70 bg-slate-950/40 p-2 sm:grid-cols-2">
-            {quickPrompts.map((quick) => (
-              <button
-                key={quick}
-                type="button"
-                onClick={() => setInput(quick)}
-                className="rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2 text-left text-xs leading-relaxed text-slate-200 hover:border-cyan-500/50"
-              >
-                {quick}
-              </button>
-            ))}
-          </div>
-        ) : null}
-      </div>
+      {renderQuickPromptBar(false)}
       <div className="mt-2 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
         {assistantMode === "coding" ? (
           <button
@@ -1751,6 +1771,7 @@ export default function ChartSummaryConsultChatPage() {
           </button>
         </div>
       </div>
+      {renderQuickPromptBar(true)}
     </>
   );
 
@@ -2105,23 +2126,35 @@ export default function ChartSummaryConsultChatPage() {
                           </button>
                         </div>
                       ) : (
-                        <>
-                          <div className="w-full px-1 py-0.5 text-[15px] leading-relaxed whitespace-pre-wrap text-slate-100 sm:text-sm md:max-w-[94%]">
-                            <ChatMessageBody content={m.content} />
-                          </div>
-                          <details className="mt-0.5 w-full max-w-[94%] rounded-md border border-slate-800/60 bg-slate-950/25 px-2 py-0.5 text-[10px] text-slate-500 open:bg-slate-950/40">
-                            <summary className="cursor-pointer list-none text-slate-500 marker:content-none hover:text-slate-400 [&::-webkit-details-marker]:hidden">
-                              ที่มาคำตอบ
-                            </summary>
-                            <p className="mt-1 leading-snug text-slate-500">
-                              {m.answerSource === "mixed"
-                                ? "องค์ความรู้ภายใน + แหล่งอ้างอิงภายนอก (โดเมนที่อนุญาต)"
-                                : m.answerSource === "external"
-                                ? "อ้างอิงภายนอกเป็นหลัก"
-                                : "องค์ความรู้ภายใน / reasoning"}
-                            </p>
-                          </details>
-                        </>
+                        <div className="w-full px-1 py-0.5 text-[15px] leading-relaxed whitespace-pre-wrap text-slate-100 sm:text-sm md:max-w-[94%]">
+                          <ChatMessageBody content={m.content} showTailReferences={false} />
+                          {m.answerSource === "external" ? (
+                            (() => {
+                              const urls = getExternalReferenceUrls(m.content);
+                              if (urls.length === 0) return null;
+                              return (
+                                <a
+                                  href={urls[0]}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="ml-1 inline-flex translate-y-[1px] items-center text-cyan-300/90 hover:text-cyan-200"
+                                  title={
+                                    urls.length > 1
+                                      ? `เปิดอ้างอิง external (${urls.length} แหล่ง) · ${getUrlHostLabel(urls[0])}`
+                                      : `เปิดอ้างอิง external · ${getUrlHostLabel(urls[0])}`
+                                  }
+                                  aria-label="เปิดอ้างอิง external"
+                                >
+                                  <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                                    <path d="M14 3h7v7" />
+                                    <path d="M10 14 21 3" />
+                                    <path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5" />
+                                  </svg>
+                                </a>
+                              );
+                            })()
+                          ) : null}
+                        </div>
                       )}
                     </div>
                     {m.role === "assistant" ? (
