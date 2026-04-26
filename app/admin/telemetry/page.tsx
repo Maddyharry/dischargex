@@ -54,6 +54,24 @@ type Digest = {
     opd_demo: SpecialistChatModeStats;
     unknown: SpecialistChatModeStats;
   };
+  specialistReplyMetrics?: {
+    count: number;
+    simpleDirectQuestionCount: number;
+    compactTargetAppliedCount: number;
+    simpleDirectQuestionRate: number | null;
+    compactTargetAppliedRate: number | null;
+    avgChars: number;
+    avgLines: number;
+    avgBullets: number;
+    avgHeadings: number;
+    avgWordsApprox: number;
+    lengthBuckets: Record<"short" | "medium" | "long", number>;
+  };
+  specialistReplyMetricsByMode?: {
+    coding: Digest["specialistReplyMetrics"];
+    opd_demo: Digest["specialistReplyMetrics"];
+    unknown: Digest["specialistReplyMetrics"];
+  };
   webAnalytics?: {
     topPages: Array<{ path: string; views: number; uniqueVisitors: number; avgDurationSec: number }>;
     landing: { path: string; views: number; uniqueVisitors: number; avgDurationSec: number };
@@ -95,6 +113,15 @@ type Digest = {
   };
 };
 
+type PeriodRange = "1wk" | "1mo" | "3mo" | "year";
+
+const PERIOD_OPTIONS: Array<{ key: PeriodRange; label: string }> = [
+  { key: "1wk", label: "1wk" },
+  { key: "1mo", label: "1mo" },
+  { key: "3mo", label: "3mo" },
+  { key: "year", label: "year" },
+];
+
 type AutoImproveRun = {
   generatedAt: string;
   periodDays: number;
@@ -116,6 +143,7 @@ export default function AdminTelemetryPage() {
   const [data, setData] = useState<Digest | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [periodRange, setPeriodRange] = useState<PeriodRange>("1mo");
   const [autoRun, setAutoRun] = useState<AutoImproveRun | null>(null);
   const [autoBusy, setAutoBusy] = useState(false);
   const [copilotQuestion, setCopilotQuestion] = useState("");
@@ -123,29 +151,30 @@ export default function AdminTelemetryPage() {
   const [copilotLoading, setCopilotLoading] = useState(false);
   const [copilotError, setCopilotError] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function load() {
-      setLoading(true);
-      setError(null);
-      try {
-        const res = await fetch("/api/admin/telemetry-digest");
-        const json = (await res.json()) as Digest & { error?: string };
-        if (!res.ok || !json.ok) throw new Error(json.error || "โหลด telemetry ไม่สำเร็จ");
-        setData(json);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "โหลด telemetry ไม่สำเร็จ");
-      } finally {
-        setLoading(false);
-      }
+  const loadDigest = useCallback(async (range: PeriodRange) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/telemetry-digest?range=${range}`);
+      const json = (await res.json()) as Digest & { error?: string };
+      if (!res.ok || !json.ok) throw new Error(json.error || "โหลด telemetry ไม่สำเร็จ");
+      setData(json);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "โหลด telemetry ไม่สำเร็จ");
+    } finally {
+      setLoading(false);
     }
-    void load();
+  }, []);
+
+  useEffect(() => {
+    void loadDigest(periodRange);
     fetch("/api/admin/telemetry-digest/auto-improve")
       .then((r) => r.json() as Promise<{ ok?: boolean; lastRun?: AutoImproveRun | null }>)
       .then((d) => {
         if (d.ok && d.lastRun) setAutoRun(d.lastRun);
       })
       .catch(() => undefined);
-  }, []);
+  }, [periodRange, loadDigest]);
 
   async function runAutoImproveNow() {
     setAutoBusy(true);
@@ -240,6 +269,15 @@ export default function AdminTelemetryPage() {
       ];
     });
   }, [data]);
+  const replyLengthBucketBars = useMemo(() => {
+    const m = data?.specialistReplyMetrics?.lengthBuckets;
+    if (!m) return [];
+    return [
+      { label: "short", value: m.short || 0 },
+      { label: "medium", value: m.medium || 0 },
+      { label: "long", value: m.long || 0 },
+    ];
+  }, [data]);
 
   const funnelViewSteps = useMemo(() => {
     if (!data?.webAnalytics) return [];
@@ -292,6 +330,18 @@ export default function AdminTelemetryPage() {
             </p>
           </div>
           <div className="flex gap-2">
+            <div className="flex items-center gap-1 rounded-xl border border-slate-700 bg-slate-900/80 p-1 text-xs">
+              {PERIOD_OPTIONS.map((opt) => (
+                <button
+                  key={opt.key}
+                  type="button"
+                  onClick={() => setPeriodRange(opt.key)}
+                  className={`rounded-md px-2 py-1 ${periodRange === opt.key ? "bg-cyan-600/30 text-cyan-100" : "text-slate-300 hover:bg-slate-800"}`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
             <button
               onClick={() => void runAutoImproveNow()}
               disabled={autoBusy}
@@ -300,7 +350,7 @@ export default function AdminTelemetryPage() {
               {autoBusy ? "กำลังรัน..." : "รัน AI auto-improve 7 วัน"}
             </button>
             <a
-              href="/api/admin/telemetry-digest?format=csv"
+              href={`/api/admin/telemetry-digest?range=${periodRange}&format=csv`}
               className="rounded-xl border border-emerald-600 bg-emerald-600/20 px-3 py-2 text-xs font-medium text-emerald-200 hover:bg-emerald-600/30"
             >
               Export CSV
@@ -477,7 +527,37 @@ export default function AdminTelemetryPage() {
                     maxItems={6}
                     caption="แต่ละคู่แถบเปรียบเทียบ helpful กับ not helpful ภายในโหมดนั้นเท่านั้น"
                   />
+                  <HorizontalBarChart
+                    title="ความยาวคำตอบ (short / medium / long)"
+                    rows={replyLengthBucketBars}
+                    maxItems={3}
+                    caption="อ้างอิงจาก replyMetrics.lengthBucket ของ specialist_chat_reply"
+                  />
                 </div>
+                {data.specialistReplyMetrics ? (
+                  <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                    <StatCard label="Reply count" value={String(data.specialistReplyMetrics.count)} />
+                    <StatCard label="Avg chars/reply" value={data.specialistReplyMetrics.avgChars.toFixed(1)} />
+                    <StatCard label="Avg lines/reply" value={data.specialistReplyMetrics.avgLines.toFixed(1)} />
+                    <StatCard label="Avg bullets/reply" value={data.specialistReplyMetrics.avgBullets.toFixed(1)} />
+                    <StatCard
+                      label="Simple direct question rate"
+                      value={
+                        data.specialistReplyMetrics.simpleDirectQuestionRate == null
+                          ? "-"
+                          : `${(data.specialistReplyMetrics.simpleDirectQuestionRate * 100).toFixed(1)}%`
+                      }
+                    />
+                    <StatCard
+                      label="Compact target applied rate"
+                      value={
+                        data.specialistReplyMetrics.compactTargetAppliedRate == null
+                          ? "-"
+                          : `${(data.specialistReplyMetrics.compactTargetAppliedRate * 100).toFixed(1)}%`
+                      }
+                    />
+                  </div>
+                ) : null}
               </section>
             ) : null}
 

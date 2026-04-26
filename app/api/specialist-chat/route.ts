@@ -174,6 +174,100 @@ function detectChatIntent(message: string, history: ChatHistoryItem[]): ChatInte
   return "clinical_question";
 }
 
+function buildResponsePolicyBlock(
+  intent: ChatIntent,
+  summaryIntent: SummaryIntent,
+  assistantMode: AssistantMode,
+  simpleDirectQuestion: boolean
+) {
+  if (summaryIntent !== "none") {
+    return [
+      "RESPONSE_POLICY:",
+      "- User explicitly requested summary/template output.",
+      "- Produce the requested summary format completely.",
+      "- Do not add unrelated sections beyond the requested format, except one short safety caveat if needed.",
+    ].join("\n");
+  }
+
+  if (intent === "greeting_or_smalltalk") {
+    return [
+      "RESPONSE_POLICY:",
+      "- Keep reply short (1-3 lines).",
+      "- Do not add diagnosis, checklist, template, or treatment plan unless user asks.",
+      "- Invite user to provide case details briefly.",
+    ].join("\n");
+  }
+
+  if (intent === "follow_up") {
+    return [
+      "RESPONSE_POLICY:",
+      "- Continue only from the latest case context; do not restart full framework.",
+      "- Answer exactly what was asked first, then add at most 1-2 compact follow-up bullets if useful.",
+      "- No forced section headers unless user asked for checklist/template.",
+    ].join("\n");
+  }
+
+  if (simpleDirectQuestion) {
+    return [
+      "RESPONSE_POLICY:",
+      "- This is a simple direct question.",
+      "- Answer in 2-6 lines focused on the exact ask; no template and no extra sections.",
+      "- Add only one brief caution/evidence note if clinically necessary.",
+    ].join("\n");
+  }
+
+  return [
+    "RESPONSE_POLICY:",
+    "- Direct answer first: first paragraph/bullet must answer the user's exact question.",
+    "- Keep scope narrow to the asked topic; do not proactively expand to unrelated sections.",
+    "- Add extra structure only when user asks for checklist/template or when safety-critical.",
+    assistantMode === "coding"
+      ? "- Add `## สรุปสำหรับชาร์จ (ลง order / สรุปชาร์จ)` only when user asks for charge-summary/order wording or asks for final summary."
+      : "- In OPD mode, do not force full OPD/SOAP template unless user explicitly asks.",
+  ].join("\n");
+}
+
+function isSimpleDirectQuestion(
+  message: string,
+  intent: ChatIntent,
+  summaryIntent: SummaryIntent,
+  assistantMode: AssistantMode
+) {
+  if (summaryIntent !== "none") return false;
+  if (intent !== "clinical_question") return false;
+  const q = message.trim();
+  if (!q || q.length > 180) return false;
+  if (assistantMode === "opd_demo" && /soap|opd|u\/d|cc|pi|pe|ddx|template|เทมเพลต|สรุปเคส/i.test(q)) return false;
+  if (
+    /สรุป|จัดรูปแบบ|template|เทมเพลต|checklist|หัวข้อ|bullet|ย่อหน้า|ลง order|สรุปชาร์จ|full|เต็มรูปแบบ|ละเอียด|เชิงลึก|เปรียบเทียบ/i.test(
+      q
+    )
+  ) {
+    return false;
+  }
+  if (/\n/.test(q)) return false;
+  const hasQuestionSignal = /\?|ไหม|หรือ|ควร|ได้ไหม|คืออะไร|ต่างกัน|ต้อง|when|what|how|why/i.test(q);
+  return hasQuestionSignal || q.split(/\s+/).length <= 14;
+}
+
+function measureReplyMetrics(reply: string) {
+  const text = String(reply || "").trim();
+  const lines = text ? text.split(/\r?\n/).map((s) => s.trim()).filter(Boolean) : [];
+  const bulletCount = lines.filter((line) => /^[-*•]\s+/.test(line)).length;
+  const headingCount = lines.filter((line) => /^##\s+/.test(line)).length;
+  const approxWordCount = text ? text.split(/\s+/).filter(Boolean).length : 0;
+  const charCount = text.length;
+  const lengthBucket = charCount <= 220 ? "short" : charCount <= 700 ? "medium" : "long";
+  return {
+    charCount,
+    lineCount: lines.length,
+    bulletCount,
+    headingCount,
+    approxWordCount,
+    lengthBucket,
+  };
+}
+
 function inferStylePatchFromMessage(message: string): ChatStyleProfilePatch {
   const q = message.toLowerCase();
   const patch: ChatStyleProfilePatch = {};
@@ -301,12 +395,12 @@ function buildSystemPrompt(assistantMode: AssistantMode, variant: "A" | "B", sty
     ];
     const opdVariantA = [
       ...opdBase,
-      "Default structure: 1) ประเด็นสำคัญ 2) ซักประวัติเพิ่ม 3) ตรวจร่างกายเพิ่ม 4) Dx/DDx พร้อม ICD-10 5) ตรวจเพิ่ม 6) ยาและโดสเบื้องต้น 7) สรุปเคสแบบสั้น",
-      "Keep to high-yield bullets, avoid long textbook paragraphs.",
+      "When user asks broad OPD guidance, prefer this compact order: key impression -> missing history/PE -> focused DDx -> next tests -> practical plan.",
+      "Keep to high-yield bullets and avoid long textbook paragraphs unless user asks detailed style.",
     ];
     const opdVariantB = [
       ...opdBase,
-      "Default structure: 1) Impression 2) Missing history/PE 3) Differential with supporting clues 4) Investigation plan 5) Medication options with dose guardrails 6) Follow-up and red flags",
+      "When user asks broad OPD guidance, use practical order: Impression -> missing history/PE -> differential clues -> investigation -> medication options -> follow-up/red flags.",
       "Add one short caution line when uncertainty is high.",
     ];
     return [...(variant === "A" ? opdVariantA : opdVariantB), styleLock, "USER_STYLE_PREFERENCE:", styleInstruction].join("\n");
@@ -318,7 +412,7 @@ function buildSystemPrompt(assistantMode: AssistantMode, variant: "A" | "B", sty
     "Behave like a helpful chat assistant, not a static document retriever.",
     "Use conversation context from CHAT_HISTORY and USER_MESSAGE before answering.",
     "CODING_ICD10_SUFFIX: Whenever you mention a disease/condition as diagnosis, differential, comorbidity, complication, or coding candidate, append the best-matching ICD-10-CM code immediately after the disease name in this exact form: ชื่อโรค (ICD-10: Xxx.xx). Use one code per clause; if uncertain use (ICD-10: ต้องยืนยัน). Apply consistently to new answers and when continuing or summarizing earlier points in the same thread (including follow-up turns).",
-    "CODING_CHARGE_CLOSE: For non-trivial answers, end with a short section exactly titled `## สรุปสำหรับชาร์จ (ลง order / สรุปชาร์จ)` containing 3–6 bullets: (1) principal / comorbidity / complication wording to chart, (2) minimum evidence already met vs still missing, (3) what NOT to fabricate, (4) สปสช-relevant cautions if applicable. Keep earlier body concise; put the 'so what for charge summary' here.",
+    "CODING_CHARGE_CLOSE: Add section `## สรุปสำหรับชาร์จ (ลง order / สรุปชาร์จ)` only when user asks for charge-summary/order wording/final case summary, or when they ask for a checklist. For direct Q&A, do not force this section.",
     "Do not provide definitive diagnosis. Provide candidate diagnosis and evidence checklist.",
     "Prefer terms: 'Acute diarrhea' or 'Infectious diarrhea'. Avoid using 'AGE' or 'Acute gastroenteritis' as default wording.",
     "Use only KNOWLEDGE_REFERENCE_MAP for [R#] citations when factual claims need support.",
@@ -337,13 +431,13 @@ function buildSystemPrompt(assistantMode: AssistantMode, variant: "A" | "B", sty
     ...baseSystem,
     "Keep answer concise. Focus on top 2-4 high-yield points first.",
     "Prioritize practical next actions for physician/coder workflow.",
-    "Default format: 1) คำตอบสั้นตรงคำถาม 2) หลักฐานที่ควรมี 3) สิ่งที่ควรเช็กเพิ่ม",
+    "Avoid rigid fixed templates by default; adapt shape to question scope.",
   ];
   const systemVariantB = [
     ...baseSystem,
     "Use structured mini-checklist style and include one brief caution line.",
     "When evidence is weak, explicitly state missing evidence before suggestions.",
-    "Default format: 1) คำตอบสั้นตรงคำถาม 2) หลักฐานที่ควรมี 3) สิ่งที่ควรเช็กเพิ่ม",
+    "Avoid rigid fixed templates by default; adapt shape to question scope.",
   ];
   return [...(variant === "A" ? systemVariantA : systemVariantB), styleLock, "USER_STYLE_PREFERENCE:", styleInstruction].join("\n");
 }
@@ -1297,6 +1391,7 @@ export async function POST(req: NextRequest) {
     const shortOpd = isShortOpdNoteRequest(userMessageTrimmed, assistantMode);
     const summaryIntent = detectSummaryIntent(userMessageTrimmed, assistantMode, shortOpd);
     const forceSummaryTemplate = summaryIntent !== "none";
+    const simpleDirectQuestion = isSimpleDirectQuestion(messageForModel, intent, summaryIntent, assistantMode);
     const recentTailN = intent === "follow_up" ? followTailN : defaultTailN;
     const recentForContext = rawHistory.slice(-recentTailN);
     const conversationSummary = buildConversationSummary(
@@ -1459,6 +1554,7 @@ TRIAL_EXPIRED_LIMITED_MODE:
         : "";
     const criticalScenarioBlock = buildCriticalScenarioBlock(messageForModel);
     const mandatorySummaryTemplate = buildMandatorySummaryTemplate(summaryIntent);
+    const responsePolicyBlock = buildResponsePolicyBlock(intent, summaryIntent, assistantMode, simpleDirectQuestion);
     const historyForPrompt = forceSummaryTemplate
       ? compactHistoryForPrompt(rawHistory, 40, 320)
       : compactHistoryForPrompt(
@@ -1479,6 +1575,9 @@ TRIAL_EXPIRED_LIMITED_MODE:
       : 760;
     if (styleProfile.responseLength === "detailed") {
       maxOutputTokens += 420;
+    }
+    if (simpleDirectQuestion && !forceSummaryTemplate && styleProfile.responseLength !== "detailed") {
+      maxOutputTokens = Math.min(maxOutputTokens, mode === "fast" ? 320 : 420);
     }
 
     const prompt = [
@@ -1511,6 +1610,8 @@ TRIAL_EXPIRED_LIMITED_MODE:
       JSON.stringify(historyForPrompt),
       "",
       `INTENT: ${intent}`,
+      `SIMPLE_DIRECT_QUESTION: ${simpleDirectQuestion ? "yes" : "no"}`,
+      responsePolicyBlock,
       "",
       `ACTIVE_UI_STYLE_JSON: ${JSON.stringify({
         responseLength: styleProfile.responseLength,
@@ -1531,6 +1632,7 @@ TRIAL_EXPIRED_LIMITED_MODE:
       "Respond as a real chat assistant.",
       "Do not force numbered sections unless user asks for checklist/template.",
       "If user asks simple question, answer directly in plain Thai.",
+      "If SIMPLE_DIRECT_QUESTION is yes: keep it compact (2-6 lines) and do not add unrelated extra sections.",
       "If user asks diagnosis support, include diagnosis candidate + ICD (if applicable) + minimum evidence.",
       styleProfile.responseLength === "detailed"
         ? "TOTAL_LENGTH: honor USER_STYLE DETAILED targets — do not cap artificially short."
@@ -1657,6 +1759,9 @@ TRIAL_EXPIRED_LIMITED_MODE:
                 : rawReply;
               const withExternalLinks = appendExternalReferenceLinks(normalizedReply, external.evidences);
               const reply = appendToxicologyQuickLinks(withExternalLinks, messageForModel, summarySourceContext);
+              const replyMetrics = measureReplyMetrics(reply);
+              const compactTargetApplied =
+                simpleDirectQuestion && !forceSummaryTemplate && styleProfile.responseLength !== "detailed";
               const answerSource = resolveAnswerSource({
                 assistantMode,
                 hasStrongMatch: ranked.hasStrongMatch,
@@ -1716,6 +1821,9 @@ TRIAL_EXPIRED_LIMITED_MODE:
                             assistantMode,
                             intent,
                             summaryIntent,
+                            simpleDirectQuestion,
+                            compactTargetApplied,
+                            replyMetrics,
                             chatMode: mode,
                             modelRoute: {
                               preferred: preferredModel,
@@ -1762,10 +1870,13 @@ TRIAL_EXPIRED_LIMITED_MODE:
                             assistantMode,
                             intent,
                             summaryIntent,
+                            simpleDirectQuestion,
+                            compactTargetApplied,
                             answerSource,
                             isBot: true,
                             model,
                             tokenUsage: usage,
+                            replyMetrics,
                           }),
                           category: "other",
                           shortSummary: reply.slice(0, 180),
@@ -1787,6 +1898,8 @@ TRIAL_EXPIRED_LIMITED_MODE:
                       chatMode: mode,
                       assistantMode,
                       summaryIntent,
+                      simpleDirectQuestion,
+                      compactTargetApplied,
                       plan: normalizedPlan,
                       promptVariant: variant,
                       model,
@@ -1796,6 +1909,7 @@ TRIAL_EXPIRED_LIMITED_MODE:
                       baseAnswerSource,
                       forcedExternalEvidence: forceExternalEvidence,
                       hadImagesOnly: Boolean(safeImages.length && !userMessageTrimmed),
+                      replyMetrics,
                     },
                   });
                 } catch (sideEffectErr) {
@@ -1885,6 +1999,9 @@ TRIAL_EXPIRED_LIMITED_MODE:
       : rawReply;
     const withExternalLinks = appendExternalReferenceLinks(normalizedReply, external.evidences);
     const reply = appendToxicologyQuickLinks(withExternalLinks, messageForModel, summarySourceContext);
+    const replyMetrics = measureReplyMetrics(reply);
+    const compactTargetApplied =
+      simpleDirectQuestion && !forceSummaryTemplate && styleProfile.responseLength !== "detailed";
     const answerSource = resolveAnswerSource({
       assistantMode,
       hasStrongMatch: ranked.hasStrongMatch,
@@ -1919,6 +2036,9 @@ TRIAL_EXPIRED_LIMITED_MODE:
               assistantMode,
               intent,
               summaryIntent,
+              simpleDirectQuestion,
+              compactTargetApplied,
+              replyMetrics,
               chatMode: mode,
               modelRoute: {
                 preferred: preferredModel,
@@ -1965,10 +2085,13 @@ TRIAL_EXPIRED_LIMITED_MODE:
               assistantMode,
               intent,
               summaryIntent,
+              simpleDirectQuestion,
+              compactTargetApplied,
               answerSource,
               isBot: true,
               model,
               tokenUsage: usage,
+              replyMetrics,
             }),
             category: "other",
             shortSummary: reply.slice(0, 180),
@@ -1990,6 +2113,8 @@ TRIAL_EXPIRED_LIMITED_MODE:
         chatMode: mode,
         assistantMode,
         summaryIntent,
+        simpleDirectQuestion,
+        compactTargetApplied,
         plan: normalizedPlan,
         promptVariant: variant,
         model,
@@ -1999,6 +2124,7 @@ TRIAL_EXPIRED_LIMITED_MODE:
         baseAnswerSource,
         forcedExternalEvidence: forceExternalEvidence,
         hadImagesOnly: Boolean(safeImages.length && !userMessageTrimmed),
+        replyMetrics,
       },
     });
 

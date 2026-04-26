@@ -17,9 +17,15 @@ function toCsv(rows: Array<{ event: string; count: number }>) {
 }
 
 function parsePeriodDays(req: NextRequest) {
-  const raw = Number(new URL(req.url).searchParams.get("days") || "30");
+  const params = new URL(req.url).searchParams;
+  const range = String(params.get("range") || "").toLowerCase();
+  if (range === "1wk") return 7;
+  if (range === "1mo") return 30;
+  if (range === "3mo") return 90;
+  if (range === "year") return 365;
+  const raw = Number(params.get("days") || "30");
   if (!Number.isFinite(raw)) return 30;
-  return Math.min(90, Math.max(1, Math.floor(raw)));
+  return Math.min(365, Math.max(1, Math.floor(raw)));
 }
 
 function normalizePath(raw: unknown) {
@@ -61,6 +67,16 @@ type TelemetryPayload = {
   ctaKey?: string;
   abTest?: string;
   abVariant?: string;
+  simpleDirectQuestion?: boolean;
+  compactTargetApplied?: boolean;
+  replyMetrics?: {
+    charCount?: number;
+    lineCount?: number;
+    bulletCount?: number;
+    headingCount?: number;
+    approxWordCount?: number;
+    lengthBucket?: "short" | "medium" | "long";
+  };
 };
 
 function emptySpecialistChatModeRow() {
@@ -149,6 +165,65 @@ export async function GET(req: NextRequest) {
     opd_demo: emptySpecialistChatModeRow(),
     unknown: emptySpecialistChatModeRow(),
   };
+  const specialistReplyMetrics = {
+    count: 0,
+    simpleDirectQuestionCount: 0,
+    compactTargetAppliedCount: 0,
+    charCountSum: 0,
+    lineCountSum: 0,
+    bulletCountSum: 0,
+    headingCountSum: 0,
+    approxWordCountSum: 0,
+    lengthBuckets: { short: 0, medium: 0, long: 0 } as Record<"short" | "medium" | "long", number>,
+  };
+  const specialistReplyMetricsByMode: Record<
+    AssistantModeBucket,
+    {
+      count: number;
+      simpleDirectQuestionCount: number;
+      compactTargetAppliedCount: number;
+      charCountSum: number;
+      lineCountSum: number;
+      bulletCountSum: number;
+      headingCountSum: number;
+      approxWordCountSum: number;
+      lengthBuckets: Record<"short" | "medium" | "long", number>;
+    }
+  > = {
+    coding: {
+      count: 0,
+      simpleDirectQuestionCount: 0,
+      compactTargetAppliedCount: 0,
+      charCountSum: 0,
+      lineCountSum: 0,
+      bulletCountSum: 0,
+      headingCountSum: 0,
+      approxWordCountSum: 0,
+      lengthBuckets: { short: 0, medium: 0, long: 0 },
+    },
+    opd_demo: {
+      count: 0,
+      simpleDirectQuestionCount: 0,
+      compactTargetAppliedCount: 0,
+      charCountSum: 0,
+      lineCountSum: 0,
+      bulletCountSum: 0,
+      headingCountSum: 0,
+      approxWordCountSum: 0,
+      lengthBuckets: { short: 0, medium: 0, long: 0 },
+    },
+    unknown: {
+      count: 0,
+      simpleDirectQuestionCount: 0,
+      compactTargetAppliedCount: 0,
+      charCountSum: 0,
+      lineCountSum: 0,
+      bulletCountSum: 0,
+      headingCountSum: 0,
+      approxWordCountSum: 0,
+      lengthBuckets: { short: 0, medium: 0, long: 0 },
+    },
+  };
 
   for (const row of filteredRows) {
     countByEvent.set(row.message, (countByEvent.get(row.message) || 0) + 1);
@@ -184,6 +259,34 @@ export async function GET(req: NextRequest) {
     }
     if (row.message === "chat:specialist_chat_reply") {
       specialistChatByMode[modeKey].replies += 1;
+      const m = p?.replyMetrics;
+      const lengthBucket = m?.lengthBucket === "short" || m?.lengthBucket === "medium" || m?.lengthBucket === "long" ? m.lengthBucket : null;
+      specialistReplyMetrics.count += 1;
+      specialistReplyMetricsByMode[modeKey].count += 1;
+      if (p?.simpleDirectQuestion) {
+        specialistReplyMetrics.simpleDirectQuestionCount += 1;
+        specialistReplyMetricsByMode[modeKey].simpleDirectQuestionCount += 1;
+      }
+      if (p?.compactTargetApplied) {
+        specialistReplyMetrics.compactTargetAppliedCount += 1;
+        specialistReplyMetricsByMode[modeKey].compactTargetAppliedCount += 1;
+      }
+      if (m) {
+        specialistReplyMetrics.charCountSum += Number(m.charCount || 0);
+        specialistReplyMetrics.lineCountSum += Number(m.lineCount || 0);
+        specialistReplyMetrics.bulletCountSum += Number(m.bulletCount || 0);
+        specialistReplyMetrics.headingCountSum += Number(m.headingCount || 0);
+        specialistReplyMetrics.approxWordCountSum += Number(m.approxWordCount || 0);
+        specialistReplyMetricsByMode[modeKey].charCountSum += Number(m.charCount || 0);
+        specialistReplyMetricsByMode[modeKey].lineCountSum += Number(m.lineCount || 0);
+        specialistReplyMetricsByMode[modeKey].bulletCountSum += Number(m.bulletCount || 0);
+        specialistReplyMetricsByMode[modeKey].headingCountSum += Number(m.headingCount || 0);
+        specialistReplyMetricsByMode[modeKey].approxWordCountSum += Number(m.approxWordCount || 0);
+      }
+      if (lengthBucket) {
+        specialistReplyMetrics.lengthBuckets[lengthBucket] += 1;
+        specialistReplyMetricsByMode[modeKey].lengthBuckets[lengthBucket] += 1;
+      }
       if (row.userId) {
         const bucket = chatReplyByUser.get(row.userId) || [];
         bucket.push(row.createdAt);
@@ -480,7 +583,7 @@ export async function GET(req: NextRequest) {
       status: 200,
       headers: {
         "Content-Type": "text/csv; charset=utf-8",
-        "Content-Disposition": 'attachment; filename="telemetry-digest-7d.csv"',
+        "Content-Disposition": `attachment; filename="telemetry-digest-${periodDays}d.csv"`,
       },
     });
   }
@@ -497,6 +600,33 @@ export async function GET(req: NextRequest) {
     };
   }
 
+  function summarizeReplyMetrics(row: {
+    count: number;
+    simpleDirectQuestionCount: number;
+    compactTargetAppliedCount: number;
+    charCountSum: number;
+    lineCountSum: number;
+    bulletCountSum: number;
+    headingCountSum: number;
+    approxWordCountSum: number;
+    lengthBuckets: Record<"short" | "medium" | "long", number>;
+  }) {
+    const c = Math.max(1, row.count);
+    return {
+      count: row.count,
+      simpleDirectQuestionCount: row.simpleDirectQuestionCount,
+      compactTargetAppliedCount: row.compactTargetAppliedCount,
+      simpleDirectQuestionRate: row.count > 0 ? row.simpleDirectQuestionCount / row.count : null,
+      compactTargetAppliedRate: row.count > 0 ? row.compactTargetAppliedCount / row.count : null,
+      avgChars: row.count > 0 ? Number((row.charCountSum / c).toFixed(1)) : 0,
+      avgLines: row.count > 0 ? Number((row.lineCountSum / c).toFixed(1)) : 0,
+      avgBullets: row.count > 0 ? Number((row.bulletCountSum / c).toFixed(1)) : 0,
+      avgHeadings: row.count > 0 ? Number((row.headingCountSum / c).toFixed(2)) : 0,
+      avgWordsApprox: row.count > 0 ? Number((row.approxWordCountSum / c).toFixed(1)) : 0,
+      lengthBuckets: row.lengthBuckets,
+    };
+  }
+
   return NextResponse.json({
     ok: true,
     periodDays,
@@ -507,6 +637,12 @@ export async function GET(req: NextRequest) {
       coding: specialistModeSnapshot(specialistChatByMode.coding),
       opd_demo: specialistModeSnapshot(specialistChatByMode.opd_demo),
       unknown: specialistModeSnapshot(specialistChatByMode.unknown),
+    },
+    specialistReplyMetrics: summarizeReplyMetrics(specialistReplyMetrics),
+    specialistReplyMetricsByMode: {
+      coding: summarizeReplyMetrics(specialistReplyMetricsByMode.coding),
+      opd_demo: summarizeReplyMetrics(specialistReplyMetricsByMode.opd_demo),
+      unknown: summarizeReplyMetrics(specialistReplyMetricsByMode.unknown),
     },
     feedback: {
       helpful,
