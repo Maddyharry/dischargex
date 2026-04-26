@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getMergedKnowledge } from "@/lib/knowledge-store";
+import { getKnowledgeTopicHistoryMap, getKnowledgeTopicMetaMap, getMergedKnowledge } from "@/lib/knowledge-store";
 import { KNOWLEDGE_REFERENCES, auditDiseaseCatalog } from "@/lib/clinical-knowledge";
 
 export const runtime = "nodejs";
@@ -15,7 +17,11 @@ export async function GET(req: NextRequest) {
         [d.name, ...d.aliases, ...d.diagnosisToWrite, ...d.icd10, ...d.investigations].join(" ").toLowerCase().includes(q)
       );
   const catalogMeta = auditDiseaseCatalog(all);
-  return NextResponse.json({ ok: true, items: list, references: KNOWLEDGE_REFERENCES, catalogMeta });
+  const topicMeta = await getKnowledgeTopicMetaMap();
+  const session = await getServerSession(authOptions);
+  const isAdmin = (session as { user?: { role?: string } } | null)?.user?.role === "admin";
+  const topicHistory = isAdmin ? await getKnowledgeTopicHistoryMap() : undefined;
+  return NextResponse.json({ ok: true, items: list, references: KNOWLEDGE_REFERENCES, catalogMeta, topicMeta, topicHistory });
 }
 
 export async function POST(req: NextRequest) {

@@ -1552,26 +1552,26 @@ export default function ChartSummaryConsultChatPage() {
   const quickPrompts =
     assistantMode === "opd_demo"
       ? [
-          "ช่วยถามประวัติเคสนี้ให้ครบสำหรับ OPD แบบไทย (เรียงเป็นหัวข้อสั้นๆ)",
-          "จากข้อมูลนี้ควรตรวจร่างกายอะไรเพิ่มเพื่อไม่ให้พลาด red flags",
-          "ช่วยทำ DDx 3 อันดับ พร้อมตรวจเพิ่ม และระบุชื่อโรคในรูปแบบ (ICD-10: ...)",
-          "เคสนี้ถ้าจะให้ยาฆ่าเชื้อ ต้องมีหลักฐานจากประวัติและตรวจร่างกายอะไรบ้าง",
-          "ช่วยวางแผนรักษาแบบ RDU: ถ้ายังไม่เข้าเกณฑ์ยาฆ่าเชื้อ ให้ทางเลือก symptomatic + นัดติดตาม",
-          "ช่วยสรุปเคส OPD ตามหัวข้อ: U/D, CC, PI, PE, Diagnosis, Investigation, DDx, Treatment plan",
+          "ช่วยซักประวัติ OPD แบบใช้งานจริงในคลินิกไทย (สั้น กระชับ พร้อมถามต่อ)",
+          "จากข้อมูลนี้ควรตรวจร่างกายอะไรเพิ่มเพื่อไม่ให้พลาด red flags ในห้องตรวจ",
+          "ช่วยทำ DDx 3 อันดับ พร้อมหลักฐานจากเคส และใส่ชื่อโรคเป็น (ICD-10: ...)",
+          "ถ้าจะพิจารณายาฆ่าเชื้อ เคสนี้ต้องมีข้อมูลขั้นต่ำอะไรบ้างก่อนสั่งยา",
+          "ช่วยวางแผนรักษาแบบ RDU: ยังไม่เข้าเกณฑ์ยาฆ่าเชื้อ ให้ทางเลือก symptomatic + นัดติดตาม",
+          "ช่วยสรุปเคส OPD รูปแบบไทย: U/D, CC, PI, PE, Dx, Investigation, DDx, Plan",
         ]
       : [
-          "ช่วยสรุปชาร์จเป็น pattern: Principal, Comorbidity, Complication, Other diagnosis, External cause",
-          "เคสนี้ควรประเมินอะไรเพิ่มเพื่อรองรับ diagnosis ใน order sheet",
-          "ถ้าสงสัย pneumonia ต้องมีหลักฐานขั้นต่ำอะไรถึงจะพิจารณาลงได้",
-          "ช่วยแยก differential และบอกเกณฑ์ที่ต้องมีก่อนลงวินิจฉัย",
+          "ช่วยสรุปชาร์จแบบ audit-ready: Principal, Comorbidity, Complication, Other diagnosis, External cause",
+          "เคสนี้ควรเก็บข้อมูลอะไรเพิ่มเพื่อรองรับ diagnosis ใน order sheet ให้ครบ",
+          "ถ้าสงสัย pneumonia ต้องมีหลักฐานขั้นต่ำอะไรถึงจะลง diagnosis ได้มั่นใจขึ้น",
+          "ช่วยแยก differential และระบุเกณฑ์ที่ต้องมี ก่อนลงวินิจฉัยจริง",
         ];
   const collapsedQuickPromptCount = 1;
   const visibleQuickPrompts = showPromptSuggestions ? quickPrompts : quickPrompts.slice(0, collapsedQuickPromptCount);
   const assistantModeLabel = assistantMode === "opd_demo" ? "OPD" : "Coding";
   const assistantModeHint =
     assistantMode === "opd_demo"
-      ? "ซักประวัติ · ตรวจร่างกาย · DDx · RDU/ICD-10"
-      : "ICD-10 / coding guidance · สรุปชาร์จ";
+      ? "Workflow OPD ไทย · ซักประวัติ · ตรวจร่างกาย · DDx · RDU/ICD-10"
+      : "Audit-ready coding · ICD-10 guidance · สรุปชาร์จ";
 
   const renderQuickPromptBar = (isMobile = false) => (
     <div className={`mt-2 ${isMobile ? "" : "hidden sm:block"}`}>
@@ -1720,7 +1720,7 @@ export default function ChartSummaryConsultChatPage() {
         </div>
       </div>
       <div className="mt-1 hidden text-[11px] text-slate-500 sm:block">
-        ระบบปกปิดข้อมูลระบุตัวผู้ป่วยอัตโนมัติก่อนส่งไป AI (เช่น ชื่อ, เลขบัตร, HN, AN)
+        DischargeX จะปกปิดข้อมูลระบุตัวผู้ป่วยอัตโนมัติก่อนส่งไป AI (เช่น ชื่อ, เลขบัตร, HN, AN)
       </div>
       {renderQuickPromptBar(false)}
       <div className="mt-2 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
@@ -2045,13 +2045,35 @@ export default function ChartSummaryConsultChatPage() {
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <h1 className="truncate text-base font-semibold sm:text-xl">
-                    {assistantMode === "opd_demo" ? "OPD Assistant Demo" : "แชทปรึกษาสรุปชาร์จ"}
+                    {assistantMode === "opd_demo" ? "DischargeX OPD Copilot" : "DischargeX Coding Copilot"}
                   </h1>
                   <span className="hidden rounded-full border border-slate-700 bg-slate-900/70 px-2 py-0.5 text-[10px] text-cyan-200 sm:inline-block">
                     {assistantModeLabel}
                   </span>
                 </div>
+                <p className="hidden text-[11px] text-slate-300 sm:block">
+                  Clinical workflow ไทยที่ใช้ได้จริงในหน้างาน
+                </p>
+                <div className="mt-1 hidden items-center gap-1.5 sm:flex">
+                  <span className="rounded-full border border-emerald-700/60 bg-emerald-900/30 px-2 py-0.5 text-[10px] text-emerald-200">
+                    PDPA-aware
+                  </span>
+                  <span className="rounded-full border border-sky-700/60 bg-sky-900/30 px-2 py-0.5 text-[10px] text-sky-200">
+                    Audit-ready
+                  </span>
+                </div>
                 <p className="hidden text-[11px] text-cyan-300 sm:block">{assistantModeHint}</p>
+                <p className="mt-0.5 text-[10px] text-slate-400 sm:hidden">
+                  Clinical workflow ไทยที่ใช้ได้จริงในหน้างาน
+                </p>
+                <div className="mt-1 flex items-center gap-1.5 sm:hidden">
+                  <span className="rounded-full border border-emerald-700/60 bg-emerald-900/30 px-2 py-0.5 text-[10px] text-emerald-200">
+                    PDPA-aware
+                  </span>
+                  <span className="rounded-full border border-sky-700/60 bg-sky-900/30 px-2 py-0.5 text-[10px] text-sky-200">
+                    Audit-ready
+                  </span>
+                </div>
                 <p className="text-[11px] text-slate-500 sm:hidden">{assistantModeHint}</p>
               </div>
               <button
@@ -2087,7 +2109,7 @@ export default function ChartSummaryConsultChatPage() {
                 </button>
               </div>
               <span className="text-[11px] text-slate-500">
-                {assistantMode === "opd_demo" ? "โหมด OPD เน้นแนวทางคลินิก" : "โหมด Coding เน้นรหัสและสรุปชาร์จ"}
+                {assistantMode === "opd_demo" ? "โหมด OPD เน้น workflow ห้องตรวจไทย" : "โหมด Coding เน้นความครบถ้วนก่อนสรุปชาร์จ"}
               </span>
             </div>
             <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
@@ -2173,11 +2195,11 @@ export default function ChartSummaryConsultChatPage() {
             </div>
             <p className={`${showMobileTools ? "block" : "hidden"} mt-1 text-xs text-slate-400`}>
               {assistantMode === "opd_demo"
-                ? "โหมด OPD รวม: ซักประวัติ/ตรวจร่างกาย/DDx/แผนรักษา + RDU โดยต้องเช็กข้อบ่งชี้ยาฆ่าเชื้อ และชื่อโรคให้ใส่ (ICD-10: ...)"
-                : "ถามโรค/แนวทางลง diagnosis และการบันทึกสรุป โดยอิงชุดความรู้ในระบบและอ้างอิงเอกสารมาตรฐานเป็น [R#] (ไม่ใช่คำแนะทางการรักษาแทนแพทย์)"}
+                ? "โหมด OPD: ซักประวัติ/ตรวจร่างกาย/DDx/แผนรักษา + RDU โดยเน้นลำดับใช้งานจริงในคลินิกไทย และระบุชื่อโรคเป็น (ICD-10: ...)"
+                : "โหมด Coding: เน้นหลักฐานครบก่อนลง diagnosis และสรุปชาร์จ พร้อมอ้างอิงเอกสารมาตรฐานเป็น [R#] (ไม่ใช่คำแนะทางการรักษาแทนแพทย์)"}
             </p>
             <p className={`${showMobileTools ? "block" : "hidden"} mt-1 text-[11px] text-slate-500`}>
-              ทั้งสองโหมดคุยได้ทุกเรื่องในแชทเดียวกัน ต่างกันที่โครงคำตอบเริ่มต้น
+              ทั้งสองโหมดคุยได้ในแชทเดียวกัน แต่ใช้โครงคิดคนละแบบเพื่อให้ตรงงานแต่ละหน้างาน
             </p>
             <div
               className={`mt-2 ${showMobileTools ? "flex" : "hidden"} flex-wrap items-center gap-2 text-[11px] text-slate-300`}

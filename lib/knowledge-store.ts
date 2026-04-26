@@ -5,6 +5,8 @@ const KNOWLEDGE_OVERRIDE_KEY = "knowledge_overrides_v1";
 const KNOWLEDGE_DYNAMIC_KEY = "knowledge_dynamic_entries_v1";
 const KNOWLEDGE_PENDING_KEY = "knowledge_pending_entries_v1";
 const KNOWLEDGE_SUPPLEMENT_KEY = "knowledge_topic_supplements_v1";
+const KNOWLEDGE_TOPIC_META_KEY = "knowledge_topic_meta_v1";
+const KNOWLEDGE_TOPIC_HISTORY_KEY = "knowledge_topic_history_v1";
 
 type KnowledgeOverride = {
   slug: string;
@@ -28,10 +30,37 @@ type KnowledgeSupplement = {
   diagnosisToWrite: string[];
   thinkWhen: string[];
   considerMore: string[];
+  notYetDiagnosis: string[];
   investigations: string[];
   icd10: string[];
+  seeAlso: string[];
   refs: string[];
   updatedAt: string;
+};
+
+export type KnowledgeTopicMeta = {
+  approvedAt?: string;
+  updatedAt?: string;
+  approvedBy?: string;
+};
+
+export type KnowledgeTopicHistoryEntry = {
+  approvedAt: string;
+  approvedBy: string;
+  summary: string;
+  changes?: Array<{
+    field: string;
+    added: string[];
+    removed: string[];
+  }>;
+};
+
+export type KnowledgeTopicHistoryMap = Record<string, KnowledgeTopicHistoryEntry[]>;
+
+export type KnowledgeTopicApprover = {
+  id?: string;
+  name?: string;
+  email?: string;
 };
 
 export type PendingKnowledgeGap = {
@@ -430,6 +459,24 @@ export async function getKnowledgeOverrides(): Promise<Record<string, KnowledgeO
   return parsed && typeof parsed === "object" ? parsed : {};
 }
 
+export async function getKnowledgeTopicMetaMap(): Promise<Record<string, KnowledgeTopicMeta>> {
+  const parsed = await getJsonSetting<Record<string, KnowledgeTopicMeta>>(KNOWLEDGE_TOPIC_META_KEY, {});
+  return parsed && typeof parsed === "object" ? parsed : {};
+}
+
+async function setKnowledgeTopicMetaMap(value: Record<string, KnowledgeTopicMeta>) {
+  await setJsonSetting(KNOWLEDGE_TOPIC_META_KEY, value);
+}
+
+export async function getKnowledgeTopicHistoryMap(): Promise<KnowledgeTopicHistoryMap> {
+  const parsed = await getJsonSetting<KnowledgeTopicHistoryMap>(KNOWLEDGE_TOPIC_HISTORY_KEY, {});
+  return parsed && typeof parsed === "object" ? parsed : {};
+}
+
+async function setKnowledgeTopicHistoryMap(value: KnowledgeTopicHistoryMap) {
+  await setJsonSetting(KNOWLEDGE_TOPIC_HISTORY_KEY, value);
+}
+
 async function getKnowledgeSupplements(): Promise<Record<string, KnowledgeSupplement>> {
   const parsed = await getJsonSetting<Record<string, KnowledgeSupplement>>(KNOWLEDGE_SUPPLEMENT_KEY, {});
   return parsed && typeof parsed === "object" ? parsed : {};
@@ -593,8 +640,10 @@ async function appendSupplementsToTopic(slug: string, entries: PendingKnowledgeE
     diagnosisToWrite: [],
     thinkWhen: [],
     considerMore: [],
+    notYetDiagnosis: [],
     investigations: [],
     icd10: [],
+    seeAlso: [],
     refs: [],
     updatedAt: new Date().toISOString(),
   };
@@ -606,8 +655,10 @@ async function appendSupplementsToTopic(slug: string, entries: PendingKnowledgeE
       diagnosisToWrite: mergeUniqueLimited(merged.diagnosisToWrite, patch.diagnosisToWrite, 20),
       thinkWhen: mergeUniqueLimited(merged.thinkWhen, patch.thinkWhen, 20),
       considerMore: mergeUniqueLimited(merged.considerMore, patch.considerMore, 20),
+      notYetDiagnosis: mergeUniqueLimited(merged.notYetDiagnosis, [], 20),
       investigations: mergeUniqueLimited(merged.investigations, patch.investigations, 20),
       icd10: mergeUniqueLimited(merged.icd10, patch.icd10, 20),
+      seeAlso: mergeUniqueLimited(merged.seeAlso, [], 20),
       refs: mergeUniqueLimited(merged.refs, patch.refs, 20),
       updatedAt: new Date().toISOString(),
     };
@@ -696,8 +747,10 @@ export async function getMergedKnowledge(includeDeprecated = false): Promise<Dis
       ),
       thinkWhen: mergeUniqueLimited(item.thinkWhen || [], supplement?.thinkWhen || [], 20),
       considerMore: mergeUniqueLimited(item.considerMore || [], supplement?.considerMore || [], 20),
+      notYetDiagnosis: mergeUniqueLimited(item.notYetDiagnosis || [], supplement?.notYetDiagnosis || [], 20),
       investigations: mergeUniqueLimited(item.investigations || [], supplement?.investigations || [], 20),
       icd10: mergedIcd10,
+      seeAlso: mergeUniqueLimited(item.seeAlso || [], supplement?.seeAlso || [], 20),
       refs: mergeUniqueLimited(item.refs || [], supplement?.refs || [], 20),
       deprecated: ov.deprecated ?? item.deprecated ?? false,
       version: ov.version ?? item.version ?? "2026.04",
@@ -715,5 +768,184 @@ export async function updateKnowledgeOverride(slug: string, patch: KnowledgeOver
     slug,
   };
   await setJsonSetting(KNOWLEDGE_OVERRIDE_KEY, current);
+}
+
+type ApproveTopicEditPayload = {
+  diagnosisToWrite?: string[];
+  thinkWhen?: string[];
+  considerMore?: string[];
+  notYetDiagnosis?: string[];
+  investigations?: string[];
+  icd10?: string[];
+  seeAlso?: string[];
+  refs?: string[];
+};
+
+function sanitizeLines(input: unknown, max = 30) {
+  if (!Array.isArray(input)) return [] as string[];
+  return uniq(
+    input
+      .map((row) => String(row || "").trim())
+      .filter(Boolean)
+      .slice(0, max)
+  );
+}
+
+function summarizeApprovedPayload(payload: ApproveTopicEditPayload) {
+  const parts = [
+    `Dx:${sanitizeLines(payload.diagnosisToWrite, 30).length}`,
+    `Think:${sanitizeLines(payload.thinkWhen, 30).length}`,
+    `Consider:${sanitizeLines(payload.considerMore, 30).length}`,
+    `NotYet:${sanitizeLines(payload.notYetDiagnosis, 30).length}`,
+    `Inv:${sanitizeLines(payload.investigations, 30).length}`,
+    `ICD:${sanitizeLines(payload.icd10, 30).length}`,
+    `SeeAlso:${sanitizeLines(payload.seeAlso, 30).length}`,
+    `Refs:${sanitizeLines(payload.refs, 30).length}`,
+  ];
+  return parts.join(" · ");
+}
+
+function computeFieldDiff(previous: string[], next: string[]) {
+  const prevSet = new Set(previous);
+  const nextSet = new Set(next);
+  const added = next.filter((item) => !prevSet.has(item));
+  const removed = previous.filter((item) => !nextSet.has(item));
+  return { added, removed };
+}
+
+function buildDetailedChanges(
+  prev: {
+    diagnosisToWrite: string[];
+    thinkWhen: string[];
+    considerMore: string[];
+    notYetDiagnosis: string[];
+    investigations: string[];
+    icd10: string[];
+    seeAlso: string[];
+    refs: string[];
+  },
+  next: {
+    diagnosisToWrite: string[];
+    thinkWhen: string[];
+    considerMore: string[];
+    notYetDiagnosis: string[];
+    investigations: string[];
+    icd10: string[];
+    seeAlso: string[];
+    refs: string[];
+  }
+) {
+  const fields: Array<{ key: keyof typeof next; label: string }> = [
+    { key: "diagnosisToWrite", label: "วินิจฉัยที่ควรเขียน" },
+    { key: "thinkWhen", label: "คิดถึงโรคนี้เมื่อ" },
+    { key: "considerMore", label: "สิ่งที่ควรนึกถึงเพิ่ม" },
+    { key: "notYetDiagnosis", label: "ยังไม่ควรลงวินิจฉัยว่า" },
+    { key: "investigations", label: "Investigations" },
+    { key: "icd10", label: "ICD-10" },
+    { key: "seeAlso", label: "ดูหัวข้อถัดไป" },
+    { key: "refs", label: "References" },
+  ];
+  const changes = fields
+    .map(({ key, label }) => {
+      const diff = computeFieldDiff(prev[key], next[key]);
+      return {
+        field: label,
+        added: diff.added.slice(0, 8),
+        removed: diff.removed.slice(0, 8),
+      };
+    })
+    .filter((row) => row.added.length > 0 || row.removed.length > 0);
+  return changes.slice(0, 12);
+}
+
+function formatApprover(actor?: KnowledgeTopicApprover) {
+  if (!actor) return "admin";
+  if (actor.name && actor.email) return `${actor.name} <${actor.email}>`;
+  if (actor.email) return actor.email;
+  if (actor.name) return actor.name;
+  if (actor.id) return `user:${actor.id}`;
+  return "admin";
+}
+
+export async function approveKnowledgeTopicEdit(
+  slug: string,
+  payload: ApproveTopicEditPayload,
+  actor?: KnowledgeTopicApprover
+) {
+  const key = normalizeSlug(slug);
+  const supplements = await getKnowledgeSupplements();
+  const nowIso = new Date().toISOString();
+  const current = supplements[key] || {
+    diagnosisToWrite: [],
+    thinkWhen: [],
+    considerMore: [],
+    notYetDiagnosis: [],
+    investigations: [],
+    icd10: [],
+    seeAlso: [],
+    refs: [],
+    updatedAt: nowIso,
+  };
+  const nextData = {
+    diagnosisToWrite: sanitizeLines(payload.diagnosisToWrite, 30),
+    thinkWhen: sanitizeLines(payload.thinkWhen, 30),
+    considerMore: sanitizeLines(payload.considerMore, 30),
+    notYetDiagnosis: sanitizeLines(payload.notYetDiagnosis, 30),
+    investigations: sanitizeLines(payload.investigations, 30),
+    icd10: sanitizeLines(payload.icd10, 30),
+    seeAlso: sanitizeLines(payload.seeAlso, 30),
+    refs: sanitizeLines(payload.refs, 30),
+    updatedAt: nowIso,
+  };
+  supplements[key] = nextData;
+  await setKnowledgeSupplements(supplements);
+
+  await updateKnowledgeOverride(key, {
+    slug: key,
+    effectiveDate: nowIso.slice(0, 10),
+  });
+
+  const metaMap = await getKnowledgeTopicMetaMap();
+  const approver = formatApprover(actor);
+  metaMap[key] = {
+    approvedAt: nowIso,
+    updatedAt: nowIso,
+    approvedBy: approver,
+  };
+  await setKnowledgeTopicMetaMap(metaMap);
+  const historyMap = await getKnowledgeTopicHistoryMap();
+  const history = historyMap[key] || [];
+  historyMap[key] = [
+    {
+      approvedAt: nowIso,
+      approvedBy: approver,
+      summary: summarizeApprovedPayload(payload),
+      changes: buildDetailedChanges(
+        {
+          diagnosisToWrite: current.diagnosisToWrite || [],
+          thinkWhen: current.thinkWhen || [],
+          considerMore: current.considerMore || [],
+          notYetDiagnosis: current.notYetDiagnosis || [],
+          investigations: current.investigations || [],
+          icd10: current.icd10 || [],
+          seeAlso: current.seeAlso || [],
+          refs: current.refs || [],
+        },
+        {
+          diagnosisToWrite: nextData.diagnosisToWrite,
+          thinkWhen: nextData.thinkWhen,
+          considerMore: nextData.considerMore,
+          notYetDiagnosis: nextData.notYetDiagnosis,
+          investigations: nextData.investigations,
+          icd10: nextData.icd10,
+          seeAlso: nextData.seeAlso,
+          refs: nextData.refs,
+        }
+      ),
+    },
+    ...history,
+  ].slice(0, 30);
+  await setKnowledgeTopicHistoryMap(historyMap);
+  return { ok: true as const, approvedAt: nowIso, previousUpdatedAt: current.updatedAt };
 }
 

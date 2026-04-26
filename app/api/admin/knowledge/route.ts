@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { createHash } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import {
+  approveKnowledgeTopicEdit,
   getMergedKnowledge,
   getPendingKnowledgeGaps,
   reviewPendingKnowledgeGap,
@@ -45,13 +46,24 @@ export async function PATCH(req: NextRequest) {
       | "approve_pending_entry"
       | "reject_pending_entry"
       | "approve_pending_gap"
-      | "reject_pending_gap";
+      | "reject_pending_gap"
+      | "approve_topic_edit";
     documentId?: string;
     entryId?: string;
     gapId?: string;
     publishMode?: "new_topic" | "expand_topic";
     targetSlug?: string;
     topicName?: string;
+    payload?: {
+      diagnosisToWrite?: string[];
+      thinkWhen?: string[];
+      considerMore?: string[];
+      notYetDiagnosis?: string[];
+      investigations?: string[];
+      icd10?: string[];
+      seeAlso?: string[];
+      refs?: string[];
+    };
   };
   if (body.action === "approve_document" || body.action === "reject_document") {
     if (!body.documentId) return NextResponse.json({ ok: false, error: "Missing documentId" }, { status: 400 });
@@ -94,6 +106,17 @@ export async function PATCH(req: NextRequest) {
       published: reviewed.ok ? reviewed.published : false,
       count: reviewed.ok ? reviewed.count : 0,
     });
+  }
+
+  if (body.action === "approve_topic_edit") {
+    if (!body.slug) return NextResponse.json({ ok: false, error: "Missing slug" }, { status: 400 });
+    const actor = (session as { user?: { id?: string; name?: string | null; email?: string | null } } | null)?.user;
+    const approved = await approveKnowledgeTopicEdit(body.slug, body.payload || {}, {
+      id: actor?.id,
+      name: actor?.name || undefined,
+      email: actor?.email || undefined,
+    });
+    return NextResponse.json({ ok: true, approvedAt: approved.approvedAt });
   }
 
   if (!body.slug) return NextResponse.json({ ok: false, error: "Missing slug" }, { status: 400 });

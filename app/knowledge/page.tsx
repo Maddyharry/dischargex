@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useSession } from "next-auth/react";
 import type { DiseaseCatalogAudit, DiseaseSummary, KnowledgeReference } from "@/lib/clinical-knowledge";
 
 const BLOCK_STYLES: Record<string, string> = {
@@ -15,11 +16,39 @@ const BLOCK_STYLES: Record<string, string> = {
 };
 
 export default function KnowledgePage() {
+  const { data: session } = useSession();
+  const isAdmin = session?.user?.role === "admin";
   const [items, setItems] = useState<DiseaseSummary[]>([]);
   const [references, setReferences] = useState<KnowledgeReference[]>([]);
   const [catalogMeta, setCatalogMeta] = useState<DiseaseCatalogAudit | null>(null);
+  const [topicMeta, setTopicMeta] = useState<Record<string, { approvedAt?: string; updatedAt?: string; approvedBy?: string }>>({});
+  const [topicHistory, setTopicHistory] = useState<
+    Record<
+      string,
+      Array<{
+        approvedAt: string;
+        approvedBy: string;
+        summary: string;
+        changes?: Array<{ field: string; added: string[]; removed: string[] }>;
+      }>
+    >
+  >({});
   const [q, setQ] = useState("");
   const [selected, setSelected] = useState<string>("");
+  const [editingSlug, setEditingSlug] = useState("");
+  const [approving, setApproving] = useState(false);
+  const [approveNotice, setApproveNotice] = useState("");
+  const [expandedHistoryRows, setExpandedHistoryRows] = useState<Record<string, boolean>>({});
+  const [editDraft, setEditDraft] = useState<{
+    diagnosisToWrite: string;
+    thinkWhen: string;
+    considerMore: string;
+    notYetDiagnosis: string;
+    investigations: string;
+    icd10: string;
+    seeAlso: string;
+    refs: string;
+  } | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -29,12 +58,24 @@ export default function KnowledgePage() {
         items?: DiseaseSummary[];
         references?: KnowledgeReference[];
         catalogMeta?: DiseaseCatalogAudit;
+        topicMeta?: Record<string, { approvedAt?: string; updatedAt?: string; approvedBy?: string }>;
+        topicHistory?: Record<
+          string,
+          Array<{
+            approvedAt: string;
+            approvedBy: string;
+            summary: string;
+            changes?: Array<{ field: string; added: string[]; removed: string[] }>;
+          }>
+        >;
       };
       if (!data.ok) return;
       const nextItems = data.items || [];
       setItems(nextItems);
       setReferences(data.references || []);
       setCatalogMeta(data.catalogMeta ?? null);
+      setTopicMeta(data.topicMeta || {});
+      setTopicHistory(data.topicHistory || {});
       if (nextItems.length > 0) setSelected(nextItems[0].slug);
     };
     void load();
@@ -83,6 +124,160 @@ export default function KnowledgePage() {
     }
     return notes;
   }, [active, icdDisplayItems]);
+
+  function toTextBlock(lines: string[]) {
+    return lines.join("\n");
+  }
+
+  function toArray(text: string) {
+    return text
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean);
+  }
+
+  function startEditTopic() {
+    if (!active) return;
+    setApproveNotice("");
+    setEditingSlug(active.slug);
+    setEditDraft({
+      diagnosisToWrite: toTextBlock(active.diagnosisToWrite),
+      thinkWhen: toTextBlock(active.thinkWhen),
+      considerMore: toTextBlock(active.considerMore),
+      notYetDiagnosis: toTextBlock(active.notYetDiagnosis),
+      investigations: toTextBlock(active.investigations),
+      icd10: toTextBlock(active.icd10),
+      seeAlso: toTextBlock(active.seeAlso),
+      refs: toTextBlock(active.refs),
+    });
+  }
+
+  function cancelEditTopic() {
+    setEditingSlug("");
+    setEditDraft(null);
+    setApproveNotice("");
+  }
+
+  function toggleHistoryRow(rowKey: string) {
+    setExpandedHistoryRows((prev) => ({ ...prev, [rowKey]: !prev[rowKey] }));
+  }
+
+  function downloadTextFile(filename: string, content: string, mimeType: string) {
+    if (typeof window === "undefined") return;
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function exportHistoryJson(slug: string) {
+    const rows = topicHistory[slug] || [];
+    const payload = {
+      slug,
+      exportedAt: new Date().toISOString(),
+      total: rows.length,
+      history: rows,
+    };
+    downloadTextFile(`knowledge-history-${slug}.json`, JSON.stringify(payload, null, 2), "application/json;charset=utf-8");
+  }
+
+  function csvEscape(value: string) {
+    if (value.includes(",") || value.includes('"') || value.includes("\n")) {
+      return `"${value.replace(/"/g, '""')}"`;
+    }
+    return value;
+  }
+
+  function exportHistoryCsv(slug: string) {
+    const rows = topicHistory[slug] || [];
+    const header = ["approvedAt", "approvedBy", "summary", "field", "added", "removed"];
+    const lines = [header.join(",")];
+    for (const row of rows) {
+      const changes = row.changes && row.changes.length > 0 ? row.changes : [{ field: "", added: [], removed: [] }];
+      for (const change of changes) {
+        lines.push(
+          [
+            row.approvedAt,
+            row.approvedBy || "",
+            row.summary || "",
+            change.field || "",
+            (change.added || []).join(" | "),
+            (change.removed || []).join(" | "),
+          ]
+            .map((value) => csvEscape(String(value || "")))
+            .join(",")
+        );
+      }
+    }
+    downloadTextFile(`knowledge-history-${slug}.csv`, lines.join("\n"), "text/csv;charset=utf-8");
+  }
+
+  async function approveTopicEdit() {
+    if (!active || !editDraft) return;
+    setApproving(true);
+    setApproveNotice("");
+    try {
+      const res = await fetch("/api/admin/knowledge", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "approve_topic_edit",
+          slug: active.slug,
+          payload: {
+            diagnosisToWrite: toArray(editDraft.diagnosisToWrite),
+            thinkWhen: toArray(editDraft.thinkWhen),
+            considerMore: toArray(editDraft.considerMore),
+            notYetDiagnosis: toArray(editDraft.notYetDiagnosis),
+            investigations: toArray(editDraft.investigations),
+            icd10: toArray(editDraft.icd10),
+            seeAlso: toArray(editDraft.seeAlso),
+            refs: toArray(editDraft.refs),
+          },
+        }),
+      });
+      const data = (await res.json()) as { ok?: boolean; error?: string; approvedAt?: string };
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error || "approve_failed");
+      }
+      await (async () => {
+        const resp = await fetch("/api/knowledge", { cache: "no-store" });
+        const reloaded = (await resp.json()) as {
+          ok?: boolean;
+          items?: DiseaseSummary[];
+          references?: KnowledgeReference[];
+          catalogMeta?: DiseaseCatalogAudit;
+          topicMeta?: Record<string, { approvedAt?: string; updatedAt?: string; approvedBy?: string }>;
+          topicHistory?: Record<
+            string,
+            Array<{
+              approvedAt: string;
+              approvedBy: string;
+              summary: string;
+              changes?: Array<{ field: string; added: string[]; removed: string[] }>;
+            }>
+          >;
+        };
+        if (!reloaded.ok) return;
+        setItems(reloaded.items || []);
+        setReferences(reloaded.references || []);
+        setCatalogMeta(reloaded.catalogMeta ?? null);
+        setTopicMeta(reloaded.topicMeta || {});
+        setTopicHistory(reloaded.topicHistory || {});
+      })();
+      setEditingSlug("");
+      setEditDraft(null);
+      setApproveNotice(data.approvedAt ? `Approved แล้วเมื่อ ${new Date(data.approvedAt).toLocaleString("th-TH")}` : "Approved แล้ว");
+    } catch (err) {
+      setApproveNotice(err instanceof Error ? err.message : "approve_failed");
+    } finally {
+      setApproving(false);
+    }
+  }
 
   return (
     <main className="min-h-screen bg-[#081120] text-slate-100">
@@ -176,6 +371,58 @@ export default function KnowledgePage() {
               <div>
                 <h2 className="text-xl font-semibold">{active.name}</h2>
                 <p className="mt-1 text-xs text-slate-400">Aliases: {active.aliases.join(", ")}</p>
+                <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-slate-400">
+                  <span>Version: {active.version || "-"}</span>
+                  <span>·</span>
+                  <span>Effective: {active.effectiveDate || "-"}</span>
+                  {topicMeta[active.slug]?.approvedAt ? (
+                    <>
+                      <span>·</span>
+                      <span className="text-emerald-300">
+                        Approved: {new Date(topicMeta[active.slug].approvedAt as string).toLocaleString("th-TH")}
+                      </span>
+                      {topicMeta[active.slug]?.approvedBy ? (
+                        <>
+                          <span>·</span>
+                          <span className="text-emerald-200/90">By: {topicMeta[active.slug].approvedBy}</span>
+                        </>
+                      ) : null}
+                    </>
+                  ) : null}
+                </div>
+                {isAdmin ? (
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    {editingSlug === active.slug ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => void approveTopicEdit()}
+                          disabled={approving || !editDraft}
+                          className="rounded-md border border-emerald-600 bg-emerald-900/30 px-3 py-1 text-xs text-emerald-100 disabled:opacity-60"
+                        >
+                          {approving ? "Approving..." : "Approve"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={cancelEditTopic}
+                          disabled={approving}
+                          className="rounded-md border border-slate-600 px-3 py-1 text-xs text-slate-200"
+                        >
+                          Cancel
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={startEditTopic}
+                        className="rounded-md border border-cyan-600 bg-cyan-900/30 px-3 py-1 text-xs text-cyan-100"
+                      >
+                        Edit
+                      </button>
+                    )}
+                    {approveNotice ? <span className="text-[11px] text-emerald-200">{approveNotice}</span> : null}
+                  </div>
+                ) : null}
               </div>
               <div className="rounded-xl border border-amber-500/35 bg-amber-950/20 p-3 text-xs text-amber-100">
                 เกณฑ์ตัวเลข (เช่น cutoff ของ lab/vital signs) จะแสดงเฉพาะที่มีใน reference set เท่านั้น; หากหัวข้อใดยังไม่ระบุตัวเลข
@@ -250,6 +497,123 @@ export default function KnowledgePage() {
                     ))}
                 </ul>
               </div>
+              {isAdmin && editingSlug === active.slug && editDraft ? (
+                <div className="rounded-xl border border-cyan-500/30 bg-cyan-950/20 p-3">
+                  <div className="text-sm font-semibold text-cyan-100">Admin Edit (แก้ไขหัวข้อโดยตรง)</div>
+                  <p className="mt-1 text-xs text-cyan-50/85">
+                    แก้ไขแต่ละบล็อกแบบบรรทัดต่อบรรทัด แล้วกด Approve เพื่อเผยแพร่ พร้อมบันทึกเวลาอนุมัติ
+                  </p>
+                  <EditField
+                    label="วินิจฉัยที่ควรเขียน"
+                    value={editDraft.diagnosisToWrite}
+                    onChange={(value) => setEditDraft((prev) => (prev ? { ...prev, diagnosisToWrite: value } : prev))}
+                  />
+                  <EditField
+                    label="คิดถึงโรคนี้เมื่อ"
+                    value={editDraft.thinkWhen}
+                    onChange={(value) => setEditDraft((prev) => (prev ? { ...prev, thinkWhen: value } : prev))}
+                  />
+                  <EditField
+                    label="สิ่งที่ควรนึกถึงเพิ่ม"
+                    value={editDraft.considerMore}
+                    onChange={(value) => setEditDraft((prev) => (prev ? { ...prev, considerMore: value } : prev))}
+                  />
+                  <EditField
+                    label="ยังไม่ควรลงวินิจฉัยว่า"
+                    value={editDraft.notYetDiagnosis}
+                    onChange={(value) => setEditDraft((prev) => (prev ? { ...prev, notYetDiagnosis: value } : prev))}
+                  />
+                  <EditField
+                    label="Investigations ที่ควรพิจารณา"
+                    value={editDraft.investigations}
+                    onChange={(value) => setEditDraft((prev) => (prev ? { ...prev, investigations: value } : prev))}
+                  />
+                  <EditField
+                    label="ICD-10"
+                    value={editDraft.icd10}
+                    onChange={(value) => setEditDraft((prev) => (prev ? { ...prev, icd10: value } : prev))}
+                  />
+                  <EditField
+                    label="ดูหัวข้อถัดไป (slug)"
+                    value={editDraft.seeAlso}
+                    onChange={(value) => setEditDraft((prev) => (prev ? { ...prev, seeAlso: value } : prev))}
+                  />
+                  <EditField
+                    label="References (R#)"
+                    value={editDraft.refs}
+                    onChange={(value) => setEditDraft((prev) => (prev ? { ...prev, refs: value } : prev))}
+                  />
+                </div>
+              ) : null}
+              {isAdmin && (topicHistory[active.slug]?.length || 0) > 0 ? (
+                <div className="rounded-xl border border-emerald-500/30 bg-emerald-950/20 p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="text-sm font-semibold text-emerald-100">Edit history</div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => exportHistoryJson(active.slug)}
+                        className="rounded-md border border-emerald-700/60 px-2 py-1 text-[11px] text-emerald-100 hover:bg-emerald-900/30"
+                      >
+                        Export JSON
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => exportHistoryCsv(active.slug)}
+                        className="rounded-md border border-emerald-700/60 px-2 py-1 text-[11px] text-emerald-100 hover:bg-emerald-900/30"
+                      >
+                        Export CSV
+                      </button>
+                    </div>
+                  </div>
+                  <ul className="mt-2 space-y-2 text-xs text-emerald-50/95">
+                    {(topicHistory[active.slug] || []).slice(0, 10).map((row, idx) => (
+                      <li key={`${active.slug}-history-${idx}`} className="rounded-lg border border-emerald-700/30 bg-emerald-900/20 px-2.5 py-2">
+                        <div>
+                          {new Date(row.approvedAt).toLocaleString("th-TH")} · {row.approvedBy}
+                        </div>
+                        <div className="mt-0.5 text-emerald-100/90">{row.summary}</div>
+                        {row.changes && row.changes.length > 0 ? (
+                          <div className="mt-1.5 space-y-1.5">
+                            {(expandedHistoryRows[`${active.slug}-${idx}`] ? row.changes : row.changes.slice(0, 2)).map((change, changeIdx) => (
+                              <div key={`${active.slug}-change-${idx}-${changeIdx}`} className="rounded border border-emerald-700/25 bg-emerald-950/20 px-2 py-1.5">
+                                <div className="text-emerald-100">{change.field}</div>
+                                {change.added.length > 0 ? (
+                                  <ul className="mt-1 list-disc space-y-0.5 pl-4 text-emerald-100/90">
+                                    {(expandedHistoryRows[`${active.slug}-${idx}`] ? change.added : change.added.slice(0, 3)).map((line, lineIdx) => (
+                                      <li key={`${active.slug}-added-${idx}-${changeIdx}-${lineIdx}`}>
+                                        + {line}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                ) : null}
+                                {change.removed.length > 0 ? (
+                                  <ul className="mt-1 list-disc space-y-0.5 pl-4 text-rose-200/90">
+                                    {(expandedHistoryRows[`${active.slug}-${idx}`] ? change.removed : change.removed.slice(0, 3)).map((line, lineIdx) => (
+                                      <li key={`${active.slug}-removed-${idx}-${changeIdx}-${lineIdx}`}>
+                                        - {line}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                ) : null}
+                              </div>
+                            ))}
+                            {row.changes.length > 2 || row.changes.some((c) => c.added.length > 3 || c.removed.length > 3) ? (
+                              <button
+                                type="button"
+                                onClick={() => toggleHistoryRow(`${active.slug}-${idx}`)}
+                                className="rounded-md border border-emerald-700/60 px-2 py-1 text-[11px] text-emerald-100 hover:bg-emerald-900/30"
+                              >
+                                {expandedHistoryRows[`${active.slug}-${idx}`] ? "ย่อ" : "ดูทั้งหมด"}
+                              </button>
+                            ) : null}
+                          </div>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
             </div>
           ) : (
             <div className="text-sm text-slate-400">เลือกหัวข้อจากด้านซ้าย</div>
@@ -433,5 +797,27 @@ function classifyEvidenceLevel(item: string): "strong" | "context" {
   ];
 
   return strongSignals.some((signal) => text.includes(signal)) ? "strong" : "context";
+}
+
+function EditField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="mt-3 block">
+      <div className="mb-1 text-xs font-medium text-cyan-100">{label}</div>
+      <textarea
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        rows={4}
+        className="w-full rounded-lg border border-slate-700 bg-slate-900/80 px-3 py-2 text-xs text-slate-100 outline-none focus:border-cyan-500"
+      />
+    </label>
+  );
 }
 
