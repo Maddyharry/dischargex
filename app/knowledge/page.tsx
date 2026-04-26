@@ -59,8 +59,9 @@ export default function KnowledgePage() {
     return buildChecklist(active);
   }, [active]);
   const sourceExamples = useMemo(() => {
-    if (!active?.sourceExamples?.length) return [];
-    return active.sourceExamples;
+    if (!active) return [];
+    if (active.sourceExamples?.length) return active.sourceExamples;
+    return active.diagnosisToWrite.slice(0, 4).map((item) => `ตัวอย่างคำวินิจฉัยในไฟล์ความรู้: ${item}`);
   }, [active]);
   const refIdsOrdered = useMemo(() => {
     if (!active) return [];
@@ -176,7 +177,7 @@ export default function KnowledgePage() {
                 <div className="rounded-xl border border-emerald-500/35 bg-emerald-950/20 p-3">
                   <div className="text-sm font-semibold text-emerald-100">ตัวอย่างจาก slide/PDF อ้างอิง</div>
                   <p className="mt-1 text-xs text-emerald-50/85">
-                    คัดลอกจากเอกสารมาตรฐานเพื่อใช้ตรวจทานการลง diagnosis/ICD ให้สอดคล้องเวชระเบียนจริง
+                    คัดลอกจากเอกสารมาตรฐานเมื่อมี; หากหัวข้อยังไม่ใส่ตัวอย่างเอกสาร ระบบจะแสดงตัวอย่างจากไฟล์ความรู้ในหัวข้อนั้น
                   </p>
                   <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-emerald-50">
                     {sourceExamples.map((item, idx) => (
