@@ -357,6 +357,8 @@ export default function ChartSummaryConsultChatPage() {
   const [activeId, setActiveId] = useState<string>(threads[0].id);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  /** ข้อความจากสตรีม SSE type=phase (ความคืบหน้าจริงจากเซิร์ฟเวอร์) */
+  const [streamPhaseLabel, setStreamPhaseLabel] = useState("");
   const [ratingBusyId, setRatingBusyId] = useState<string>("");
   const [ratedByMessage, setRatedByMessage] = useState<
     Record<string, { score: "helpful" | "not_helpful"; reason?: string }>
@@ -925,8 +927,9 @@ export default function ChartSummaryConsultChatPage() {
         const payloadRaw = dataLine.slice(6).trim();
         if (!payloadRaw) continue;
         let payload: {
-          type?: "delta" | "done" | "error";
+          type?: "delta" | "done" | "error" | "phase";
           delta?: string;
+          label?: string;
           message?: string;
           answerSource?: "internal" | "mixed" | "external";
           usage?: TokenUsageMeta;
@@ -935,8 +938,9 @@ export default function ChartSummaryConsultChatPage() {
         };
         try {
           payload = JSON.parse(payloadRaw) as {
-            type?: "delta" | "done" | "error";
+            type?: "delta" | "done" | "error" | "phase";
             delta?: string;
+            label?: string;
             message?: string;
             answerSource?: "internal" | "mixed" | "external";
             usage?: TokenUsageMeta;
@@ -947,7 +951,9 @@ export default function ChartSummaryConsultChatPage() {
           continue;
         }
         gotAnyEvent = true;
-        if (payload.type === "delta") {
+        if (payload.type === "phase") {
+          if (payload.label) setStreamPhaseLabel(payload.label);
+        } else if (payload.type === "delta") {
           appendAssistantChunk(threadId, payload.delta || "");
         } else if (payload.type === "done") {
           finalizeAssistantMessage(threadId, payload);
@@ -973,8 +979,9 @@ export default function ChartSummaryConsultChatPage() {
       if (payloadRaw) {
         try {
           const payload = JSON.parse(payloadRaw) as {
-            type?: "delta" | "done" | "error";
+            type?: "delta" | "done" | "error" | "phase";
             delta?: string;
+            label?: string;
             message?: string;
             answerSource?: "internal" | "mixed" | "external";
             usage?: TokenUsageMeta;
@@ -982,7 +989,9 @@ export default function ChartSummaryConsultChatPage() {
             model?: string;
           };
           gotAnyEvent = true;
-          if (payload.type === "delta") {
+          if (payload.type === "phase") {
+            if (payload.label) setStreamPhaseLabel(payload.label);
+          } else if (payload.type === "delta") {
             appendAssistantChunk(threadId, payload.delta || "");
           } else if (payload.type === "done") {
             finalizeAssistantMessage(threadId, payload);
@@ -1019,6 +1028,7 @@ export default function ChartSummaryConsultChatPage() {
     setCanRetryStream(false);
     setLoading(true);
     setIsStopping(false);
+    setStreamPhaseLabel("");
     if (!params.appendToExistingAssistant) {
       startAssistantPlaceholder(params.threadId);
     }
@@ -1064,6 +1074,7 @@ export default function ChartSummaryConsultChatPage() {
       abortRef.current = null;
       setLoading(false);
       setIsStopping(false);
+      setStreamPhaseLabel("");
     }
   }
 
@@ -2141,8 +2152,8 @@ export default function ChartSummaryConsultChatPage() {
               </button>
               <span className="text-slate-500">
                 {mode === "fast"
-                  ? "ตอบเร็ว/คุ้มโควต้า (เหมาะใช้ต่อเนื่อง)"
-                  : "ฉลาดและละเอียดขึ้น แต่ใช้โควต้ามากกว่า"}
+                  ? "ตอบไว — ไม่ค้นเว็บอ้างอิงแบบสด (ความรู้ในฐานข้อมูลเท่านั้น)"
+                  : "ค้นหลักฐานจากเว็บ whitelist + ละเอียดขึ้น (ช้ากว่า แต่มีลิงก์อ้างอิงได้มากกว่า)"}
               </span>
             </div>
             <div
@@ -2439,7 +2450,12 @@ export default function ChartSummaryConsultChatPage() {
                         <span className="h-2 w-2 animate-bounce rounded-full bg-cyan-300 [animation-delay:-0.15s]" />
                         <span className="h-2 w-2 animate-bounce rounded-full bg-cyan-300" />
                       </span>
-                      <span>{mode === "fast" ? "AI กำลังคิดและสรุปคำตอบ..." : "AI กำลังคิด · ค้นหลักฐาน · สรุปคำตอบ..."}</span>
+                      <span>
+                        {streamPhaseLabel ||
+                          (mode === "fast"
+                            ? "AI กำลังคิดและสรุปคำตอบ..."
+                            : "AI กำลังคิด · ค้นหลักฐาน · สรุปคำตอบ...")}
+                      </span>
                     </div>
                   </div>
                 ) : null}

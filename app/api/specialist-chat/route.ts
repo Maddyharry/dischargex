@@ -1518,69 +1518,86 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const mergedKnowledge = await getMergedKnowledge(false);
-    const ranked = rankKnowledge(messageForModel, mergedKnowledge);
-    const matchedKnowledge = ranked.hasStrongMatch ? ranked.matched.slice(0, 8) : ranked.fallback.slice(0, 4);
-    const compactMatchedKnowledge = compactKnowledgeSummaries(matchedKnowledge);
-    const retrievedSnippets = await searchKnowledgeEvidence(messageForModel);
-    const forceExternalEvidence = assistantMode === "opd_demo" && isMedicationOrDoseQuery(messageForModel);
-    const external = await retrieveExternalEvidence(messageForModel, {
-      maxEvidence:
-        forceExternalEvidence ? (mode === "fast" ? 3 : 5) : ranked.hasStrongMatch ? (mode === "fast" ? 1 : 2) : mode === "fast" ? 2 : 4,
-      maxDomains:
-        forceExternalEvidence ? (mode === "fast" ? 5 : 8) : ranked.hasStrongMatch ? (mode === "fast" ? 2 : 3) : mode === "fast" ? 3 : 6,
-      thaiChargeGuidance: assistantMode === "coding",
-    });
-    const variant =
-      process.env.SPECIALIST_CHAT_PROMPT_VARIANT === "A" || process.env.SPECIALIST_CHAT_PROMPT_VARIANT === "B"
-        ? process.env.SPECIALIST_CHAT_PROMPT_VARIANT
-        : pickPromptVariant(userId || userMessageTrimmed.slice(0, 16) || (safeImages.length ? "image" : "u"));
-    const systemBase = buildSystemPrompt(assistantMode, variant, styleProfile);
-    const system = isLimitedTrialExpired && trialExpiredPolicy.enabled
+    async function loadSpecialistChatModelPack(onPhase?: (label: string) => void) {
+      const ping = (label: string) => {
+        try {
+          onPhase?.(label);
+        } catch {
+          // client ปิดการเชื่อมต่อหรือ backpressure
+        }
+      };
+      ping("กำลังโหลดความรู้ในฐานข้อมูล…");
+      const mergedKnowledge = await getMergedKnowledge(false);
+      const ranked = rankKnowledge(messageForModel, mergedKnowledge);
+      const matchedKnowledge = ranked.hasStrongMatch ? ranked.matched.slice(0, 8) : ranked.fallback.slice(0, 4);
+      const compactMatchedKnowledge = compactKnowledgeSummaries(matchedKnowledge);
+      ping("กำลังค้นความจากเอกสารในฐานข้อมูล…");
+      const retrievedSnippets = await searchKnowledgeEvidence(messageForModel);
+      const forceExternalEvidence = assistantMode === "opd_demo" && isMedicationOrDoseQuery(messageForModel);
+      /** Fast ข้ามการค้นเว็บภายนอก (Jina/DDG) — ใช้ Precise เมื่อต้องการลิงก์อ้างอิงจาก whitelist */
+      let external: Awaited<ReturnType<typeof retrieveExternalEvidence>>;
+      if (mode === "fast") {
+        ping("โหมดเร็ว — ข้ามค้นเว็บ · กำลังประกอบคำถาม…");
+        external = { evidences: [], whitelist: [] };
+      } else {
+        ping("กำลังค้นหลักฐานจากเว็บแหล่งทางการ (อาจใช้เวลา)…");
+        external = await retrieveExternalEvidence(messageForModel, {
+          maxEvidence: forceExternalEvidence ? 5 : ranked.hasStrongMatch ? 2 : 4,
+          maxDomains: forceExternalEvidence ? 8 : ranked.hasStrongMatch ? 3 : 6,
+          thaiChargeGuidance: assistantMode === "coding",
+        });
+      }
+      ping("กำลังประกอบบริบทและเตรียมเรียกโมเดล…");
+      const variant =
+        process.env.SPECIALIST_CHAT_PROMPT_VARIANT === "A" || process.env.SPECIALIST_CHAT_PROMPT_VARIANT === "B"
+          ? process.env.SPECIALIST_CHAT_PROMPT_VARIANT
+          : pickPromptVariant(userId || userMessageTrimmed.slice(0, 16) || (safeImages.length ? "image" : "u"));
+      const systemBase = buildSystemPrompt(assistantMode, variant, styleProfile);
+      const system = isLimitedTrialExpired && trialExpiredPolicy.enabled
       ? `${systemBase}
 TRIAL_EXPIRED_LIMITED_MODE:
 - Only answer ICD-10 lookup and short coding guidance.
 - Do not provide case analysis, differential diagnosis, treatment planning, or OPD workflow.
 - Keep response concise and coding-focused.`
       : systemBase;
-    const caseSummaryPattern = shortOpd ? "" : buildCaseSummaryPatternBlock(assistantMode);
-    const followUpBlock =
-      intent === "follow_up"
-        ? "FOLLOW_UP_STRICT: นี่คือบทสนทนาต่อเนื่อง ตอบต่อบริบทล่าสุด ห้ามเริ่มซักเคสใหม่หรือกลับไปตอบ \"คำถามแรก\" อ่าน CONVERSATION_SUMMARY, CHAT_HISTORY, USER_MESSAGE แล้วทำงานนั้นให้จบ"
-        : "";
-    const shortOpdBlock =
-      shortOpd
-        ? "SHORT_OPD_NOTE: ต้องการบันทึก/โน๊ต OPD กระชับ ไม่ใช่ case summary แยกหัวข้อ CC/PI/PE แบบ formal — 6–12 บรรทัด: อาการ+ระยะ, สมมติฐาน, แนวรักษา/นัด/red flag"
-        : "";
-    const criticalScenarioBlock = buildCriticalScenarioBlock(messageForModel);
-    const mandatorySummaryTemplate = buildMandatorySummaryTemplate(summaryIntent);
-    const responsePolicyBlock = buildResponsePolicyBlock(intent, summaryIntent, assistantMode, simpleDirectQuestion);
-    const historyForPrompt = forceSummaryTemplate
-      ? compactHistoryForPrompt(rawHistory, 40, 320)
-      : compactHistoryForPrompt(
-          recentForContext,
-          recentForContext.length,
-          intent === "follow_up" ? 400 : 260
-        );
-    const summarySourceContext = buildFocusedSourceContext(rawHistory, messageForModel);
-    const opdRuleContextBlock =
-      assistantMode === "opd_demo" ? buildOpdRuleContextBlock(summarySourceContext || messageForModel) : "";
-    const medicationSafetyBlock = buildMedicationSafetyBlock(messageForModel, summarySourceContext);
-    let maxOutputTokens = isMedicationSafetyQuery(`${messageForModel}\n${summarySourceContext}`)
-      ? mode === "fast"
-        ? 700
-        : 980
-      : mode === "fast"
-      ? 520
-      : 760;
-    if (styleProfile.responseLength === "detailed") {
-      maxOutputTokens += 420;
-    }
-    if (simpleDirectQuestion && !forceSummaryTemplate && styleProfile.responseLength !== "detailed") {
-      maxOutputTokens = Math.min(maxOutputTokens, mode === "fast" ? 320 : 420);
-    }
+      const caseSummaryPattern = shortOpd ? "" : buildCaseSummaryPatternBlock(assistantMode);
+      const followUpBlock =
+        intent === "follow_up"
+          ? "FOLLOW_UP_STRICT: นี่คือบทสนทนาต่อเนื่อง ตอบต่อบริบทล่าสุด ห้ามเริ่มซักเคสใหม่หรือกลับไปตอบ \"คำถามแรก\" อ่าน CONVERSATION_SUMMARY, CHAT_HISTORY, USER_MESSAGE แล้วทำงานนั้นให้จบ"
+          : "";
+      const shortOpdBlock =
+        shortOpd
+          ? "SHORT_OPD_NOTE: ต้องการบันทึก/โน๊ต OPD กระชับ ไม่ใช่ case summary แยกหัวข้อ CC/PI/PE แบบ formal — 6–12 บรรทัด: อาการ+ระยะ, สมมติฐาน, แนวรักษา/นัด/red flag"
+          : "";
+      const criticalScenarioBlock = buildCriticalScenarioBlock(messageForModel);
+      const mandatorySummaryTemplate = buildMandatorySummaryTemplate(summaryIntent);
+      const responsePolicyBlock = buildResponsePolicyBlock(intent, summaryIntent, assistantMode, simpleDirectQuestion);
+      const historyForPrompt = forceSummaryTemplate
+        ? compactHistoryForPrompt(rawHistory, 40, 320)
+        : compactHistoryForPrompt(
+            recentForContext,
+            recentForContext.length,
+            intent === "follow_up" ? 400 : 260
+          );
+      const summarySourceContext = buildFocusedSourceContext(rawHistory, messageForModel);
+      const opdRuleContextBlock =
+        assistantMode === "opd_demo" ? buildOpdRuleContextBlock(summarySourceContext || messageForModel) : "";
+      const medicationSafetyBlock = buildMedicationSafetyBlock(messageForModel, summarySourceContext);
+      let maxOutputTokens = isMedicationSafetyQuery(`${messageForModel}\n${summarySourceContext}`)
+        ? mode === "fast"
+          ? 700
+          : 980
+        : mode === "fast"
+        ? 520
+        : 760;
+      if (styleProfile.responseLength === "detailed") {
+        maxOutputTokens += 420;
+      }
+      if (simpleDirectQuestion && !forceSummaryTemplate && styleProfile.responseLength !== "detailed") {
+        maxOutputTokens = Math.min(maxOutputTokens, mode === "fast" ? 320 : 420);
+      }
 
-    const prompt = [
+      const prompt = [
       "KNOWLEDGE_SUMMARY (primary quick guidance):",
       JSON.stringify(compactMatchedKnowledge),
       "",
@@ -1642,22 +1659,40 @@ TRIAL_EXPIRED_LIMITED_MODE:
       "If EXTERNAL_REFERENCE_SOURCES list is non-empty and topic touches regulation/guideline/สปสช/ชาร์จ, append 'ReferenceSource:' bullets with url for at least one item.",
       `MODE: ${mode.toUpperCase()} (FAST = short and quick, PRECISE = more detail).`,
       `ASSISTANT_MODE: ${assistantMode.toUpperCase()}.`,
-    ].join("\n");
-    const userContentPayload = buildUserContentPayload(prompt, safeImages);
+      ].join("\n");
+      const userContentPayload = buildUserContentPayload(prompt, safeImages);
 
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    const modelRoute = isLimitedTrialExpired && trialExpiredPolicy.enabled && trialExpiredPolicy.forceFastModel
-      ? { preferred: resolveLimitedIcdLookupModel(), candidates: [resolveLimitedIcdLookupModel()] }
-      : resolveSpecialistChatModel(mode);
-    const preferredModel = modelRoute.preferred;
-    const modelCandidates = modelRoute.candidates;
-    const baseAnswerSource: AnswerSource = ranked.hasStrongMatch
-      ? external.evidences.length > 0
-        ? "mixed"
-        : "internal"
-      : external.evidences.length > 0
-      ? "external"
-      : "internal";
+      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+      const modelRoute = isLimitedTrialExpired && trialExpiredPolicy.enabled && trialExpiredPolicy.forceFastModel
+        ? { preferred: resolveLimitedIcdLookupModel(), candidates: [resolveLimitedIcdLookupModel()] }
+        : resolveSpecialistChatModel(mode);
+      const preferredModel = modelRoute.preferred;
+      const modelCandidates = modelRoute.candidates;
+      const baseAnswerSource: AnswerSource = ranked.hasStrongMatch
+        ? external.evidences.length > 0
+          ? "mixed"
+          : "internal"
+        : external.evidences.length > 0
+        ? "external"
+        : "internal";
+
+      return {
+        ranked,
+        external,
+        variant,
+        system,
+        userContentPayload,
+        maxOutputTokens,
+        openai,
+        preferredModel,
+        modelCandidates,
+        modelRoute,
+        baseAnswerSource,
+        forceExternalEvidence,
+        historyForPrompt,
+        summarySourceContext,
+      };
+    }
 
     if (shouldStream) {
       const encoder = new TextEncoder();
@@ -1665,6 +1700,33 @@ TRIAL_EXPIRED_LIMITED_MODE:
         start(controller) {
           void (async () => {
             try {
+              const pack = await loadSpecialistChatModelPack((label) =>
+                controller.enqueue(encoder.encode(ssePack({ type: "phase", label })))
+              );
+              controller.enqueue(
+                encoder.encode(
+                  ssePack({
+                    type: "phase",
+                    label: `กำลังสร้างคำตอบ (${pack.preferredModel})…`,
+                  })
+                )
+              );
+              const {
+                preferredModel,
+                modelCandidates,
+                ranked,
+                external,
+                variant,
+                system,
+                userContentPayload,
+                maxOutputTokens,
+                openai,
+                modelRoute,
+                baseAnswerSource,
+                forceExternalEvidence,
+                historyForPrompt,
+                summarySourceContext,
+              } = pack;
               let model = preferredModel;
               let streamReply = "";
               let streamedAnyDelta = false;
@@ -1943,6 +2005,24 @@ TRIAL_EXPIRED_LIMITED_MODE:
         },
       });
     }
+
+    const pack = await loadSpecialistChatModelPack();
+    const {
+      preferredModel,
+      modelCandidates,
+      ranked,
+      external,
+      variant,
+      system,
+      userContentPayload,
+      maxOutputTokens,
+      openai,
+      modelRoute,
+      baseAnswerSource,
+      forceExternalEvidence,
+      historyForPrompt,
+      summarySourceContext,
+    } = pack;
 
     let resp: OpenAIResponse | null = null;
     let model = preferredModel;

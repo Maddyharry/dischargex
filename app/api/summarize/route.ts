@@ -511,6 +511,91 @@ function containsLikelyInfectionSource(text: string) {
   return sources.some((k) => t.includes(k));
 }
 
+const INFECTION_SOURCE_PRIORITY: Array<{ key: string; normalized: string }> = [
+  { key: "pneumonia", normalized: "Pneumonia" },
+  { key: "pyelonephritis", normalized: "Pyelonephritis" },
+  { key: "urinary tract infection", normalized: "Urinary tract infection" },
+  { key: "uti", normalized: "Urinary tract infection" },
+  { key: "cholangitis", normalized: "Cholangitis" },
+  { key: "cellulitis", normalized: "Cellulitis" },
+  { key: "intra-abdominal infection", normalized: "Intra-abdominal infection" },
+  { key: "peritonitis", normalized: "Peritonitis" },
+  { key: "abscess", normalized: "Abscess" },
+  { key: "gastroenteritis", normalized: "Acute infectious diarrhea" },
+];
+
+function pickLikelyInfectionSourceFromText(text: string) {
+  const items = splitCommaItems(text);
+  for (const item of items) {
+    const lower = item.toLowerCase();
+    const hit = INFECTION_SOURCE_PRIORITY.find((x) => lower.includes(x.key));
+    if (hit) {
+      return item.trim() || hit.normalized;
+    }
+  }
+  return "";
+}
+
+function removeDiagnosisItem(text: string, target: string) {
+  const targetNorm = target.trim().toLowerCase();
+  const kept = splitCommaItems(text).filter((item) => item.trim().toLowerCase() !== targetNorm);
+  return Array.from(new Set(kept)).join(", ");
+}
+
+function pickSingleIcd10(codeText: string) {
+  const codes = normalizeIcd10List(codeText || "");
+  return codes.length === 1 ? codes[0] : "";
+}
+
+const NONSPECIFIC_PRINCIPAL_KEYWORDS = [
+  "sepsis",
+  "septic shock",
+  "shock",
+  "acute respiratory failure",
+  "respiratory failure",
+  "acute kidney injury",
+  "aki",
+  "hypokalemia",
+  "hypoglycemia",
+  "dehydration",
+];
+
+const ETIOLOGY_PRIORITY_KEYWORDS: Array<{ key: string; normalized: string }> = [
+  { key: "pneumonia", normalized: "Pneumonia" },
+  { key: "aspiration pneumonia", normalized: "Aspiration pneumonia" },
+  { key: "cholangitis", normalized: "Cholangitis" },
+  { key: "pyelonephritis", normalized: "Pyelonephritis" },
+  { key: "urinary tract infection", normalized: "Urinary tract infection" },
+  { key: "uti", normalized: "Urinary tract infection" },
+  { key: "cellulitis", normalized: "Cellulitis" },
+  { key: "acute myocardial infarction", normalized: "Acute myocardial infarction" },
+  { key: "stemi", normalized: "Acute myocardial infarction" },
+  { key: "nstemi", normalized: "Acute myocardial infarction" },
+  { key: "stroke", normalized: "Stroke" },
+  { key: "intracerebral hemorrhage", normalized: "Intracerebral hemorrhage" },
+  { key: "gastrointestinal bleeding", normalized: "Gastrointestinal bleeding" },
+  { key: "gi bleed", normalized: "Gastrointestinal bleeding" },
+  { key: "diabetic ketoacidosis", normalized: "Diabetic ketoacidosis" },
+  { key: "dka", normalized: "Diabetic ketoacidosis" },
+  { key: "acute pancreatitis", normalized: "Acute pancreatitis" },
+  { key: "appendicitis", normalized: "Appendicitis" },
+];
+
+function isNonspecificPrincipal(text: string) {
+  const t = (text || "").toLowerCase();
+  return NONSPECIFIC_PRINCIPAL_KEYWORDS.some((k) => t.includes(k));
+}
+
+function pickLikelyEtiologyFromText(text: string) {
+  const items = splitCommaItems(text);
+  for (const item of items) {
+    const lower = item.toLowerCase();
+    const hit = ETIOLOGY_PRIORITY_KEYWORDS.find((x) => lower.includes(x.key));
+    if (hit) return item.trim() || hit.normalized;
+  }
+  return "";
+}
+
 function hasAcuteDiagnosis(text: string) {
   const t = (text || "").toLowerCase();
   const keys = [
@@ -896,6 +981,84 @@ function postProcessBlocks(blocks: NormalizedBlock[], warnings: string[]) {
       otherDiag.content = "";
       otherDiag.icd10 = "";
       warnings.push("Diagnoses were moved from Other Diagnosis to Comorbidity because they appeared active or treated in this admission.");
+    }
+  }
+
+  if (principal && principalIsSepsisFamily(principal.content || "")) {
+    const sourceFromComorbidity = pickLikelyInfectionSourceFromText(comorbidity?.content || "");
+    const sourceFromOther = pickLikelyInfectionSourceFromText(otherDiag?.content || "");
+    const sourceFromFinal = pickLikelyInfectionSourceFromText(finalDiag?.content || "");
+    const preferredSource = sourceFromComorbidity || sourceFromOther || sourceFromFinal;
+
+    if (preferredSource) {
+      const prevPrincipalContent = principal.content || "";
+      const prevPrincipalIcd10 = principal.icd10 || "";
+      const preferredSourceIcd10 =
+        (sourceFromComorbidity && pickSingleIcd10(comorbidity?.icd10 || "")) ||
+        (sourceFromOther && pickSingleIcd10(otherDiag?.icd10 || "")) ||
+        (sourceFromFinal && pickSingleIcd10(finalDiag?.icd10 || "")) ||
+        "";
+
+      principal.content = preferredSource;
+      principal.icd10 = preferredSourceIcd10;
+
+      if (sourceFromComorbidity && comorbidity) {
+        comorbidity.content = removeDiagnosisItem(comorbidity.content, preferredSource);
+      } else if (sourceFromOther && otherDiag) {
+        otherDiag.content = removeDiagnosisItem(otherDiag.content, preferredSource);
+      }
+
+      if (comorbidity) {
+        comorbidity.content = mergeDiagnosisText(comorbidity.content, prevPrincipalContent);
+        comorbidity.icd10 = mergeCommaLists(comorbidity.icd10, prevPrincipalIcd10);
+      }
+
+      warnings.push(
+        "Principal diagnosis was adjusted from sepsis/septic shock to documented infection source because source-specific principal is safer for coding when source is explicit."
+      );
+      if (!preferredSourceIcd10) {
+        warnings.push("Principal ICD-10 requires manual review after sepsis-source swap (no single source ICD-10 detected).");
+      }
+    }
+  }
+
+  if (principal && isNonspecificPrincipal(principal.content || "")) {
+    const fromComorbidity = pickLikelyEtiologyFromText(comorbidity?.content || "");
+    const fromOther = pickLikelyEtiologyFromText(otherDiag?.content || "");
+    const fromFinal = pickLikelyEtiologyFromText(finalDiag?.content || "");
+    const preferredEtiology = fromComorbidity || fromOther || fromFinal;
+
+    if (preferredEtiology && preferredEtiology.toLowerCase() !== (principal.content || "").toLowerCase()) {
+      const prevPrincipalContent = principal.content || "";
+      const prevPrincipalIcd10 = principal.icd10 || "";
+      const preferredEtiologyIcd10 =
+        (fromComorbidity && pickSingleIcd10(comorbidity?.icd10 || "")) ||
+        (fromOther && pickSingleIcd10(otherDiag?.icd10 || "")) ||
+        (fromFinal && pickSingleIcd10(finalDiag?.icd10 || "")) ||
+        "";
+
+      principal.content = preferredEtiology;
+      if (preferredEtiologyIcd10) {
+        principal.icd10 = preferredEtiologyIcd10;
+      }
+
+      if (fromComorbidity && comorbidity) {
+        comorbidity.content = removeDiagnosisItem(comorbidity.content, preferredEtiology);
+      } else if (fromOther && otherDiag) {
+        otherDiag.content = removeDiagnosisItem(otherDiag.content, preferredEtiology);
+      }
+
+      if (comorbidity) {
+        comorbidity.content = mergeDiagnosisText(comorbidity.content, prevPrincipalContent);
+        comorbidity.icd10 = mergeCommaLists(comorbidity.icd10, prevPrincipalIcd10);
+      }
+
+      warnings.push(
+        "Principal diagnosis was adjusted from a non-specific/manifestation diagnosis to a documented etiology diagnosis found in the chart context."
+      );
+      if (!preferredEtiologyIcd10) {
+        warnings.push("Principal ICD-10 requires manual review after etiology-principal swap (no single etiology ICD-10 detected).");
+      }
     }
   }
 
