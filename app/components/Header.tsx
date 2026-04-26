@@ -10,6 +10,8 @@ type UsageInfo = {
   total: number;
   remaining: number;
   extraCredits: number;
+  baseUsagePercent?: number;
+  tokenUsagePercent?: number;
   nextCreditRefreshAt?: string | null;
   daysLeftInMonth?: number;
 } | null;
@@ -54,6 +56,8 @@ export function Header() {
             total: typeof d.total === "number" ? d.total : 0,
             remaining: typeof d.remaining === "number" ? d.remaining : 0,
             extraCredits: typeof d.extraCredits === "number" ? d.extraCredits : 0,
+            baseUsagePercent: typeof d.baseUsagePercent === "number" ? d.baseUsagePercent : undefined,
+            tokenUsagePercent: typeof d.tokenUsagePercent === "number" ? d.tokenUsagePercent : undefined,
             nextCreditRefreshAt: typeof d.nextCreditRefreshAt === "string" ? d.nextCreditRefreshAt : null,
             daysLeftInMonth: typeof d.daysLeftInMonth === "number" ? d.daysLeftInMonth : undefined,
           });
@@ -88,7 +92,17 @@ export function Header() {
   const displayName = session?.user?.name || session?.user?.email || "บัญชี";
   const isAdmin = (session?.user as { role?: string })?.role === "admin";
   const usagePercent = useMemo(() => {
-    if (!usage || usage.total <= 0) return 0;
+    if (!usage) return 0;
+    if (typeof usage.baseUsagePercent === "number" && typeof usage.tokenUsagePercent === "number") {
+      return Math.max(0, Math.min(100, Math.max(usage.baseUsagePercent, usage.tokenUsagePercent)));
+    }
+    if (typeof usage.baseUsagePercent === "number") {
+      return Math.max(0, Math.min(100, usage.baseUsagePercent));
+    }
+    if (typeof usage.tokenUsagePercent === "number") {
+      return Math.max(0, Math.min(100, usage.tokenUsagePercent));
+    }
+    if (usage.total <= 0) return 0;
     return Math.max(0, Math.min(100, Math.round((usage.used / usage.total) * 100)));
   }, [usage]);
   const displayDaysLeft = useMemo(() => {

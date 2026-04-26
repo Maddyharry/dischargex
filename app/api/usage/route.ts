@@ -114,7 +114,12 @@ export async function GET() {
   const combinedBaseUsageForPercent = Math.min(plan.creditsPerCycle, baseUsed + virtualChatBaseCredits);
   const baseUsagePercent =
     plan.creditsPerCycle > 0
-      ? Math.max(0, Math.min(100, Math.round((combinedBaseUsageForPercent / plan.creditsPerCycle) * 100)))
+      ? (() => {
+          const raw = (combinedBaseUsageForPercent / plan.creditsPerCycle) * 100;
+          if (raw <= 0) return 0;
+          // Avoid showing 0% after user already started spending usage in this cycle.
+          return Math.max(1, Math.min(100, Math.round(raw)));
+        })()
       : 0;
   const tokenSpendInCycle =
     dbUser?.id != null
@@ -132,7 +137,7 @@ export async function GET() {
     tokenBudgetThb > 0
       ? Math.max(
           0,
-          Math.min(100, tokenSpendThb > 0 ? Math.ceil((tokenSpendThb / tokenBudgetThb) * 100 - 1e-9) : 0)
+          Math.min(100, tokenSpendThb > 0 ? Math.max(1, Math.ceil((tokenSpendThb / tokenBudgetThb) * 100 - 1e-9)) : 0)
         )
       : 0;
   const dayStart = new Date(now);
