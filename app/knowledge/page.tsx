@@ -60,8 +60,7 @@ export default function KnowledgePage() {
   }, [active]);
   const sourceExamples = useMemo(() => {
     if (!active) return [];
-    if (active.sourceExamples?.length) return active.sourceExamples;
-    return active.diagnosisToWrite.slice(0, 4).map((item) => `ตัวอย่างคำวินิจฉัยในไฟล์ความรู้: ${item}`);
+    return active.sourceExamples ?? [];
   }, [active]);
   const refIdsOrdered = useMemo(() => {
     if (!active) return [];
@@ -98,22 +97,52 @@ export default function KnowledgePage() {
             หรือแนวทางที่เทียบเคียงได้ ไม่ใช่ข้อความทั่วไป
           </p>
           {catalogMeta ? (
-            <div className="mt-2 rounded-lg border border-emerald-500/25 bg-emerald-950/20 px-2 py-1.5 text-[11px] leading-snug text-emerald-100/95">
-              <div className="font-medium text-emerald-50">ตรวจโครงสร้างแคตตาล็อก (refs / seeAlso / ICD)</div>
-              <p className="mt-0.5 text-emerald-100/90">
-                รีวิวล่าสุด: {catalogMeta.lastReviewed} · หัวข้อรวม {catalogMeta.total} · มีประเด็น {catalogMeta.withIssues}
-              </p>
-              {catalogMeta.issues.length > 0 ? (
-                <ul className="mt-1 max-h-28 list-disc space-y-0.5 overflow-y-auto pl-4 text-emerald-100/85">
-                  {catalogMeta.issues.map((row) => (
-                    <li key={row.slug}>
-                      <span className="font-mono text-[10px] text-emerald-200">{row.slug}</span>: {row.issues.join(" · ")}
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="mt-0.5 text-emerald-100/85">ไม่พบ seeAlso ชี้ slug ผิด / ref ไม่รู้จัก / ขาด ICD ในรายการที่โหลด</p>
-              )}
+            <div className="mt-2 space-y-2">
+              <div className="rounded-lg border border-emerald-500/25 bg-emerald-950/20 px-2 py-1.5 text-[11px] leading-snug text-emerald-100/95">
+                <div className="font-medium text-emerald-50">ตรวจโครงสร้างแคตตาล็อก (refs / seeAlso / ICD)</div>
+                <p className="mt-0.5 text-emerald-100/90">
+                  รีวิวล่าสุด: {catalogMeta.lastReviewed} · หัวข้อรวม {catalogMeta.total} · มีประเด็น {catalogMeta.withIssues}
+                </p>
+                {catalogMeta.issues.length > 0 ? (
+                  <ul className="mt-1 max-h-28 list-disc space-y-0.5 overflow-y-auto pl-4 text-emerald-100/85">
+                    {catalogMeta.issues.map((row) => (
+                      <li key={row.slug}>
+                        <span className="font-mono text-[10px] text-emerald-200">{row.slug}</span>: {row.issues.join(" · ")}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-0.5 text-emerald-100/85">ไม่พบ seeAlso ชี้ slug ผิด / ref ไม่รู้จัก / ขาด ICD ในรายการที่โหลด</p>
+                )}
+              </div>
+              <div
+                className={`rounded-lg border px-2 py-1.5 text-[11px] leading-snug ${
+                  catalogMeta.sourceExamplesCoverageComplete
+                    ? "border-cyan-500/30 bg-cyan-950/25 text-cyan-100/95"
+                    : "border-amber-500/25 bg-amber-950/20 text-amber-100/90"
+                }`}
+              >
+                <div className={`font-medium ${catalogMeta.sourceExamplesCoverageComplete ? "text-cyan-50" : "text-amber-50"}`}>
+                  ตัวอย่างจากเอกสาร (strict)
+                </div>
+                {catalogMeta.sourceExamplesCoverageComplete ? (
+                  <p className="mt-0.5 text-cyan-100/88">
+                    ครบทุกหัวข้อแล้ว: แสดงเฉพาะบล็อก &quot;ตัวอย่างจาก slide/PDF&quot; ที่ผูกกับแคตตาล็อก — ไม่ดึงข้อความจากช่องอื่นมาแทน
+                  </p>
+                ) : (
+                  <>
+                    <p className="mt-0.5 text-amber-100/85">
+                      ยังไม่ครบ: หัวข้อที่ไม่มีตัวอย่างในแคตตาล็อกจะไม่แสดงบล็อกตัวอย่าง (ไม่ fallback); เหลือ{" "}
+                      {catalogMeta.missingSourceExampleSlugs.length} slug
+                    </p>
+                    {catalogMeta.missingSourceExampleSlugs.length > 0 ? (
+                      <p className="mt-1 font-mono text-[10px] leading-snug text-amber-200/90">
+                        {catalogMeta.missingSourceExampleSlugs.join(", ")}
+                      </p>
+                    ) : null}
+                  </>
+                )}
+              </div>
             </div>
           ) : null}
           <input
@@ -177,7 +206,9 @@ export default function KnowledgePage() {
                 <div className="rounded-xl border border-emerald-500/35 bg-emerald-950/20 p-3">
                   <div className="text-sm font-semibold text-emerald-100">ตัวอย่างจาก slide/PDF อ้างอิง</div>
                   <p className="mt-1 text-xs text-emerald-50/85">
-                    คัดลอกจากเอกสารมาตรฐานเมื่อมี; หากหัวข้อยังไม่ใส่ตัวอย่างเอกสาร ระบบจะแสดงตัวอย่างจากไฟล์ความรู้ในหัวข้อนั้น
+                    {catalogMeta?.sourceExamplesCoverageComplete
+                      ? "โหมด strict: บรรทัดด้านล่างมาจาก CODING AUDIT 2562 / เอกสารอ้างอิง [R#] เท่านั้น (ไม่มี fallback จากช่องอื่นในระบบ)"
+                      : "บรรทัดด้านล่างมาจากฟิลด์ตัวอย่างในแคตตาล็อกเท่านั้น — เมื่อเติมครบทุกโรคแล้วหน้านี้จะอยู่ในโหมด strict เต็มรูปแบบ"}
                   </p>
                   <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-emerald-50">
                     {sourceExamples.map((item, idx) => (
