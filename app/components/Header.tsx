@@ -41,8 +41,10 @@ export function Header() {
   const { data: session, status } = useSession();
   const [usage, setUsage] = useState<UsageInfo>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [logoutAllLoading, setLogoutAllLoading] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
 
   function refreshUsage() {
     if (!session?.user) return;
@@ -79,15 +81,19 @@ export function Header() {
   });
 
   useEffect(() => {
-    if (!menuOpen) return;
+    if (!menuOpen && !moreMenuOpen) return;
     function handleClickOutside(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+      const t = e.target as Node;
+      if (menuOpen && menuRef.current && !menuRef.current.contains(t)) {
         setMenuOpen(false);
+      }
+      if (moreMenuOpen && moreMenuRef.current && !moreMenuRef.current.contains(t)) {
+        setMoreMenuOpen(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [menuOpen]);
+  }, [menuOpen, moreMenuOpen]);
 
   const displayName = session?.user?.name || session?.user?.email || "บัญชี";
   const isAdmin = (session?.user as { role?: string })?.role === "admin";
@@ -160,18 +166,52 @@ export function Header() {
         </div>
 
         <nav className="flex min-w-0 flex-1 items-center justify-end gap-1 sm:gap-2">
-          <Link
-            href="/about"
-            className="hidden shrink-0 rounded-lg px-2.5 py-2 text-sm text-slate-300 hover:bg-white/5 hover:text-white sm:inline"
-          >
-            About
-          </Link>
-          <Link
-            href="/legal"
-            className="hidden shrink-0 rounded-lg px-2.5 py-2 text-sm text-slate-300 hover:bg-white/5 hover:text-white md:inline"
-          >
-            Reference
-          </Link>
+          <div className="relative inline-flex shrink-0" ref={moreMenuRef}>
+            <button
+              type="button"
+              onClick={() => {
+                setMoreMenuOpen((o) => !o);
+                setMenuOpen(false);
+              }}
+              className="inline-flex items-center gap-1 rounded-lg px-2 py-2 text-xs text-slate-300 hover:bg-white/5 hover:text-white sm:px-2.5 sm:text-sm"
+              aria-expanded={moreMenuOpen}
+              aria-haspopup="menu"
+              aria-label="About and Reference"
+            >
+              <span className="sm:hidden">More</span>
+              <span className="hidden sm:inline">About / Reference</span>
+              <svg
+                className={`h-4 w-4 shrink-0 text-slate-400 transition ${moreMenuOpen ? "rotate-180" : ""}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                aria-hidden
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            {moreMenuOpen ? (
+              <div
+                className="absolute right-0 top-full z-50 mt-1.5 min-w-[11rem] overflow-hidden rounded-xl border border-slate-700 bg-slate-900 py-1 shadow-xl"
+                role="menu"
+              >
+                <Link
+                  href="/about"
+                  className="block px-4 py-2.5 text-sm text-slate-200 hover:bg-slate-800 hover:text-white"
+                  onClick={() => setMoreMenuOpen(false)}
+                >
+                  About
+                </Link>
+                <Link
+                  href="/legal"
+                  className="block px-4 py-2.5 text-sm text-slate-200 hover:bg-slate-800 hover:text-white"
+                  onClick={() => setMoreMenuOpen(false)}
+                >
+                  Reference
+                </Link>
+              </div>
+            ) : null}
+          </div>
           <Link
             href="/chat"
             data-google-conversion-label="CHAT_ENTRY"
@@ -217,7 +257,10 @@ export function Header() {
             <div className="relative shrink-0" ref={menuRef}>
               <button
                 type="button"
-                onClick={() => setMenuOpen((o) => !o)}
+                onClick={() => {
+                  setMenuOpen((o) => !o);
+                  setMoreMenuOpen(false);
+                }}
                 className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-800/80 px-3 py-2 text-sm text-slate-200 transition hover:border-slate-600 hover:bg-slate-800"
                 aria-expanded={menuOpen}
                 aria-haspopup="true"
