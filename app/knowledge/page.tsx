@@ -58,6 +58,10 @@ export default function KnowledgePage() {
     if (!active) return null;
     return buildChecklist(active);
   }, [active]);
+  const sourceExamples = useMemo(() => {
+    if (!active?.sourceExamples?.length) return [];
+    return active.sourceExamples;
+  }, [active]);
   const refIdsOrdered = useMemo(() => {
     if (!active) return [];
     const rest = active.refs.filter((id) => id !== "R7");
@@ -168,6 +172,19 @@ export default function KnowledgePage() {
                 </div>
               ) : null}
               {checklist ? <ChecklistBlock checklist={checklist} /> : null}
+              {sourceExamples.length > 0 ? (
+                <div className="rounded-xl border border-emerald-500/35 bg-emerald-950/20 p-3">
+                  <div className="text-sm font-semibold text-emerald-100">ตัวอย่างจาก slide/PDF อ้างอิง</div>
+                  <p className="mt-1 text-xs text-emerald-50/85">
+                    คัดลอกจากเอกสารมาตรฐานเพื่อใช้ตรวจทานการลง diagnosis/ICD ให้สอดคล้องเวชระเบียนจริง
+                  </p>
+                  <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-emerald-50">
+                    {sourceExamples.map((item, idx) => (
+                      <li key={`source-example-${idx}`}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
               <Block title="ดูหัวข้อถัดไป" items={active.seeAlso} />
 
               <div className="rounded-xl border border-indigo-500/30 bg-indigo-950/20 p-3">

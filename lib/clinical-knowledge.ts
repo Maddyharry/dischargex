@@ -22,6 +22,8 @@ export type DiseaseSummary = {
   icd9?: string[];
   seeAlso: string[];
   refs: string[];
+  /** Real-world examples copied/summarized from official slide/PDF references */
+  sourceExamples?: string[];
   chartChecklist?: {
     mustHave: string[];
     supporting?: string[];
@@ -183,6 +185,12 @@ export const DISEASE_SUMMARIES: DiseaseSummary[] = [
     icd10: ["A09.9", "A09.0", "A04.9", "K52.1", "K52.9", "E87.6", "E87.1"],
     seeAlso: ["hypovolemic-shock", "aki-acute-renal-failure"],
     refs: ["R1", "R2", "R4", "R5", "R6", "R7", "R8"],
+    sourceExamples: [
+      "CODING AUDIT 2562 p.21: ถ่ายเหลวไม่ทราบสาเหตุ -> Acute diarrhea (A09.9)",
+      "CODING AUDIT 2562 p.21: ตรวจพบ/สงสัยติดเชื้อ -> Acute infectious diarrhea (A09.0)",
+      "CODING AUDIT 2562 p.21: Stool exam มี WBC -> Acute bacterial diarrhea (A04.9)",
+      "เอกสารการให้รหัสสำหรับ รพ.สต. 2567 p.8-9: diarrhea โดยไม่ระบุรายละเอียดให้ A09.9; hyponatremia/hypokalemia ลงร่วมเมื่อเข้าเกณฑ์และมีการรักษา",
+    ],
     chartChecklist: {
       mustHave: [
         "แยกสาเหตุให้ชัดก่อนเลือกรหัส (unspecified / infectious / bacterial / drug-induced / noninfectious)",
@@ -273,6 +281,11 @@ export const DISEASE_SUMMARIES: DiseaseSummary[] = [
     icd10: ["N17.9", "R39.2", "N18.9", "N18.5"],
     seeAlso: ["acute-diarrhea", "hypovolemic-shock", "ckd-esrd"],
     refs: ["R1", "R2", "R4", "R6"],
+    sourceExamples: [
+      "เอกสารการให้รหัสสำหรับ รพ.สต. 2567 p.9: กรณี Diarrhea + hypovolemic shock + AKI ถ้าเข้า criteria acute renal failure ให้รหัส N17.9",
+      "เอกสารการให้รหัสสำหรับ รพ.สต. 2567 p.9: prerenal azotemia (R39.2) ไม่ใช้แทน AKI ถ้ายังไม่เข้าเกณฑ์ ARF",
+      "แนวปฏิบัติในเวชระเบียน: ถ้าโรคเฉียบพลันอื่นเป็นเหตุรับไว้หลัก ให้โรคนั้นเป็น principal แล้ว AKI/CKD เป็น secondary/comorbid",
+    ],
     chartChecklist: {
       mustHave: [
         "เข้าเกณฑ์ AKI: Cr เพิ่ม > 0.3 ใน 48 ชม. หรือ >= 50% ใน 1 สัปดาห์ หรือ urine output < 0.5 mL/kg/hr > 6 ชม.",
@@ -406,6 +419,11 @@ export const DISEASE_SUMMARIES: DiseaseSummary[] = [
     icd10: ["J44.0", "J44.1", "J44.9", "J96.0"],
     seeAlso: ["pneumonia", "acute-respiratory-failure"],
     refs: ["R1", "R2", "R4", "R5", "R6", "R7", "R8"],
+    sourceExamples: [
+      "CODING AUDIT 2562 (หัวข้อ COPD): known case COPD กำเริบ -> J44.1",
+      "CODING AUDIT 2562 (หัวข้อ COPD): COPD + acute lower respiratory infection -> J44.0",
+      "CODING AUDIT 2562: new case ควรมีข้อมูลยืนยันเพิ่ม เช่น spirometry/หลักฐานโรคเรื้อรังเดิม",
+    ],
     chartChecklist: {
       mustHave: ["มีหลักฐาน COPD เดิม/ข้อมูลสนับสนุนเพียงพอ", "ระบุว่าเป็น AECOPD หรือ AECOPD with LRTI ให้ชัด"],
       supporting: [
@@ -474,6 +492,11 @@ export const DISEASE_SUMMARIES: DiseaseSummary[] = [
     icd10: ["N18.9", "N18.5"],
     seeAlso: ["aki-acute-renal-failure", "hyperkalemia", "anemia"],
     refs: ["R2", "R4", "R6"],
+    sourceExamples: [
+      "แนวทางสรุปเวชระเบียน: CKD/ESRD โดยมากเป็น comorbid diagnosis และควรระบุ stage (เช่น N18.5 ใน ESRD)",
+      "กรณี acute on CKD: ถ้ามีโรคเฉียบพลันเป็นเหตุรับไว้หลัก ให้โรคนั้นเป็น principal แล้วลง CKD เป็น secondary",
+      "กรณี admission เพราะภาวะจาก CKD/ESRD โดยตรง (เช่น uremia หรือปัญหาที่เกี่ยวกับ dialysis) จึงพิจารณา CKD/ESRD เป็น principal",
+    ],
     chartChecklist: {
       mustHave: ["มีหลักฐานโรคไตเรื้อรังต่อเนื่องและระบุ stage ได้"],
       supporting: [
@@ -845,6 +868,12 @@ export const DISEASE_SUMMARIES: DiseaseSummary[] = [
     icd10: ["R75", "B23.0", "B20", "B21", "B22", "B23.8", "B24", "Z21"],
     seeAlso: ["meningitis-encephalitis", "sepsis-septic-shock", "pulmonary-tuberculosis"],
     refs: ["R1", "R2", "R4", "R5", "R6", "R7", "R8"],
+    sourceExamples: [
+      "CODING AUDIT 2562 p.5: anti-HIV +ve ยังไม่ confirm -> R75",
+      "CODING AUDIT 2562 p.5: asymptomatic HIV infection -> Z21 (มักเป็น secondary diagnosis)",
+      "CODING AUDIT 2562 p.5: HIV resulting in infectious/parasitic disease -> B20",
+      "CODING AUDIT 2562 p.5: HIV disease อื่นที่ไม่จัดกลุ่มชัด -> B24 (โดยบริบทมักเป็น secondary เมื่อมีโรคหลักอื่น)",
+    ],
     chartChecklist: {
       mustHave: ["มีผลตรวจยืนยัน HIV หรือแพทย์ระบุ diagnosis ชัดเจน"],
       supporting: ["มีข้อมูล OI/CD4/viral load สนับสนุนระดับความรุนแรง", "มี TB/OI จำเพาะให้ลงร่วมตามหลักฐาน"],
@@ -883,6 +912,12 @@ export const DISEASE_SUMMARIES: DiseaseSummary[] = [
     icd10: ["A15.0", "A15.1", "A15.2", "A15.7", "A15.8", "A16.0", "A16.7", "A16.8", "A17.0", "A19.0", "A19.1", "A19.9"],
     seeAlso: ["hiv-infection-disease", "pneumonia", "meningitis-encephalitis", "sepsis-septic-shock"],
     refs: ["R1", "R2", "R4", "R5", "R6", "R7", "R8"],
+    sourceExamples: [
+      "CODING AUDIT 2562 (หัวข้อ TB): TB lung confirmed by sputum with/without culture -> A15.0",
+      "CODING AUDIT 2562 (หัวข้อ TB): TB lung confirmed by culture only -> A15.1",
+      "CODING AUDIT 2562 (หัวข้อ TB): TB lung confirmed histologically -> A15.2",
+      "CODING AUDIT 2562 (หัวข้อ TB): TB lung bacteriologically/histologically negative -> A16.0",
+    ],
     chartChecklist: {
       mustHave: ["มีหลักฐานวินิจฉัย PTB หรือยืนยัน/รักษาตามแนวทางที่สอดคล้องเวชระเบียน"],
       supporting: ["ผลเชื้อ/รังสีสนับสนุน A15.0 vs A16.0", "ผู้ป่วย HIV — ตรวจสอบการลง B20 และโรคร่วม"],
