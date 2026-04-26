@@ -367,6 +367,10 @@ export default function ChartSummaryConsultChatPage() {
   const [canRetryStream, setCanRetryStream] = useState(false);
   const [isStopping, setIsStopping] = useState(false);
   const [showPromptSuggestions, setShowPromptSuggestions] = useState(false);
+  /** Inline edit ของข้อความ user (ปุ่มปากกา): แก้ในบับเบิล แล้วตัดข้อความใต้ล่างก่อนส่งใหม่ */
+  const [editingUserIdx, setEditingUserIdx] = useState<number | null>(null);
+  const [editingUserDraft, setEditingUserDraft] = useState("");
+  const [editingUserImages, setEditingUserImages] = useState<UploadedImage[]>([]);
   const [showMobileTools, setShowMobileTools] = useState(true);
   const [isMicSupported, setIsMicSupported] = useState(false);
   const [isListening, setIsListening] = useState(false);
@@ -1105,6 +1109,10 @@ export default function ChartSummaryConsultChatPage() {
   }
 
   async function sendMessage() {
+    if (editingUserIdx !== null) {
+      setComposerHint("กำลังแก้ข้อความในบับเบิล — กดส่งใหม่หรือยกเลิกที่ข้อความนั้น");
+      return;
+    }
     const trimmed = input.trim();
     const attachments = [...pendingImages];
     if (!trimmed && attachments.length === 0) return;
@@ -1183,6 +1191,10 @@ export default function ChartSummaryConsultChatPage() {
     opts?: { displayContent?: string }
   ) {
     if (!text || !active || loading) return;
+    if (editingUserIdx !== null) {
+      setComposerHint("กำลังแก้ข้อความในบับเบิล — กดส่งใหม่หรือยกเลิกที่ข้อความนั้น");
+      return;
+    }
     setComposerHint((h) => (h.includes("แก้ข้อความ") ? "" : h));
     if (!sessionAuthed) {
       setComposerHint(
@@ -1250,6 +1262,7 @@ export default function ChartSummaryConsultChatPage() {
   }
 
   async function sendSummary(kind: SummaryKind) {
+    cancelInlineUserEdit();
     if (limitedTrialExpired && !trialPolicy.allowSummarize) {
       setComposerHint("Trial หมดอายุแล้ว: ปิดปุ่มสรุปชั่วคราว กรุณาอัปเกรดแพ็กเกจเพื่อใช้งานต่อ");
       return;
@@ -1285,6 +1298,7 @@ export default function ChartSummaryConsultChatPage() {
 
   async function regenerateLastAnswer() {
     if (!active || loading) return;
+    cancelInlineUserEdit();
     if (!sessionAuthed) {
       setComposerHint(
         sessionStatus === "unauthenticated"
@@ -1365,17 +1379,118 @@ export default function ChartSummaryConsultChatPage() {
     }
   }
 
-  function editAndResendFrom(index: number) {
+  function stripAttachmentLineFromUserContent(content: string) {
+    return content.replace(/\n\[แนบรูป \d+ ภาพ\]$/, "");
+  }
+
+  function startInlineUserEdit(index: number) {
     if (!active) return;
     const message = active.messages[index];
     if (!message || message.role !== "user") return;
-    setInput(message.content);
-    setComposerHint("แก้ข้อความแล้วกดส่งเพื่อถามใหม่");
-    if (typeof window !== "undefined" && window.matchMedia("(max-width: 639px)").matches) {
-      setMobileComposerOpen(false);
-      requestAnimationFrame(() => {
-        mobileQuickTextareaRef.current?.focus();
+    setEditingUserIdx(index);
+    setEditingUserDraft(stripAttachmentLineFromUserContent(message.content));
+    setEditingUserImages(message.images?.map((img) => ({ ...img })) ?? []);
+    setInput("");
+    setComposerHint("");
+    setMobileComposerOpen(false);
+  }
+
+  function cancelInlineUserEdit() {
+    setEditingUserIdx(null);
+    setEditingUserDraft("");
+    setEditingUserImages([]);
+  }
+
+  async function submitInlineUserEdit(index: number) {
+    if (!active || loading) return;
+    if (editingUserIdx !== index) return;
+    const trimmed = editingUserDraft.trim();
+    const attachments = [...editingUserImages];
+    if (!trimmed && attachments.length === 0) return;
+    if (!sessionAuthed) {
+      setComposerHint(
+        sessionStatus === "unauthenticated"
+          ? "กรุณาเข้าสู่ระบบก่อนใช้แชทผู้เชี่ยวชาญ"
+          : "กำลังตรวจสอบการเข้าสู่ระบบ รอสักครู่แล้วลองอีกครั้ง"
+      );
+      return;
+    }
+    if (isChatSendLocked) {
+      setComposerHint(
+        chatQuotaNotice?.resetAtText
+          ? `โควตาเต็มชั่วคราว รอถึง ${chatQuotaNotice.resetAtText} หรืออัปเกรดแพ็กเกจ`
+          : "โควตาเต็มชั่วคราว กรุณาอัปเกรดแพ็กเกจเพื่อใช้งานต่อ"
+      );
+      return;
+    }
+    if (limitedTrialExpired) {
+      const imageOnly = !trimmed && attachments.length > 0;
+      const textForTrial = imageOnly ? DEFAULT_IMAGE_ONLY_API_PROMPT : trimmed;
+      if (assistantMode === "opd_demo" && !trialPolicy.allowOpdDemo) {
+        setComposerHint("Trial หมดอายุแล้ว: โหมด OPD ถูกปิดไว้ชั่วคราว");
+        return;
+      }
+      const allowed =
+        trialPolicy.chatScope === "icd10_only"
+          ? isIcdLookupOnlyQuery(textForTrial)
+          : isIcdLookupOnlyQuery(textForTrial) || /guideline|แนวทาง|หลักเกณฑ์/i.test(textForTrial);
+      if (!allowed) {
+        setComposerHint(
+          trialPolicy.chatScope === "icd10_only"
+            ? "Trial หมดอายุแล้ว: ใช้งานได้เฉพาะค้นหารหัส ICD-10"
+            : "Trial หมดอายุแล้ว: ใช้งานได้เฉพาะ ICD-10 และ coding guidance"
+        );
+        return;
+      }
+    }
+
+    const imageOnly = !trimmed && attachments.length > 0;
+    const text = imageOnly ? DEFAULT_IMAGE_ONLY_API_PROMPT : trimmed;
+    const attachmentLine = attachments.length ? `\n[แนบรูป ${attachments.length} ภาพ]` : "";
+    const displayBody = imageOnly ? IMAGE_ONLY_DISPLAY_LINE : trimmed;
+    const userMsg: ChatMessage = {
+      role: "user",
+      content: `${displayBody}${attachmentLine}`,
+      ...(attachments.length
+        ? { images: attachments.map(({ id, name, dataUrl }) => ({ id, name, dataUrl })) }
+        : {}),
+    };
+    const head = active.messages.slice(0, index);
+    const historyPayload = head.slice(-30).map((m) => ({ role: m.role, content: m.content }));
+
+    setRatedByMessage((prev) => {
+      const next = { ...prev };
+      const prefix = `${active.id}-`;
+      for (const k of Object.keys(next)) {
+        if (!k.startsWith(prefix)) continue;
+        const rest = k.slice(prefix.length);
+        const i = Number(rest);
+        if (Number.isFinite(i) && i >= index) delete next[k];
+      }
+      return next;
+    });
+
+    setEditingUserIdx(null);
+    setEditingUserDraft("");
+    setEditingUserImages([]);
+
+    setThreads((prev) =>
+      prev.map((t) => (t.id === active.id ? { ...t, messages: [...head, userMsg] } : t))
+    );
+
+    setComposerHint("กำลังตอบใหม่จากข้อความที่แก้…");
+    try {
+      await runStreamRequest({
+        threadId: active.id,
+        message: text,
+        history: historyPayload,
+        mode,
+        assistantMode,
+        styleProfile: chatStyle,
+        images: attachments.length ? attachments : undefined,
       });
+    } catch {
+      setAssistantError(active.id, "เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง");
     }
   }
 
@@ -1475,7 +1590,10 @@ export default function ChartSummaryConsultChatPage() {
           <button
             key={quick}
             type="button"
-            onClick={() => setInput(quick)}
+            onClick={() => {
+              cancelInlineUserEdit();
+              setInput(quick);
+            }}
             className="shrink-0 rounded-full border border-slate-700 bg-slate-900/70 px-3 py-1.5 text-left text-[11px] text-slate-200 hover:border-cyan-500/50"
             title={quick}
           >
@@ -1537,9 +1655,7 @@ export default function ChartSummaryConsultChatPage() {
           rows={2}
           className="w-full max-h-[180px] min-h-[56px] resize-none overflow-y-auto rounded-xl border border-slate-700 bg-slate-900/80 px-3 py-2.5 pr-[7.25rem] sm:pr-36 text-sm leading-relaxed outline-none focus:border-cyan-500"
           placeholder={
-            assistantMode === "opd_demo"
-              ? "Enter ขึ้นบรรทัดใหม่ · ส่งที่ปุ่มส่ง — เล่าเคส หรือแนบรูป EKG/X-ray…"
-              : "Enter ขึ้นบรรทัดใหม่ · ส่งที่ปุ่มส่ง — ถาม diagnosis / แนบรูปตรวจ…"
+            assistantMode === "opd_demo" ? "เล่าเคส หรือแนบรูป EKG/X-ray…" : "ถาม diagnosis / แนบรูปตรวจ…"
           }
         />
         <div className="absolute right-1.5 bottom-2 flex items-center gap-0.5 sm:right-2 sm:gap-1">
@@ -1732,9 +1848,7 @@ export default function ChartSummaryConsultChatPage() {
           rows={2}
           className="w-full max-h-[180px] min-h-[56px] resize-none overflow-y-auto rounded-xl border border-slate-700 bg-slate-900/80 px-3 py-2.5 pr-[9.5rem] text-sm leading-relaxed outline-none focus:border-cyan-500"
           placeholder={
-            assistantMode === "opd_demo"
-              ? "Enter ขึ้นบรรทัดใหม่ · ส่งที่ปุ่ม — เล่าเคส หรือแนบรูป EKG/X-ray..."
-              : "Enter ขึ้นบรรทัดใหม่ · ส่งที่ปุ่ม — ถาม diagnosis / แนบรูปตรวจ…"
+            assistantMode === "opd_demo" ? "เล่าเคส หรือแนบรูป EKG/X-ray…" : "ถาม diagnosis / แนบรูปตรวจ…"
           }
         />
         <div className="absolute right-1.5 bottom-2 flex items-center gap-0.5">
@@ -2101,37 +2215,87 @@ export default function ChartSummaryConsultChatPage() {
                     <div className={`flex ${m.role === "user" ? "justify-end" : "justify-start"} gap-2`}>
                       {m.role === "user" ? (
                         <div className="flex max-w-[min(92%,30rem)] flex-row-reverse items-start gap-0.5 sm:gap-1">
-                          <div className="min-w-0 flex-1 rounded-2xl bg-cyan-700/35 px-3 py-2 text-[15px] leading-relaxed whitespace-pre-wrap text-cyan-100 sm:text-sm">
-                            {m.images && m.images.length > 0 ? (
-                              <div className="mb-2 flex flex-wrap gap-1.5">
-                                {m.images.map((img) => (
-                                  <img
-                                    key={img.id}
-                                    src={img.dataUrl}
-                                    alt={img.name}
-                                    className="h-14 w-14 rounded-lg object-cover ring-1 ring-cyan-900/50 sm:h-16 sm:w-16"
-                                  />
-                                ))}
+                          <div className="min-w-0 flex-1 rounded-2xl bg-cyan-700/35 px-3 py-2 text-[15px] leading-relaxed text-cyan-100 sm:text-sm">
+                            {editingUserIdx === idx ? (
+                              <div className="space-y-2">
+                                {editingUserImages.length > 0 ? (
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {editingUserImages.map((img) => (
+                                      <img
+                                        key={img.id}
+                                        src={img.dataUrl}
+                                        alt={img.name}
+                                        className="h-14 w-14 rounded-lg object-cover ring-1 ring-cyan-900/50 sm:h-16 sm:w-16"
+                                      />
+                                    ))}
+                                  </div>
+                                ) : null}
+                                <textarea
+                                  value={editingUserDraft}
+                                  onChange={(e) => setEditingUserDraft(e.target.value)}
+                                  rows={4}
+                                  className="w-full resize-y rounded-lg border border-cyan-500/40 bg-slate-950/50 px-2 py-1.5 text-sm leading-relaxed text-cyan-50 outline-none focus:border-cyan-400"
+                                  placeholder="แก้ข้อความแล้วกดส่งใหม่"
+                                />
+                                <div className="flex flex-wrap justify-end gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={cancelInlineUserEdit}
+                                    disabled={loading}
+                                    className="rounded-lg border border-white/20 px-2.5 py-1 text-xs text-cyan-100/90 hover:bg-white/10 disabled:opacity-40"
+                                  >
+                                    ยกเลิก
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => void submitInlineUserEdit(idx)}
+                                    disabled={
+                                      loading ||
+                                      (!editingUserDraft.trim() && editingUserImages.length === 0) ||
+                                      !sessionAuthed
+                                    }
+                                    className="rounded-lg bg-cyan-500 px-2.5 py-1 text-xs font-medium text-slate-950 hover:bg-cyan-400 disabled:opacity-40"
+                                  >
+                                    ส่งใหม่
+                                  </button>
+                                </div>
                               </div>
-                            ) : null}
-                            <ChatMessageBody content={m.content} />
+                            ) : (
+                              <div className="whitespace-pre-wrap">
+                                {m.images && m.images.length > 0 ? (
+                                  <div className="mb-2 flex flex-wrap gap-1.5">
+                                    {m.images.map((img) => (
+                                      <img
+                                        key={img.id}
+                                        src={img.dataUrl}
+                                        alt={img.name}
+                                        className="h-14 w-14 rounded-lg object-cover ring-1 ring-cyan-900/50 sm:h-16 sm:w-16"
+                                      />
+                                    ))}
+                                  </div>
+                                ) : null}
+                                <ChatMessageBody content={m.content} />
+                              </div>
+                            )}
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => editAndResendFrom(idx)}
-                            disabled={loading}
-                            title="แก้ไขแล้วส่งใหม่"
-                            aria-label="แก้ไขแล้วส่งใหม่"
-                            className="mt-1 shrink-0 rounded-lg p-1.5 text-white/45 transition hover:bg-white/15 hover:text-white active:bg-white/20 disabled:pointer-events-none disabled:opacity-30"
-                          >
-                            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L8 18l-4 1 1-4 11.5-11.5"
-                              />
-                            </svg>
-                          </button>
+                          {editingUserIdx !== idx ? (
+                            <button
+                              type="button"
+                              onClick={() => startInlineUserEdit(idx)}
+                              disabled={loading}
+                              title="แก้ไขในบับเบิลแล้วส่งใหม่"
+                              aria-label="แก้ไขในบับเบิลแล้วส่งใหม่"
+                              className="mt-1 shrink-0 rounded-lg p-1.5 text-white/45 transition hover:bg-white/15 hover:text-white active:bg-white/20 disabled:pointer-events-none disabled:opacity-30"
+                            >
+                              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L8 18l-4 1 1-4 11.5-11.5"
+                                />
+                              </svg>
+                            </button>
+                          ) : null}
                         </div>
                       ) : (
                         <div className="w-full px-1 py-0.5 text-[15px] leading-relaxed whitespace-pre-wrap text-slate-100 sm:text-sm md:max-w-[94%]">
