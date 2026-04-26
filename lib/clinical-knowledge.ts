@@ -35,13 +35,18 @@ export const KNOWLEDGE_REFERENCES: KnowledgeReference[] = [
     title:
       "CODING AUDIT 2562 (ชุดตรวจสอบรหัสโรค / กรมการแพทย์) และเอกสารคู่ขนาน เช่น การให้รหัสสำหรับ รพ.สต. 2567",
     year: "2019",
+    url: "https://www.nhso.go.th/",
   },
   {
     id: "R2",
     title: "Guideline for Medical Document Audit 2019 / คู่มือแนวทางปฏิบัติในการตรวจสอบเอกสารหลักฐาน ปี 2562",
     year: "2019",
   },
-  { id: "R3", title: "Medical Record Audit Guideline 2563 (คู่มือ MRA 2563)" },
+  {
+    id: "R3",
+    title: "Medical Record Audit Guideline 2563 (คู่มือ MRA 2563)",
+    url: "https://www.nhso.go.th/",
+  },
   { id: "R4", title: "การสรุปเวชระเบียน 2020 CASE MEDICINE", year: "2020" },
   { id: "R5", title: "แนวทางสรุปโรคและหัตถการเพื่อเบิกจ่าย DRGs ออนไลน์ ปี 2566", year: "2023" },
   { id: "R6", title: "แนวทางการบันทึกเวชระเบียนสำหรับแพทย์ ปี 2568", year: "2025" },
@@ -55,6 +60,7 @@ export const KNOWLEDGE_REFERENCES: KnowledgeReference[] = [
     id: "R8",
     title: "แนวทางการทบทวนคุณภาพการบันทึกเวชระเบียน (Peer Reviews) ปี 2568",
     year: "2025",
+    url: "https://www.nhso.go.th/",
   },
 ];
 
@@ -253,11 +259,14 @@ export const DISEASE_SUMMARIES: DiseaseSummary[] = [
     thinkWhen: [
       "Creatinine เพิ่ม > 0.3 mg/dL ใน 48 ชม. หรือ >= 50% ใน 1 สัปดาห์ หรือ urine output < 0.5 mL/kg/hr > 6 ชม.",
       "Prerenal azotemia (R39.2) พิจารณาเมื่อมีภาวะ volume depletion/shock รองรับและแนวโน้มดีขึ้นหลังแก้ไข volume",
+      "Acute on CKD: ถ้าเหตุรับไว้หลักคือภาวะเฉียบพลัน (เช่น sepsis, shock, dehydration, pneumonia) ให้โรคเฉียบพลันเป็น principal diagnosis และลง AKI + CKD เป็น comorbid/secondary",
+      "Acute on CKD: ถ้าเหตุรับไว้หลักคือไตวายเฉียบพลันเอง (เช่น oliguria/uremia/K+ สูงเด่นจนต้องรักษาเฉพาะ) ให้ AKI เป็น principal diagnosis และ CKD เป็น comorbid",
     ],
     considerMore: [
       "ถ้ามี CKD เดิมและ AKI ซ้อน ให้แยก Pdx/Sdx ให้ชัด",
       "ถ้ามีสาเหตุเฉพาะของ ARF ให้ใช้สาเหตุนั้นเป็น principal diagnosis",
       "ถ้าเป็น CKD stage 5 ให้ระบุ ESRD (N18.5) ตามบริบทร่วม",
+      "Prerenal azotemia (R39.2) ใช้ได้เมื่อเป็น functional renal hypoperfusion ที่ดีขึ้นตามการแก้ volume และยังไม่เข้าเกณฑ์ N17.9",
     ],
     notYetDiagnosis: ["ไม่ลง ARF ถ้ามีแค่ BUN/Cr สูง", "ไม่ลง Acute on CKD ถ้าไม่ทราบ baseline หรือไม่มีหลักฐานไตเรื้อรังเดิม"],
     investigations: ["Creatinine trend", "Urine output", "Electrolytes", "ประเมิน volume status / shock"],
@@ -268,6 +277,7 @@ export const DISEASE_SUMMARIES: DiseaseSummary[] = [
       mustHave: [
         "เข้าเกณฑ์ AKI: Cr เพิ่ม > 0.3 ใน 48 ชม. หรือ >= 50% ใน 1 สัปดาห์ หรือ urine output < 0.5 mL/kg/hr > 6 ชม.",
         "มีการวินิจฉัยและการดูแลรักษาสอดคล้อง",
+        "ระบุ principal vs comorbid ให้ชัด: โรคเฉียบพลันต้นเหตุเป็น principal เมื่อมีเหตุรับไว้ชัด; AKI/CKD เป็น secondary ตาม clinical course",
       ],
       supporting: [
         "มี CKD เดิม -> แยก acute on chronic ให้ชัดใน Pdx/Sdx",
@@ -454,7 +464,11 @@ export const DISEASE_SUMMARIES: DiseaseSummary[] = [
     aliases: ["ckd", "esrd", "ไตเรื้อรัง"],
     diagnosisToWrite: ["Chronic kidney disease, unspecified (N18.9)", "ESRD (N18.5)"],
     thinkWhen: ["มีข้อมูล CKD เดิมและ stage ชัด", "ถ้า stage 5/ESRD ให้ใช้ N18.5"],
-    considerMore: ["หากมี AKI ซ้อนให้แยก acute/chronic ให้ชัดใน Pdx/Sdx"],
+    considerMore: [
+      "หากมี AKI ซ้อนให้แยก acute/chronic ให้ชัดใน Pdx/Sdx",
+      "CKD มักเป็น comorbid/secondary diagnosis; ให้เป็น principal เฉพาะเมื่อเหตุรับไว้หลักคือภาวะจาก CKD/ESRD เอง (เช่น uremia, fluid overload จาก ESRD, dialysis-related problem)",
+      "กรณีมีโรคเฉียบพลันอื่นเป็นเหตุรับไว้ (เช่น sepsis/pneumonia/diarrhea) ให้โรคนั้นเป็น principal แล้วลง CKD/ESRD เป็น comorbid",
+    ],
     notYetDiagnosis: ["ไม่ลง CKD หากยังไม่มีหลักฐานความเป็นโรคเรื้อรัง"],
     investigations: ["Renal function trend", "Baseline creatinine", "ประวัติ CKD เดิม/การล้างไต"],
     icd10: ["N18.9", "N18.5"],
@@ -462,7 +476,11 @@ export const DISEASE_SUMMARIES: DiseaseSummary[] = [
     refs: ["R2", "R4", "R6"],
     chartChecklist: {
       mustHave: ["มีหลักฐานโรคไตเรื้อรังต่อเนื่องและระบุ stage ได้"],
-      supporting: ["ถ้า stage 5/ESRD ให้ใช้ N18.5", "แยก AKI ซ้อน CKD ให้ชัดใน Pdx/Sdx"],
+      supporting: [
+        "ถ้า stage 5/ESRD ให้ใช้ N18.5",
+        "แยก AKI ซ้อน CKD ให้ชัดใน Pdx/Sdx",
+        "principal diagnosis ต้องสะท้อนเหตุใช้ทรัพยากรหลักและสาเหตุรับไว้รักษาในครั้งนั้น",
+      ],
       avoidIf: ["ไม่มีหลักฐานความเรื้อรังแต่ลง CKD ทันที"],
     },
   },
