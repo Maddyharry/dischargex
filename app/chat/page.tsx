@@ -1153,19 +1153,18 @@ export default function ChartSummaryConsultChatPage() {
     }
     if (kind === "opd_case") {
       return [
-        "ช่วยสรุปเคสแบบ OPD ไทยให้กระชับและใช้งานได้จริง โดยเรียงหัวข้อดังนี้",
+        "ช่วยสรุปเคสแบบ OPD ไทยให้กระชับและใช้งานได้จริง โดยเรียงหัวข้อ EXACT ตามนี้",
+        "U/D",
         "CC",
         "PI",
         "PE",
-        "PHI/PMH และ U/D",
-        "Investigation",
         "Diagnosis",
+        "Investigation",
         "Differential diagnosis",
-        "Treatment",
-        "Plan และ follow-up",
+        "Treatment plan",
         "ถ้าหัวข้อไหนไม่มีข้อมูลให้เขียนว่า 'ไม่พบข้อมูล'",
         "ให้ใส่ ICD-10 เฉพาะบรรทัดชื่อโรคใน Diagnosis และ Differential diagnosis เท่านั้น",
-        "ห้ามใส่ ICD-10 ใน CC/PI/PE/PHI/Investigation/Treatment/Plan/Follow-up",
+        "ห้ามใส่ ICD-10 ใน U/D, CC, PI, PE, Investigation, Treatment plan",
       ].join("\n");
     }
     return [
@@ -1443,7 +1442,7 @@ export default function ChartSummaryConsultChatPage() {
           "ช่วยทำ DDx 3 อันดับ พร้อมตรวจเพิ่ม และระบุชื่อโรคในรูปแบบ (ICD-10: ...)",
           "เคสนี้ถ้าจะให้ยาฆ่าเชื้อ ต้องมีหลักฐานจากประวัติและตรวจร่างกายอะไรบ้าง",
           "ช่วยวางแผนรักษาแบบ RDU: ถ้ายังไม่เข้าเกณฑ์ยาฆ่าเชื้อ ให้ทางเลือก symptomatic + นัดติดตาม",
-          "ช่วยสรุปเคสตาม pattern OPD ไทย และต่อท้ายแบบ SOAP",
+          "ช่วยสรุปเคส OPD ตามหัวข้อ: U/D, CC, PI, PE, Diagnosis, Investigation, DDx, Treatment plan",
         ]
       : [
           "ช่วยสรุปชาร์จเป็น pattern: Principal, Comorbidity, Complication, Other diagnosis, External cause",
@@ -1451,7 +1450,7 @@ export default function ChartSummaryConsultChatPage() {
           "ถ้าสงสัย pneumonia ต้องมีหลักฐานขั้นต่ำอะไรถึงจะพิจารณาลงได้",
           "ช่วยแยก differential และบอกเกณฑ์ที่ต้องมีก่อนลงวินิจฉัย",
         ];
-  const collapsedQuickPromptCount = assistantMode === "opd_demo" ? 3 : 2;
+  const collapsedQuickPromptCount = 1;
   const visibleQuickPrompts = showPromptSuggestions ? quickPrompts : quickPrompts.slice(0, collapsedQuickPromptCount);
   const assistantModeLabel = assistantMode === "opd_demo" ? "OPD" : "Coding";
   const assistantModeHint =
@@ -1468,7 +1467,7 @@ export default function ChartSummaryConsultChatPage() {
           onClick={() => setShowPromptSuggestions((prev) => !prev)}
           className="rounded-full border border-slate-700 bg-slate-900/70 px-2.5 py-0.5 text-[11px] text-slate-300 hover:border-cyan-500/50"
         >
-          {showPromptSuggestions ? "ย่อ" : "ดูเพิ่ม"}
+          {showPromptSuggestions ? "ย่อ" : "ขยาย"}
         </button>
       </div>
       <div className="flex gap-2 overflow-x-auto pb-1">
@@ -1483,6 +1482,15 @@ export default function ChartSummaryConsultChatPage() {
             <span className="block max-w-[70vw] truncate sm:max-w-[28rem]">{quick}</span>
           </button>
         ))}
+        {!showPromptSuggestions && quickPrompts.length > collapsedQuickPromptCount ? (
+          <button
+            type="button"
+            onClick={() => setShowPromptSuggestions(true)}
+            className="shrink-0 rounded-full border border-slate-700/80 bg-slate-900/50 px-2.5 py-1 text-[11px] text-slate-400 hover:border-cyan-500/40 hover:text-slate-200"
+          >
+            +{quickPrompts.length - collapsedQuickPromptCount}
+          </button>
+        ) : null}
       </div>
     </div>
   );

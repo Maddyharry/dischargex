@@ -192,27 +192,53 @@ function shouldPersistStylePatch(message: string, patch: ChatStyleProfilePatch) 
 }
 
 function buildStyleInstruction(profile: ChatStyleProfile) {
-  const lines: string[] = [];
+  const lines: string[] = [
+    "This block is the user's explicit UI style — it MUST visibly change how you write (length, bullet count, paragraph shape).",
+    "Do NOT reuse the same skeleton as other style settings: if they chose detailed + paragraph, write longer prose; if short + bullet, stay ultra-tight.",
+  ];
+
   if (profile.responseLength === "short") {
-    lines.push("Keep answers short and high-yield (roughly 3-6 bullets unless user asks for more).");
+    lines.push(
+      "LENGTH=SHORT: Thai answer must feel noticeably brief. Aim ~120–220 Thai words OR ≤7 bullets total (including any heading lines).",
+      "No long preambles; skip nice-to-have tangents; one idea per bullet; no nested sub-bullets unless user asked."
+    );
   } else if (profile.responseLength === "detailed") {
-    lines.push("Provide detailed answers with practical rationale and structured steps.");
+    lines.push(
+      "LENGTH=DETAILED: Thai answer must be clearly longer than balanced/short — aim ≥350 Thai words OR ≥14 bullets with sub-points where useful.",
+      "Include: rationale for main branches, common pitfalls, what to do if first-line fails, and explicit \"ถ้าไม่มีข้อมูล X ให้ทำ Y\" where relevant."
+    );
   } else {
-    lines.push("Keep answers balanced: concise first, then needed details.");
+    lines.push(
+      "LENGTH=BALANCED: ~220–350 Thai words OR 8–12 bullets; lead with direct answer then structured detail — not as thin as SHORT, not as long as DETAILED."
+    );
   }
 
   if (profile.outputFormat === "bullet") {
-    lines.push("Prefer bullet/checklist format over long paragraphs.");
+    lines.push(
+      "FORMAT=BULLETS: Use markdown '-' bullets as the main body. At most 1 short intro sentence before bullets.",
+      "Avoid paragraph blocks >2 sentences except inside one optional \"สรุปสั้น\" line at the end."
+    );
   } else if (profile.outputFormat === "paragraph") {
-    lines.push("Prefer short paragraphs over bullet-heavy output unless checklist is required.");
+    lines.push(
+      "FORMAT=PARAGRAPHS: Use 3–6 connected Thai paragraphs (blank line between). Use ≤2 bullet lines in the entire answer (only for critical lists like red flags or drug doses).",
+      "Do NOT default to the same bullet checklist layout you would use for FORMAT=BULLETS."
+    );
+  } else {
+    lines.push(
+      "FORMAT=AUTO: Pick bullets OR paragraphs based on question — but still respect LENGTH above (short stays short even in prose)."
+    );
   }
 
   if (profile.tone === "formal") {
-    lines.push("Use a professional and formal Thai clinical tone.");
+    lines.push(
+      "TONE=FORMAL: ภาษาไทยทางการ ใช้ครับ/ค่ะ หลีกเลี่ยงสแลง/คำอุปมา โทนเอกสารเวชระเบียน/ประชุมรายงาน"
+    );
   } else if (profile.tone === "friendly") {
-    lines.push("Use a friendly Thai tone while keeping clinical precision.");
+    lines.push(
+      "TONE=FRIENDLY: อธิบายเข้าใจง่าย เป็นมิตร แต่ยังคงความระมัดระวังทางคลินิก — ห้ามย่อความสำคัญของ red flag หรือข้อควรระวัง"
+    );
   } else {
-    lines.push("Use a neutral Thai clinical tone.");
+    lines.push("TONE=NEUTRAL: ทางการปานกลาง กระชับ เน้นประโยชน์ใช้งานจริง");
   }
 
   return lines.join("\n");
@@ -238,6 +264,8 @@ function extractTextFromResponse(resp: OpenAIResponse) {
 
 function buildSystemPrompt(assistantMode: AssistantMode, variant: "A" | "B", styleProfile: ChatStyleProfile) {
   const styleInstruction = buildStyleInstruction(styleProfile);
+  const styleLock =
+    "STYLE_LOCK: USER_STYLE_PREFERENCE overrides generic brevity/structure hints elsewhere in this prompt. Same clinical content may repeat, but shape (bullets vs paragraphs, length) must change when the profile changes.";
   if (assistantMode === "opd_demo") {
     const opdBase = [
       "You are DischargeX OPD Assistant demo for Thai outpatient workflow.",
@@ -262,9 +290,10 @@ function buildSystemPrompt(assistantMode: AssistantMode, variant: "A" | "B", sty
       "For medications, provide practical options with route, frequency, duration, and usual adult dosing range.",
       "If weight/age/renal function/pregnancy status is needed for safe dosing, state clearly that dose must be adjusted and verified.",
       "Never fabricate patient facts, lab results, or exam findings.",
-      "Use concise checklist style and keep it practical for real OPD time pressure.",
+      "Default answers should stay practical for OPD time pressure, but if USER_STYLE_PREFERENCE asks for longer or more prose, obey that instead.",
       "Do NOT force full case-summary template in every response.",
-      "Only output full Thai OPD case summary + SOAP when user explicitly asks to summarize case.",
+      "Only output the full Thai OPD case-summary block (U/D, CC, PI, …) when the user asks to summarize the case or uses the summarize-case action.",
+      "Only output a SOAP block when the user explicitly asks for SOAP or uses the SOAP summarize action — not together with full case summary unless they ask for both.",
       "For normal Q&A, answer directly and practically first; use concise checklist only when needed.",
       "If intent is greeting/smalltalk: keep response short and ask what case user wants to discuss.",
       "If intent is follow_up: continue from previous case and avoid restarting from scratch.",
@@ -280,7 +309,7 @@ function buildSystemPrompt(assistantMode: AssistantMode, variant: "A" | "B", sty
       "Default structure: 1) Impression 2) Missing history/PE 3) Differential with supporting clues 4) Investigation plan 5) Medication options with dose guardrails 6) Follow-up and red flags",
       "Add one short caution line when uncertainty is high.",
     ];
-    return [...(variant === "A" ? opdVariantA : opdVariantB), "USER_STYLE_PREFERENCE:", styleInstruction].join("\n");
+    return [...(variant === "A" ? opdVariantA : opdVariantB), styleLock, "USER_STYLE_PREFERENCE:", styleInstruction].join("\n");
   }
 
   const baseSystem = [
@@ -316,7 +345,7 @@ function buildSystemPrompt(assistantMode: AssistantMode, variant: "A" | "B", sty
     "When evidence is weak, explicitly state missing evidence before suggestions.",
     "Default format: 1) คำตอบสั้นตรงคำถาม 2) หลักฐานที่ควรมี 3) สิ่งที่ควรเช็กเพิ่ม",
   ];
-  return [...(variant === "A" ? systemVariantA : systemVariantB), "USER_STYLE_PREFERENCE:", styleInstruction].join("\n");
+  return [...(variant === "A" ? systemVariantA : systemVariantB), styleLock, "USER_STYLE_PREFERENCE:", styleInstruction].join("\n");
 }
 
 function resolveSpecialistChatModel(mode: ChatMode) {
@@ -360,28 +389,18 @@ function buildCaseSummaryPatternBlock(assistantMode: AssistantMode) {
   const requireIcd10 = assistantMode === "opd_demo";
   return [
     "THAI_OPD_CASE_SUMMARY_PATTERN:",
+    "- U/D: โรคประจำตัวสำคัญ",
     "- CC: อาการสำคัญเพียง 1 อาการ + ระยะเวลาก่อนมาโรงพยาบาล/คลินิก",
     "- PI: ต้องขึ้นต้นด้วยระยะเวลาก่อนมา แล้วตามด้วยลำดับอาการตามเวลา (เรียงเก่า -> ใหม่)",
-    "- U/D: โรคประจำตัวสำคัญ",
-    "- PHI/PMH: ประวัติเดิมที่เกี่ยวข้อง ยาประจำ ประวัติแพ้ยา ปัจจัยเสี่ยง",
     "- PE และ vital signs ที่สัมพันธ์กับปัญหา (ใช้ภาษาอังกฤษ/ศัพท์แพทย์มาตรฐาน)",
     requireIcd10
       ? "- Diagnosis โดยเขียนชื่อโรคพร้อม (ICD-10: ...) ทุกบรรทัด"
       : "- Diagnosis ที่น่าจะเป็น",
+    "- Investigation ที่ทำแล้ว/ควรทำเพิ่ม",
     requireIcd10
       ? "- Differential diagnosis โดยเขียนชื่อโรคพร้อม (ICD-10: ...) ทุกบรรทัด"
       : "- Differential diagnosis ที่น่าจะเป็น",
-    "- Investigation ที่ทำแล้ว/ควรทำเพิ่ม",
-    "- Treatment/Medication plan",
-    "- Follow-up interval + return precautions/red flags",
-    "",
-    "SOAP_PATTERN:",
-    "S: subjective (อาการสำคัญ, HPI, ROS ที่เกี่ยวข้อง)",
-    "O: objective (vitals, focused PE, ผลตรวจที่มี)",
-    requireIcd10
-      ? "A: assessment (problem list/diagnosis พร้อม (ICD-10: ...), differential)"
-      : "A: assessment (problem list/diagnosis, differential)",
-    "P: plan (investigation, treatment incl. dose if needed, patient advice, follow-up)",
+    "- Treatment plan: การรักษา/ยา/ติดตามอาการรวมในหัวข้อเดียว",
   ].join("\n");
 }
 
@@ -458,17 +477,14 @@ function buildMandatorySummaryTemplate(intent: SummaryIntent) {
       "Start output with: ผู้ป่วยเคส <เพศ/อายุ> U/D ... หรือ ไม่มีโรคประจำตัว",
       "",
       "## Thai OPD Case Summary",
+      "U/D: <underlying diseases>",
       "CC: <ONE main chief complaint only + must include duration + 'ก่อนมา รพ.'>",
       "PI: <timeline by lines from oldest -> newest. Example: '2 เดือนก่อนมา รพ. ...' / '1 สัปดาห์ก่อนมา รพ. ...' / '2 วันก่อนมา รพ. ...'>",
-      "U/D: <underlying diseases>",
-      "PHI/PMH: <relevant history, current meds, drug allergy, risk factors>",
       "PE: <focused physical exam with standard English medical terms>",
-      "Investigation: <tests done/recommended with standard English terms>",
       "Diagnosis: <each line must be Disease name (ICD-10: code)>",
+      "Investigation: <tests done/recommended with standard English terms>",
       "Differential diagnosis: <each line must be Disease name (ICD-10: code)>",
-      "Treatment: <treatment + medication + dose/frequency/duration>",
-      "Follow-up: <follow-up interval + return precautions/red flags>",
-      "Plan: <overall plan summary>",
+      "Treatment plan: <treatment + medication + dose/frequency/duration + follow-up/return precautions>",
     ].join("\n");
   }
   return [
@@ -874,19 +890,21 @@ function normalizeSummaryTemplateOutput(reply: string, assistantMode: AssistantM
     if (missingDurationQuestion) {
       return missingDurationQuestion;
     }
+    const treatmentPlan = [stripIcd10Suffix(treatment), stripIcd10Suffix(plan), stripIcd10Suffix(followUp)]
+      .map((x) => x.trim())
+      .filter((x) => x && x !== "ไม่พบข้อมูล")
+      .join(" | ") || "ไม่พบข้อมูล";
     return [
       patientLead,
       "",
+      `U/D: ${ud}`,
       `CC: ${cc}`,
       `PI: ${pi}`,
-      `PHI/PMH: ${phi}`,
       `PE: ${pe}`,
-      `Investigation: ${inv}`,
       `Diagnosis: ${dx}`,
+      `Investigation: ${inv}`,
       `Differential diagnosis: ${ddx}`,
-      `Treatment: ${treatment}`,
-      `Follow-up: ${followUp}`,
-      `Plan: ${plan}`,
+      `Treatment plan: ${treatmentPlan}`,
     ].join("\n");
   }
 
@@ -1452,13 +1470,16 @@ TRIAL_EXPIRED_LIMITED_MODE:
     const opdRuleContextBlock =
       assistantMode === "opd_demo" ? buildOpdRuleContextBlock(summarySourceContext || messageForModel) : "";
     const medicationSafetyBlock = buildMedicationSafetyBlock(messageForModel, summarySourceContext);
-    const maxOutputTokens = isMedicationSafetyQuery(`${messageForModel}\n${summarySourceContext}`)
+    let maxOutputTokens = isMedicationSafetyQuery(`${messageForModel}\n${summarySourceContext}`)
       ? mode === "fast"
         ? 700
         : 980
       : mode === "fast"
       ? 520
       : 760;
+    if (styleProfile.responseLength === "detailed") {
+      maxOutputTokens += 420;
+    }
 
     const prompt = [
       "KNOWLEDGE_SUMMARY (primary quick guidance):",
@@ -1491,6 +1512,13 @@ TRIAL_EXPIRED_LIMITED_MODE:
       "",
       `INTENT: ${intent}`,
       "",
+      `ACTIVE_UI_STYLE_JSON: ${JSON.stringify({
+        responseLength: styleProfile.responseLength,
+        outputFormat: styleProfile.outputFormat,
+        tone: styleProfile.tone,
+      })}`,
+      "This turn MUST match ACTIVE_UI_STYLE_JSON even if earlier assistant replies in CHAT_HISTORY used a different shape/length.",
+      "",
       "USER_MESSAGE:",
       messageForModel,
       safeImages.length
@@ -1504,7 +1532,11 @@ TRIAL_EXPIRED_LIMITED_MODE:
       "Do not force numbered sections unless user asks for checklist/template.",
       "If user asks simple question, answer directly in plain Thai.",
       "If user asks diagnosis support, include diagnosis candidate + ICD (if applicable) + minimum evidence.",
-      "Keep total answer short, practical, and contextual.",
+      styleProfile.responseLength === "detailed"
+        ? "TOTAL_LENGTH: honor USER_STYLE DETAILED targets — do not cap artificially short."
+        : styleProfile.responseLength === "short"
+          ? "TOTAL_LENGTH: honor USER_STYLE SHORT — stay tight; no filler paragraphs."
+          : "TOTAL_LENGTH: balanced — practical first, then only needed depth.",
       "If EXTERNAL_REFERENCE_SOURCES list is non-empty and topic touches regulation/guideline/สปสช/ชาร์จ, append 'ReferenceSource:' bullets with url for at least one item.",
       `MODE: ${mode.toUpperCase()} (FAST = short and quick, PRECISE = more detail).`,
       `ASSISTANT_MODE: ${assistantMode.toUpperCase()}.`,
