@@ -30,13 +30,18 @@ export type DiseaseSummary = {
 };
 
 export const KNOWLEDGE_REFERENCES: KnowledgeReference[] = [
-  { id: "R1", title: "CODING AUDIT 2562" },
+  {
+    id: "R1",
+    title:
+      "CODING AUDIT 2562 (ชุดตรวจสอบรหัสโรค / กรมการแพทย์) และเอกสารคู่ขนาน เช่น การให้รหัสสำหรับ รพ.สต. 2567",
+    year: "2019",
+  },
   {
     id: "R2",
     title: "Guideline for Medical Document Audit 2019 / คู่มือแนวทางปฏิบัติในการตรวจสอบเอกสารหลักฐาน ปี 2562",
     year: "2019",
   },
-  { id: "R3", title: "Medical Record Audit Guideline 2563" },
+  { id: "R3", title: "Medical Record Audit Guideline 2563 (คู่มือ MRA 2563)" },
   { id: "R4", title: "การสรุปเวชระเบียน 2020 CASE MEDICINE", year: "2020" },
   { id: "R5", title: "แนวทางสรุปโรคและหัตถการเพื่อเบิกจ่าย DRGs ออนไลน์ ปี 2566", year: "2023" },
   { id: "R6", title: "แนวทางการบันทึกเวชระเบียนสำหรับแพทย์ ปี 2568", year: "2025" },
@@ -45,6 +50,11 @@ export const KNOWLEDGE_REFERENCES: KnowledgeReference[] = [
     title: "สำนักงานหลักประกันสุขภาพแห่งชาติ (สปสช.) — ประกาศ/คู่มือที่เกี่ยวกับเวชระเบียนและสิทธิประโยชน์",
     year: "2026",
     url: "https://www.nhso.go.th/",
+  },
+  {
+    id: "R8",
+    title: "แนวทางการทบทวนคุณภาพการบันทึกเวชระเบียน (Peer Reviews) ปี 2568",
+    year: "2025",
   },
 ];
 
@@ -136,14 +146,13 @@ export const DISEASE_SUMMARIES: DiseaseSummary[] = [
   {
     slug: "acute-diarrhea",
     name: "Acute diarrhea",
-    aliases: ["acute diarrhea", "infectious diarrhea", "food poisoning", "gastroenteritis"],
+    aliases: ["acute diarrhea", "infectious diarrhea", "acute infectious diarrhea", "food poisoning", "gastroenteritis"],
     diagnosisToWrite: [
-      "Acute diarrhea, unspecified (A09.9) - ใช้เป็นหลักเมื่อถ่ายเหลวเฉียบพลันและยังไม่แยกสาเหตุ/เชื้อชัด (สอดคล้องการบันทึกเวชระเบียนทั่วไป — หลีกเลี่ยงคำว่า AGE ใน narrative)",
-      "Infectious gastroenteritis and colitis, unspecified (A09.0) - ใช้เมื่อมีบริบทติดเชื้อทาง GI ชัดแต่ยังไม่ระบุชนิดเชื้อ (รหัส ICD ไม่เท่ากับคำว่า acute gastroenteritis ใน summary)",
-      "Bacterial intestinal infection, unspecified (A04.9) - ใช้เมื่อหลักฐานชี้ไปทางแบคทีเรีย",
-      "Drug-induced noninfective gastroenteritis and colitis (K52.1) - ใช้เมื่อสัมพันธ์กับยา",
-      "Noninfective gastroenteritis and colitis, unspecified (K52.9) - ใช้เมื่อเป็น noninfectious cause อื่นที่ไม่ใช่ยา",
-      "Dehydration (E86) - ใช้เป็น secondary diagnosis เมื่อแพทย์วินิจฉัยและมีการรักษาสอดคล้อง (ไม่ลงจากอาการอย่างเดียว)",
+      "Acute diarrhea, unspecified (A09.9) - ใช้เมื่อแพทย์วินิจฉัย acute diarrhoea/diarrhea โดยไม่ระบุรายละเอียดเพิ่ม หรือยังไม่แยกสาเหตุ/เชื้อชัด (คู่กับ narrative ที่หลีกเลี่ยงคำว่า AGE)",
+      "Acute infectious diarrhea (A09.0) - ใช้เมื่อตรวจไม่พบสาเหตุอื่นชัดนอกจากการติดเชื้อ และแพทย์วินิจฉัยตามบริบท (ชื่อ ICD: infectious gastroenteritis and colitis, unspecified)",
+      "Bacterial intestinal infection, unspecified (A04.9) - ใช้เมื่อ stool มี WBC หรือหลักฐานชี้แบคทีเรีย; ถ้าเพาะเชื้อได้ให้ลงตามเชื้อ (เช่น A00, A03, A06)",
+      "Drug-induced noninfective gastroenteritis and colitis (K52.1) - ใช้เมื่อสัมพันธ์กับยา (+ รหัสยา Y57.- ตามเอกสารต้นทางเมื่อมี)",
+      "Noninfective gastroenteritis and colitis, unspecified (K52.9) - ใช้เมื่อแพทย์วินิจฉัย noninfectious diarrhea",
     ],
     thinkWhen: [
       "ค่าเริ่มต้นการสรุปเวชระเบียนไทย: ถ้าเป็นโรคหลักจากถ่ายเหลวเฉียบพลันและยังไม่มีหลักฐานแยกเชื้อ/กลไกชัด ให้เน้น Acute diarrhea (A09.9) ใน narrative และเลือกรหัสให้สอดคล้องหลักฐาน",
@@ -151,20 +160,23 @@ export const DISEASE_SUMMARIES: DiseaseSummary[] = [
       "มีไข้/ปวดบิด/ถ่ายมูกเลือด/สงสัยติดเชื้อทาง GI โดยยังไม่ยืนยันชนิดเชื้อ พิจารณา A09.0 ตามบริบท — อย่าใช้คำว่า AGE หรือ acute gastroenteritis เป็นคำนำใน summary",
       "มีหลักฐานชี้ไปทางเชื้อแบคทีเรีย (เช่น stool WBC เด่น, เพาะเชื้อได้, ภาพทางคลินิกเข้าได้) ให้พิจารณา Bacterial intestinal infection (A04.9)",
       "มีบริบทไม่ติดเชื้อชัด เช่น adverse drug effect, ischemic/inflammatory/noninfective cause ใช้ K52.1 หรือ K52.9 ตามความเหมาะสม",
+      "CODING AUDIT 2562 (กลุ่ม diarrhea): โดยทั่วไปไม่บันทึก dehydration, postural hypotension, prerenal azotemia, hypokalemia เป็น Sdx — ยกเว้น hypokalemia เมื่อ K < 2.5 และ hyponatremia เมื่อ Na < 125 (พร้อมการรักษา); hypovolemic shock (R57.1) บันทึกเป็น Sdx ได้เมื่อเข้าเกณฑ์",
+      "เอกสารการให้รหัส รพ.สต. 2567: ภาวะ dehydration จากท้องเสียมักถือเป็นอาการของโรคหลัก ไม่จำเป็นต้องบันทึกเป็นวินิจฉัยร่วมแยก",
     ],
     considerMore: [
-      "K < 2.5 + มีการรักษา -> Hypokalemia (E87.6), Na < 125 + มีการรักษา -> Hyponatremia (E87.1)",
+      "K < 2.5 + มีการรักษา -> Hypokalemia (E87.6), Na < 125 + มีการรักษา -> Hyponatremia (E87.1) — สอดคล้องเกณฑ์ใน CODING AUDIT 2562",
       "ถ้ามี hypotension + poor perfusion + ได้ fluid มากหรือใช้ vasopressor ให้คิด Hypovolemic shock (R57.1)",
-      "ถ้าแพทย์ระบุ dehydration และมีการรักษา IV fluid ชัด พิจารณา Dehydration (E86) เป็น secondary",
+      "Diarrhea + shock + AKI: prerenal azotemia (R39.2) ไม่ลงนอกจากเข้าเกณฑ์ ARF — เมื่อเข้าเกณฑ์ acute renal failure ใช้ N17.9 (ตามคำตอบในเอกสาร รพ.สต. 2567)",
     ],
     notYetDiagnosis: [
       "ไม่ใช้คำว่า AGE หรือ acute gastroenteritis ใน summary (แม้จะใช้รหัส A09.0 ได้เมื่อบริบทติดเชื้อ — แยก wording กับรหัส)",
       "ไม่ลง AKI/Prerenal/Hypovolemic shock จากแลบอย่างเดียวโดยไม่มีบริบททางคลินิกและการรักษาที่สอดคล้อง",
+      "ไม่ลง E86 dehydration เป็นวินิจฉัยร่วมจากอาการท้องเสียอย่างเดียว (ยึด CODING AUDIT 2562 / SCG รพ.สต.)",
     ],
     investigations: ["Electrolytes", "Creatinine/BUN", "CBC", "Stool exam/culture เมื่อสงสัยเชื้อ", "ประเมิน dehydration/poor perfusion"],
-    icd10: ["A09.9", "A09.0", "A04.9", "K52.1", "K52.9", "E86", "E87.6", "E87.1"],
-    seeAlso: ["hypovolemic-shock", "aki-acute-renal-failure", "dehydration"],
-    refs: ["R1", "R2", "R4", "R5", "R6", "R7"],
+    icd10: ["A09.9", "A09.0", "A04.9", "K52.1", "K52.9", "E87.6", "E87.1"],
+    seeAlso: ["hypovolemic-shock", "aki-acute-renal-failure"],
+    refs: ["R1", "R2", "R4", "R5", "R6", "R7", "R8"],
     chartChecklist: {
       mustHave: [
         "แยกสาเหตุให้ชัดก่อนเลือกรหัส (unspecified / infectious / bacterial / drug-induced / noninfectious)",
@@ -179,6 +191,7 @@ export const DISEASE_SUMMARIES: DiseaseSummary[] = [
       avoidIf: [
         "ใช้คำย่อ AGE ใน summary",
         "ลงโรคร่วมจาก lab อย่างเดียวโดยไม่มี clinical context และการรักษา",
+        "ลง dehydration / postural hypotension / prerenal azotemia / hypokalemia เป็น Sdx ในกลุ่มท้องเสีย โดยไม่เข้าเกณฑ์ยกเว้นของ CODING AUDIT",
       ],
     },
   },
@@ -204,6 +217,7 @@ export const DISEASE_SUMMARIES: DiseaseSummary[] = [
       "ถ้ามี platelet transfusion ให้เพิ่ม Thrombocytopenia (D69.6) และอย่าลืมสรุปหัตถการ transfusion",
       "ถ้ามี pleural effusion หรือ plasma leakage ชัด ให้ใช้ช่วยแยกระดับความรุนแรง",
       "ชุดข้อมูลนี้ยังไม่กำหนดตัวเลข cutoff (เช่น Hct/platelet) เอง เพื่อหลีกเลี่ยงการมโนเกณฑ์ ต้องยึดเอกสารอ้างอิงของหน่วยงาน",
+      "CODING AUDIT 2562 ยังอ้าง Dengue fever (A90) / DHF (A91) — ICD-10 ไทยรุ่นปัจจุบันใช้กลุ่ม A97.x; ตรวจสอบเวอร์ชันรหัสที่หน่วยงาน/สปสช. กำหนด",
     ],
     notYetDiagnosis: [
       "ไม่ลง Dengue หากยังไม่มีข้อมูลสนับสนุนพอ",
@@ -381,7 +395,7 @@ export const DISEASE_SUMMARIES: DiseaseSummary[] = [
     investigations: ["SpO2/ABG", "CXR", "ประวัติและการรักษา COPD เดิม", "Spirometry เมื่อเหมาะสม"],
     icd10: ["J44.0", "J44.1", "J44.9", "J96.0"],
     seeAlso: ["pneumonia", "acute-respiratory-failure"],
-    refs: ["R1", "R2", "R4", "R5", "R6", "R7"],
+    refs: ["R1", "R2", "R4", "R5", "R6", "R7", "R8"],
     chartChecklist: {
       mustHave: ["มีหลักฐาน COPD เดิม/ข้อมูลสนับสนุนเพียงพอ", "ระบุว่าเป็น AECOPD หรือ AECOPD with LRTI ให้ชัด"],
       supporting: [
@@ -785,28 +799,42 @@ export const DISEASE_SUMMARIES: DiseaseSummary[] = [
     name: "HIV infection / disease",
     aliases: ["hiv", "hiv infection", "aids", "โรคติดเชื้อเอชไอวี"],
     diagnosisToWrite: [
-      "HIV disease resulting in infectious and parasitic diseases (B20) - ใช้เมื่อมีภาวะติดเชื้อ/ปรสิตที่เข้าเกณฑ์ B20-B22 ตามหลักฐาน",
-      "Unspecified human immunodeficiency virus [HIV] disease (B24) - ใช้เมื่อวินิจฉัย HIV disease โดยรวมโดยยังไม่จัดกลุ่ม B20-B22 ชัดตามเอกสาร",
-      "Asymptomatic human immunodeficiency virus [HIV] infection status (Z21) - ใช้เมื่อยังไม่มีโรคแสดง/ภาวะ B20-B24 ตามที่บันทึก",
+      "Laboratory evidence of human immunodeficiency virus [HIV] (R75) - anti-HIV +ve แต่ยังไม่ได้ confirm ตามนิยามในเวชระเบียน",
+      "Acute HIV infection syndrome (B23.0) - อาการเฉียบพลัน early HIV; anti-HIV อาจ -ve แต่ p24 Ag +ve ตามบริบท",
+      "HIV disease resulting in infectious and parasitic diseases (B20) - ติดเชื้อ/ปรสิตที่เกี่ยวกับ HIV (มักเป็น Pdx เมื่อเป็นเหตุรับไว้หลัก)",
+      "HIV disease resulting in malignant neoplasm (B21) - เช่น lymphoma/Kaposi ตามหลักฐาน",
+      "HIV disease resulting in other specified diseases (B22) - เช่น CD4 เคย <350 + ภาวะที่ระบุใน B22",
+      "HIV disease resulting in other conditions (B23.-) - ภาวะอื่นที่จัดใน B23 ตามรายละเอียดย่อย",
+      "Unspecified human immunodeficiency virus [HIV] disease (B24) - โรคไม่เกี่ยวกลไก HIV โดยตรงแต่ยังอยู่ในกลุ่ม HIV disease — ใน CODING AUDIT 2562 มักบันทึกเป็น Sdx เมื่อมีโรคหลักอื่น",
+      "Asymptomatic human immunodeficiency virus [HIV] infection status (Z21) - anti-HIV +ve ไม่มีอาการ/CD4 ปกติตามบันทึก — ใน CODING AUDIT มักเป็น Sdx",
     ],
     thinkWhen: [
       "มีผลตรวจยืนยัน HIV หรือมีการวินิจฉัยจากแพทย์ในเวชระเบียนชัดเจน",
       "ถ้ามี TB ปอด/เยื่อหุ้มสมองวัณโรค ฯลฯ ให้ลงโรคนั้นร่วมและพิจารณา B20 เมื่อเข้าเกณฑ์ ไม่แทนที่ด้วย Z21",
+      "ถ้าโรคแทรกซ้อนไม่มีรหัสใน B20-B23 ให้ใช้รหัสโรคแทรกนั้นเป็น Pdx และบันทึก HIV disease เป็น Sdx (ตามหลักใน CODING AUDIT 2562)",
     ],
     considerMore: [
       "ถ้ามี opportunistic infection ให้ลงโรคติดเชื้อร่วมตามหลักฐาน (เช่น pulmonary tuberculosis, cryptococcal meningitis)",
-      "แยก Z21 (asymptomatic carrier) ออกจาก B20/B24 ตามคำวินิจฉัยและหลักฐานในเวชระเบียน — อย่าสลับเพราะสะดวก",
+      "แยก Z21 (asymptomatic) ออกจาก B20-B24 ตามคำวินิจฉัยและหลักฐาน — อย่าสลับเพราะสะดวก",
       "ผู้ป่วย HIV เสี่ยงวัณโรค: พิจารณา screening/culture และวินิจฉัยวัณโรคปอดเมื่อบริบทเข้าได้",
+      "ภาวะ IRIS หลังเริ่ม ARV: ลงตามวินิจฉัยแพทย์และรหัสที่บันทึกในเวชระเบียน คู่กับ HIV code ตามบริบท",
     ],
-    notYetDiagnosis: ["ไม่ลง HIV/AIDS หากยังไม่มีหลักฐานยืนยันหรือเอกสารวินิจฉัยชัดเจน"],
+    notYetDiagnosis: [
+      "ไม่ลง HIV/AIDS หากยังไม่มีหลักฐานยืนยันหรือเอกสารวินิจฉัยชัดเจน",
+      "ไม่ใช้ B24 แทนรหัส B20-B23 เมื่อมีหลักฐานจัดกลุ่มได้ชัด",
+    ],
     investigations: ["HIV serology/confirmatory test", "CD4/viral load ตามบริบท", "ผลตรวจ OI ตามอาการ"],
-    icd10: ["B20", "B24", "Z21"],
+    icd10: ["R75", "B23.0", "B20", "B21", "B22", "B23.8", "B24", "Z21"],
     seeAlso: ["meningitis-encephalitis", "sepsis-septic-shock", "pulmonary-tuberculosis"],
-    refs: ["R1", "R2", "R4", "R5", "R6", "R7"],
+    refs: ["R1", "R2", "R4", "R5", "R6", "R7", "R8"],
     chartChecklist: {
       mustHave: ["มีผลตรวจยืนยัน HIV หรือแพทย์ระบุ diagnosis ชัดเจน"],
       supporting: ["มีข้อมูล OI/CD4/viral load สนับสนุนระดับความรุนแรง", "มี TB/OI จำเพาะให้ลงร่วมตามหลักฐาน"],
-      avoidIf: ["ใช้คำว่า AIDS/HIV โดยไม่มีหลักฐานยืนยันในเวชระเบียน", "ลง Z21 ทั้งที่มี OI ชัดตามเกณฑ์ B20"],
+      avoidIf: [
+        "ใช้คำว่า AIDS/HIV โดยไม่มีหลักฐานยืนยันในเวชระเบียน",
+        "ลง Z21 ทั้งที่มี OI ชัดตามเกณฑ์ B20",
+        "ลง B24 ทั้งที่ควรแยก B20-B23 ตามหลักฐาน",
+      ],
     },
   },
   {
@@ -814,8 +842,12 @@ export const DISEASE_SUMMARIES: DiseaseSummary[] = [
     name: "Pulmonary tuberculosis",
     aliases: ["tuberculosis", "tb", "tb lung", "วัณโรคปอด", "ปอดวัณโรค", "ptb"],
     diagnosisToWrite: [
-      "Tuberculosis of lung, confirmed bacteriologically and histologically (A15.0) - ใช้เมื่อยืนยันเชื้อ/พยาธิวิทยา/นิวคลีอิกแอซิดตรวจตามหลักฐาน",
-      "Tuberculosis of lung, without bacteriological and histological confirmation (A16.0) - ใช้เมื่อวินิจฉัย/รักษา PTB ตามคลินิกแต่ยังไม่ยืนยันในกลุ่ม A15",
+      "Tuberculosis of lung, confirmed by sputum with or without culture (A15.0) - AFB/PCR/GeneXpert ตามหลักฐาน (สอดคล้อง CODING AUDIT 2562)",
+      "Tuberculosis of lung, confirmed by culture only (A15.1)",
+      "Tuberculosis of lung, confirmed histologically (A15.2)",
+      "Tuberculosis of lung, bacteriologically and histologically negative (A16.0) - วินิจฉัยคลินิก/รังสีโดยยังไม่เข้าเกณฑ์ A15",
+      "Primary respiratory tuberculosis (A15.7 / A16.7) - ตามนิยามย่อยใน ICD-10 เมื่อบันทึกเป็น primary respiratory TB",
+      "Other respiratory tuberculosis (A15.8 / A16.8)",
       "Acute miliary tuberculosis of a single specified site (A19.0) หรือ of multiple sites (A19.1) - พิจารณาเมื่อมีภาพ/บริบท acute miliary ชัด",
       "Miliary tuberculosis, unspecified (A19.9) - disseminated/generalized เมื่อยังไม่จำเพาะย่อย",
     ],
@@ -830,9 +862,9 @@ export const DISEASE_SUMMARIES: DiseaseSummary[] = [
     ],
     notYetDiagnosis: ["ไม่ลง PTB หากยังไม่มีหลักฐานรังสี/ห้องปฏิบัติการ/คำวินิจฉัยแพทย์สนับสนุนเพียงพอ"],
     investigations: ["Sputum AFB/culture/GeneXpert", "CXR/CT chest", "HIV status ตามบริบท", "ประเมิน disseminated/CNS"],
-    icd10: ["A15.0", "A16.0", "A17.0", "A19.0", "A19.1", "A19.9"],
+    icd10: ["A15.0", "A15.1", "A15.2", "A15.7", "A15.8", "A16.0", "A16.7", "A16.8", "A17.0", "A19.0", "A19.1", "A19.9"],
     seeAlso: ["hiv-infection-disease", "pneumonia", "meningitis-encephalitis", "sepsis-septic-shock"],
-    refs: ["R1", "R2", "R4", "R5", "R6", "R7"],
+    refs: ["R1", "R2", "R4", "R5", "R6", "R7", "R8"],
     chartChecklist: {
       mustHave: ["มีหลักฐานวินิจฉัย PTB หรือยืนยัน/รักษาตามแนวทางที่สอดคล้องเวชระเบียน"],
       supporting: ["ผลเชื้อ/รังสีสนับสนุน A15.0 vs A16.0", "ผู้ป่วย HIV — ตรวจสอบการลง B20 และโรคร่วม"],
@@ -1197,7 +1229,7 @@ export const DISEASE_SUMMARIES: DiseaseSummary[] = [
 ];
 
 /** Static catalog QA date (bump when you re-audit slugs/refs against guidelines). */
-export const DISEASE_KNOWLEDGE_LAST_REVIEWED = "2026-04-26";
+export const DISEASE_KNOWLEDGE_LAST_REVIEWED = "2026-04-27";
 
 export type DiseaseCatalogAudit = {
   lastReviewed: string;
