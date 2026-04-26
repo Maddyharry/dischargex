@@ -1,0 +1,232 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - link "DischargeX" [ref=e5] [cursor=pointer]:
+        - /url: /chat
+      - navigation [ref=e6]:
+        - link "About" [ref=e7] [cursor=pointer]:
+          - /url: /about
+        - link "Reference" [ref=e8] [cursor=pointer]:
+          - /url: /legal
+        - link "AI Chat" [ref=e9] [cursor=pointer]:
+          - /url: /chat
+        - link "สรุปชาร์จ" [ref=e10] [cursor=pointer]:
+          - /url: /app
+        - link "แนวทาง" [ref=e11] [cursor=pointer]:
+          - /url: /guidelines
+        - link "Knowledge" [ref=e12] [cursor=pointer]:
+          - /url: /knowledge
+        - link "แพ็กเกจ" [ref=e13] [cursor=pointer]:
+          - /url: /pricing
+        - button "Admin" [ref=e263]:
+          - generic "Admin" [ref=e264]
+          - img [ref=e265]
+  - main [ref=e15]:
+    - status [ref=e267]:
+      - generic [ref=e273]:
+        - paragraph [ref=e274]: กำลังสร้างสรุปและจัดโครง coding…
+        - paragraph [ref=e275]: ระบบกำลังอ่านข้อความทางคลินิก — โดยปกติใช้เวลาประมาณ 1 นาที
+        - paragraph [ref=e276]: โปรดอย่าปิดหรือรีเฟรชหน้าจนกว่าจะเสร็จ
+    - generic [ref=e16]:
+      - generic [ref=e17]:
+        - paragraph [ref=e18]: อยากเริ่มจากคุยเคสก่อน? ใช้ AI Chat เพื่อถามแนวทางและ checklist ได้ทันที
+        - link "ไป AI Chat" [ref=e19] [cursor=pointer]:
+          - /url: /chat
+        - button "ปิดแถบแนะนำ AI Chat" [ref=e20]: ปิด
+      - generic [ref=e22]:
+        - generic [ref=e23]:
+          - generic [ref=e24]: สรุปชาร์จ · ทบทวน coding
+          - generic [ref=e25]:
+            - heading "DischargeX" [level=1] [ref=e26]
+            - paragraph [ref=e27]: ช่วยสรุปชาร์จ, จัดกลุ่มวินิจฉัย, และช่วยประเมินผลต่อการทบทวน coding และ AdjRW แบบประมาณการ — ลดงานคัดลอกและจัดโครงข้อมูลใน workflow ของทีมแพทย์และผู้ตรวจรหัส
+          - generic [ref=e28]:
+            - generic [ref=e29]: Diagnosis fields
+            - generic [ref=e30]: Live ICD-10 Recalc
+            - generic [ref=e31]: AdjRW (estimate)
+            - generic [ref=e32]: Preprocess Summary
+        - generic [ref=e33]:
+          - generic [ref=e34]: ข้อควรทราบ
+          - generic [ref=e35]:
+            - paragraph [ref=e36]: DischargeX เป็นเครื่องมือช่วยสรุปและทบทวนการจัดโครง coding ไม่ใช่ระบบจัดกลุ่มอย่างเป็นทางการ และไม่รับประกันผลการเบิกจ่าย
+            - paragraph [ref=e37]: ผลลัพธ์ควรได้รับการ ทบทวนร่วมกับเวชระเบียน โดยแพทย์หรือผู้ตรวจรหัสก่อนนำไปใช้งานจริง
+            - paragraph [ref=e38]: Principal diagnosis, Comorbidity, Complication, ICD-9, Outcome และ Follow-up ต้องสอดคล้องกับข้อมูลในเวชระเบียนต้นฉบับ
+      - generic [ref=e39]:
+        - generic [ref=e40]:
+          - generic [ref=e42]:
+            - generic [ref=e43]:
+              - generic [ref=e44]: เริ่มต้นใช้งาน (สำหรับผู้ใช้ใหม่)
+              - generic [ref=e45]: ทำตาม 3 ขั้นตอนนี้เพื่อเริ่มใช้งานได้ทันที
+            - button "ขยาย" [ref=e46]
+          - generic [ref=e61]:
+            - generic [ref=e62]:
+              - generic [ref=e63]: ช่องใส่ข้อมูลสรุปชาร์จ
+              - generic [ref=e64]: Paste หน้า order sheet — รวมผล lab / รังสีที่แสดงในหน้านั้นในช่องเดียวกัน (ระบบไม่แยกช่อง lab)
+            - generic [ref=e65]:
+              - button "อัปโหลดรูป" [ref=e66]
+              - generic [ref=e67]: รูปถ่าย/สกรีนช็อต — สกัดข้อความก่อนสรุป (ใช้รูปอย่างเดียวได้โดยไม่ต้องวาง order sheet)
+            - textbox "Paste doctor order sheet..." [ref=e68]: "S: ไข้ ไอ มีเสมหะ 3 วัน O: CXR infiltration A: CAP P: admit"
+          - generic [ref=e69]:
+            - generic [ref=e70]:
+              - generic [ref=e71]: Other / Extra Clinical Text
+              - generic [ref=e72]: Optional supporting note
+            - textbox "Paste other note..." [ref=e73]
+          - generic [ref=e75]:
+            - generic [ref=e76]:
+              - button "Strict audit-safe" [ref=e77]
+              - button "What-if optimize" [ref=e78]
+            - button "กำลังสร้าง…" [disabled] [ref=e277]:
+              - generic [ref=e279]: กำลังสร้าง…
+            - button "ผู้ป่วยใหม่" [ref=e80]
+            - button "คัดลอกทั้งหมด" [ref=e81]
+        - generic [ref=e82]:
+          - generic [ref=e84]:
+            - generic [ref=e85]:
+              - generic [ref=e86]: Clinical Signal
+              - generic [ref=e87]: ภาพรวมความพร้อมของข้อมูล
+            - button "ขยาย" [ref=e88]
+          - generic [ref=e90]:
+            - generic [ref=e91]:
+              - generic [ref=e92]: Preprocess Summary
+              - generic [ref=e93]: สิ่งที่ถูก clean ก่อนส่งเข้า AI
+            - button "ขยาย" [ref=e94]
+          - generic [ref=e96]:
+            - generic [ref=e97]:
+              - generic [ref=e98]: Warnings
+              - generic [ref=e99]: สิ่งที่ควรทวนก่อน copy ไปใช้
+            - button "ขยาย" [ref=e100]
+      - generic [ref=e101]:
+        - generic [ref=e102]:
+          - generic [ref=e103]:
+            - heading "DX Coach" [level=2] [ref=e104]
+            - paragraph [ref=e105]: ทบทวนความเหมาะสมของ diagnosis และข้อมูลที่ควรมีใน chart
+            - paragraph [ref=e106]: Diagnosis & Documentation Coach
+          - generic [ref=e107]:
+            - generic [ref=e108]: 0 ประเด็นควรทบทวน
+            - button "ดูทั้งหมด" [ref=e109]
+        - generic [ref=e111]: "DX Coach: ไม่พบประเด็นสำคัญที่ต้องทบทวนเพิ่มเติม"
+      - generic [ref=e112]:
+        - generic [ref=e113]:
+          - generic [ref=e114]:
+            - generic [ref=e117]: Principal Diagnosis
+            - button "คัดลอก" [ref=e118]
+          - textbox [ref=e119]
+        - generic [ref=e120]:
+          - generic [ref=e121]:
+            - generic [ref=e124]: Comorbidity
+            - button "คัดลอก" [ref=e125]
+          - textbox [ref=e126]
+        - generic [ref=e127]:
+          - generic [ref=e128]:
+            - generic [ref=e131]: Complication
+            - button "คัดลอก" [ref=e132]
+          - textbox [ref=e133]
+        - generic [ref=e134]:
+          - generic [ref=e135]:
+            - generic [ref=e138]: Other Diagnosis
+            - button "คัดลอก" [ref=e139]
+          - textbox [ref=e140]
+        - generic [ref=e141]:
+          - generic [ref=e142]:
+            - generic [ref=e145]: External Cause
+            - button "คัดลอก" [ref=e146]
+          - textbox [ref=e147]
+        - generic [ref=e148]:
+          - generic [ref=e149]:
+            - generic [ref=e152]: ICD-9
+            - button "คัดลอก" [ref=e153]
+          - textbox [ref=e154]
+          - generic [ref=e155]:
+            - generic [ref=e156]: คัดลอก ICD-9 แยกรายการ
+            - generic [ref=e157]: ไม่พบรายการ ICD-9
+        - generic [ref=e158]:
+          - generic [ref=e159]:
+            - generic [ref=e162]: Admit Date
+            - button "คัดลอก" [ref=e163]
+          - textbox [ref=e164]
+        - generic [ref=e165]:
+          - generic [ref=e166]:
+            - generic [ref=e169]: Discharge Date
+            - button "คัดลอก" [ref=e170]
+          - textbox [ref=e171]
+        - generic [ref=e172]:
+          - generic [ref=e173]:
+            - generic [ref=e176]: Final Diagnosis
+            - button "คัดลอก" [ref=e177]
+          - textbox [ref=e178]
+        - generic [ref=e179]:
+          - generic [ref=e180]:
+            - generic [ref=e183]: Investigations
+            - button "คัดลอก" [ref=e184]
+          - textbox [ref=e185]
+        - generic [ref=e186]:
+          - generic [ref=e187]:
+            - generic [ref=e190]: Treatment
+            - button "คัดลอก" [ref=e191]
+          - textbox [ref=e192]
+        - generic [ref=e193]:
+          - generic [ref=e194]:
+            - generic [ref=e197]: Outcome
+            - button "คัดลอก" [ref=e198]
+          - textbox [ref=e199]
+        - generic [ref=e200]:
+          - generic [ref=e201]:
+            - generic [ref=e204]: Follow-up
+            - button "คัดลอก" [ref=e205]
+          - textbox [ref=e206]
+        - generic [ref=e207]:
+          - generic [ref=e208]:
+            - generic [ref=e211]: Home Medication
+            - button "คัดลอก" [ref=e212]
+          - textbox [ref=e213]
+      - region "ข้อความแจ้งเตือนการใช้ผลลัพธ์" [ref=e214]:
+        - paragraph [ref=e215]: ข้อความสำคัญเกี่ยวกับผลลัพธ์
+        - paragraph [ref=e216]: ผลลัพธ์นี้เป็นเครื่องมือช่วยสรุปและทบทวน coding โดยอ้างอิงหลักการจากเอกสารมาตรฐานที่เกี่ยวข้อง แต่ไม่ใช่ผลการจัดกลุ่มหรือการรับรองการเบิกจ่ายอย่างเป็นทางการ
+        - paragraph [ref=e217]: ผลลัพธ์นี้เป็นการช่วยประเมินเชิงสนับสนุน ไม่ใช่ผลจากระบบจัดกลุ่มอย่างเป็นทางการ และไม่รับประกันผลการเบิกจ่าย ควรมีแพทย์หรือผู้ตรวจรหัสทบทวนก่อนใช้งานจริง
+        - paragraph [ref=e218]:
+          - text: "Reference set used: Thai clinical documentation reference set [R1-R6] — ICD-10 / ICD-10-TM / DRG audit-oriented guidance"
+          - text: "Last reviewed: 2026-04-21"
+      - generic [ref=e219]: "หมายเหตุ: โปรแกรมเหมาะกับการใช้งานบนคอมพิวเตอร์มากที่สุด (จอใหญ่จะจัดการข้อมูลได้สะดวกกว่า) แต่รองรับการใช้งานบนมือถือเพื่อทบทวนและแก้ไขเบื้องต้นได้"
+  - contentinfo [ref=e229]:
+    - generic [ref=e230]:
+      - generic [ref=e231]:
+        - generic [ref=e232]:
+          - generic [ref=e233]: DischargeX
+          - paragraph [ref=e234]:
+            - text: DischargeX เป็นเครื่องมือช่วยสรุปและทบทวน coding
+            - text: อ้างอิงหลักการจากเอกสารที่เผยแพร่สาธารณะ
+            - text: ไม่ใช่ระบบจัดกลุ่มอย่างเป็นทางการ และไม่รับประกันผลการเบิกจ่าย
+        - generic [ref=e235]:
+          - generic [ref=e236]: English
+          - paragraph [ref=e237]:
+            - text: DischargeX supports charge summary drafting and coding review.
+            - text: Based on publicly available coding principles and reference materials.
+            - text: Not a statutory grouper; reimbursement outcomes depend on institutional rules and documentation.
+        - generic [ref=e238]:
+          - generic [ref=e239]: ลิงก์
+          - list [ref=e240]:
+            - listitem [ref=e241]:
+              - link "About" [ref=e242] [cursor=pointer]:
+                - /url: /about
+            - listitem [ref=e243]:
+              - link "Reference & Legal Notice" [ref=e244] [cursor=pointer]:
+                - /url: /legal
+            - listitem [ref=e245]:
+              - link "Privacy Policy" [ref=e246] [cursor=pointer]:
+                - /url: /privacy-policy
+            - listitem [ref=e247]:
+              - link "Terms of Service" [ref=e248] [cursor=pointer]:
+                - /url: /terms-of-service
+            - listitem [ref=e249]:
+              - link "แนวทางใช้งาน" [ref=e250] [cursor=pointer]:
+                - /url: /guidelines
+            - listitem [ref=e251]:
+              - link "แพ็กเกจ" [ref=e252] [cursor=pointer]:
+                - /url: /pricing
+        - generic [ref=e253]:
+          - generic [ref=e254]: Reference
+          - paragraph [ref=e255]: Thai clinical documentation reference set [R1-R6] — ICD-10 / ICD-10-TM / DRG audit-oriented guidance
+          - paragraph [ref=e256]: "Last reviewed: 2026-04-21"
+      - paragraph [ref=e257]: © 2026 DischargeX
+  - button "เปิดแชทช่วยเหลือ" [ref=e258]:
+    - img [ref=e259]
+  - alert [ref=e261]

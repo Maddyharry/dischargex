@@ -1,0 +1,95 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - link "DischargeX" [ref=e5] [cursor=pointer]:
+        - /url: /
+      - navigation [ref=e6]:
+        - link "About" [ref=e7] [cursor=pointer]:
+          - /url: /about
+        - link "Reference" [ref=e8] [cursor=pointer]:
+          - /url: /legal
+        - link "AI Chat" [ref=e9] [cursor=pointer]:
+          - /url: /chat
+        - link "สรุปชาร์จ" [ref=e10] [cursor=pointer]:
+          - /url: /app
+        - link "แนวทาง" [ref=e11] [cursor=pointer]:
+          - /url: /guidelines
+        - link "Knowledge" [ref=e12] [cursor=pointer]:
+          - /url: /knowledge
+        - link "เข้าสู่ระบบ" [ref=e13] [cursor=pointer]:
+          - /url: /login
+  - main [ref=e14]:
+    - generic [ref=e15]:
+      - heading "เข้าสู่ระบบ DischargeX" [level=1] [ref=e16]
+      - paragraph [ref=e17]: ทดลองใช้งานฟรี 14 วันแบบใช้งานเต็ม หลังจากนั้นสามารถอัปเกรดแพ็กเกจได้ตลอดเวลา
+      - paragraph [ref=e18]: นี่คือหน้าล็อกอินอย่างเป็นทางการของ DischargeX (secure login)
+      - form "DischargeX secure login form" [ref=e19]:
+        - generic [ref=e20]: อีเมลสำหรับเข้าสู่ระบบ
+        - textbox "อีเมลสำหรับเข้าสู่ระบบ" [ref=e21]:
+          - /placeholder: อีเมล
+        - generic [ref=e22]: รหัสผ่าน
+        - textbox "รหัสผ่าน" [ref=e23]
+        - generic [ref=e24]:
+          - generic [ref=e25] [cursor=pointer]:
+            - checkbox "บันทึก user (อีเมล)" [checked] [ref=e26]
+            - text: บันทึก user (อีเมล)
+          - link "ลืมรหัสผ่าน?" [ref=e27] [cursor=pointer]:
+            - /url: /forgot-password
+        - button "เข้าสู่ด้วยอีเมล" [ref=e28]
+      - paragraph [ref=e29]: หรือ
+      - button "เข้าสู่ด้วย Google" [ref=e31]
+      - paragraph [ref=e32]:
+        - text: ยังไม่มีบัญชี?
+        - link "สมัครสมาชิก" [ref=e33] [cursor=pointer]:
+          - /url: /signup
+      - paragraph [ref=e34]:
+        - text: การใช้งานถือว่ายอมรับว่า AI เป็นเพียงผู้ช่วย ต้องมีแพทย์หรือ coder ตรวจสอบผลลัพธ์ทุกครั้ง
+        - link "อ่านแนวทางใช้งานและข้อจำกัด" [ref=e35] [cursor=pointer]:
+          - /url: /guidelines
+      - paragraph [ref=e36]:
+        - link "สำหรับผู้ดูแลระบบ" [ref=e37] [cursor=pointer]:
+          - /url: /login/admin
+  - contentinfo [ref=e38]:
+    - generic [ref=e39]:
+      - generic [ref=e40]:
+        - generic [ref=e41]:
+          - generic [ref=e42]: DischargeX
+          - paragraph [ref=e43]:
+            - text: DischargeX เป็นเครื่องมือช่วยสรุปและทบทวน coding
+            - text: อ้างอิงหลักการจากเอกสารที่เผยแพร่สาธารณะ
+            - text: ไม่ใช่ระบบจัดกลุ่มอย่างเป็นทางการ และไม่รับประกันผลการเบิกจ่าย
+        - generic [ref=e44]:
+          - generic [ref=e45]: English
+          - paragraph [ref=e46]:
+            - text: DischargeX supports charge summary drafting and coding review.
+            - text: Based on publicly available coding principles and reference materials.
+            - text: Not a statutory grouper; reimbursement outcomes depend on institutional rules and documentation.
+        - generic [ref=e47]:
+          - generic [ref=e48]: ลิงก์
+          - list [ref=e49]:
+            - listitem [ref=e50]:
+              - link "About" [ref=e51] [cursor=pointer]:
+                - /url: /about
+            - listitem [ref=e52]:
+              - link "Reference & Legal Notice" [ref=e53] [cursor=pointer]:
+                - /url: /legal
+            - listitem [ref=e54]:
+              - link "Privacy Policy" [ref=e55] [cursor=pointer]:
+                - /url: /privacy-policy
+            - listitem [ref=e56]:
+              - link "Terms of Service" [ref=e57] [cursor=pointer]:
+                - /url: /terms-of-service
+            - listitem [ref=e58]:
+              - link "แนวทางใช้งาน" [ref=e59] [cursor=pointer]:
+                - /url: /guidelines
+            - listitem [ref=e60]:
+              - link "แพ็กเกจ" [ref=e61] [cursor=pointer]:
+                - /url: /pricing
+        - generic [ref=e62]:
+          - generic [ref=e63]: Reference
+          - paragraph [ref=e64]: Thai clinical documentation reference set [R1-R6] — ICD-10 / ICD-10-TM / DRG audit-oriented guidance
+          - paragraph [ref=e65]: "Last reviewed: 2026-04-21"
+      - paragraph [ref=e66]: © 2026 DischargeX
+  - button "เปิดแชทช่วยเหลือ" [ref=e67]:
+    - img [ref=e68]
+  - alert [ref=e70]

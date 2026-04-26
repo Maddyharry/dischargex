@@ -1,0 +1,8 @@
+[      65ms] [ERROR] TypeError: Failed to fetch
+    at tD (https://dischargex.net/_next/static/chunks/5072-de4494795236f466.js:1:42814)
+    at s1 (https://dischargex.net/_next/static/chunks/4bd1b696-c2f6e0877b6c10aa.js:1:152460)
+    at https://dischargex.net/_next/static/chunks/4bd1b696-c2f6e0877b6c10aa.js:1:158356
+    at nU (https://dischargex.net/_next/static/chunks/4bd1b696-c2f6e0877b6c10aa.js:1:20228)
+    at s5 (https://dischargex.net/_next/static/chunks/4bd1b696-c2f6e0877b6c10aa.js:1:153693)
+    at fD (https://dischargex.net/_next/static/chunks/4bd1b696-c2f6e0877b6c10aa.js:1:190431)
+    at fO (https://dischargex.net/_next/static/chunks/4bd1b696-c2f6e0877b6c10aa.js:1:190253) @ https://dischargex.net/_next/static/chunks/5072-de4494795236f466.js:0

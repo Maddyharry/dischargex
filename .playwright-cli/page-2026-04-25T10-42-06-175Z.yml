@@ -1,0 +1,108 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - link "DischargeX" [ref=e5] [cursor=pointer]:
+        - /url: /
+      - navigation [ref=e6]:
+        - link "About" [ref=e7] [cursor=pointer]:
+          - /url: /about
+        - link "Reference" [ref=e8] [cursor=pointer]:
+          - /url: /legal
+        - link "AI Chat" [ref=e9] [cursor=pointer]:
+          - /url: /chat
+        - link "สรุปชาร์จ" [ref=e10] [cursor=pointer]:
+          - /url: /app
+        - link "แนวทาง" [ref=e11] [cursor=pointer]:
+          - /url: /guidelines
+        - link "Knowledge" [ref=e12] [cursor=pointer]:
+          - /url: /knowledge
+  - main [ref=e14]:
+    - generic [ref=e15]:
+      - heading "Admin" [level=1] [ref=e16]
+      - generic [ref=e17]:
+        - link "คำขอชำระเงิน สรุปสถานะการชำระ (ชำระหลักผ่าน Stripe)" [ref=e18] [cursor=pointer]:
+          - /url: /admin/payments
+          - text: คำขอชำระเงิน
+          - paragraph [ref=e19]: สรุปสถานะการชำระ (ชำระหลักผ่าน Stripe)
+        - link "จัดการ Users เปลี่ยนแผน / สิทธิ์ admin" [ref=e20] [cursor=pointer]:
+          - /url: /admin/users
+          - text: จัดการ Users
+          - paragraph [ref=e21]: เปลี่ยนแผน / สิทธิ์ admin
+        - link "แจ้งข้อผิดพลาด & แชทลูกค้า ดูรายการแชทและรายงานข้อผิดพลาดที่ลูกค้าส่งมา" [ref=e22] [cursor=pointer]:
+          - /url: /admin/feedback
+          - text: แจ้งข้อผิดพลาด & แชทลูกค้า
+          - paragraph [ref=e23]: ดูรายการแชทและรายงานข้อผิดพลาดที่ลูกค้าส่งมา
+        - link "Telemetry Digest (7 วันล่าสุด) ดู acceptance rate, top events และสถิติ prompt variant เพื่อปรับคุณภาพตอบกลับ" [ref=e24] [cursor=pointer]:
+          - /url: /admin/telemetry
+          - text: Telemetry Digest (7 วันล่าสุด)
+          - paragraph [ref=e25]: ดู acceptance rate, top events และสถิติ prompt variant เพื่อปรับคุณภาพตอบกลับ
+        - link "Analytics Config Health ตรวจความพร้อม GA / Google Ads / Search Console env ใน production แบบไม่เผยค่าจริง" [ref=e26] [cursor=pointer]:
+          - /url: /admin/analytics-config
+          - text: Analytics Config Health
+          - paragraph [ref=e27]: ตรวจความพร้อม GA / Google Ads / Search Console env ใน production แบบไม่เผยค่าจริง
+        - link "Trial Expired Policy ตั้งค่า limited mode หลัง trial หมดอายุ (scope แชท, OPD, summarize, และโมเดล)" [ref=e28] [cursor=pointer]:
+          - /url: /admin/trial-expired-policy
+          - text: Trial Expired Policy
+          - paragraph [ref=e29]: ตั้งค่า limited mode หลัง trial หมดอายุ (scope แชท, OPD, summarize, และโมเดล)
+        - 'link "Pending Review Queue Human-in-the-loop: รวมเคส reject feedback และ low-confidence summary เพื่อให้คน review" [ref=e30] [cursor=pointer]':
+          - /url: /admin/review-queue
+          - text: Pending Review Queue
+          - paragraph [ref=e31]: "Human-in-the-loop: รวมเคส reject feedback และ low-confidence summary เพื่อให้คน review"
+        - link "Knowledge Admin จัดการ version/effective date และ deprecate หัวข้อเก่าที่ไม่อยากให้แสดงใน search/chat" [ref=e32] [cursor=pointer]:
+          - /url: /admin/knowledge
+          - text: Knowledge Admin
+          - paragraph [ref=e33]: จัดการ version/effective date และ deprecate หัวข้อเก่าที่ไม่อยากให้แสดงใน search/chat
+      - generic [ref=e34]:
+        - heading "Reference Update Policy" [level=2] [ref=e35]
+        - paragraph [ref=e36]: ระบบนี้ใช้ชุดอ้างอิงแบบกำหนดเวอร์ชัน เพื่อให้ตรวจสอบย้อนหลังได้ว่า logic ของแต่ละช่วงเวลาอ้างอิงเอกสารชุดใด
+        - paragraph [ref=e37]: "เมื่อมีการปรับปรุงเอกสารอ้างอิง ระบบจะอัปเดตผ่านขั้นตอนดังนี้:"
+        - list [ref=e38]:
+          - listitem [ref=e39]: ตรวจพบเอกสารหรือเวอร์ชันใหม่
+          - listitem [ref=e40]: นำเข้าเข้าสภาพแวดล้อมทดสอบ
+          - listitem [ref=e41]: เปรียบเทียบกฎเดิมกับกฎใหม่
+          - listitem [ref=e42]: ทดสอบกับชุดเคสย้อนหลัง
+          - listitem [ref=e43]: ตรวจทานผลกระทบก่อนเปิดใช้งานจริง
+          - listitem [ref=e44]: เผยแพร่พร้อมหมายเลขเวอร์ชันใหม่ของ reference set
+  - contentinfo [ref=e45]:
+    - generic [ref=e46]:
+      - generic [ref=e47]:
+        - generic [ref=e48]:
+          - generic [ref=e49]: DischargeX
+          - paragraph [ref=e50]:
+            - text: DischargeX เป็นเครื่องมือช่วยสรุปและทบทวน coding
+            - text: อ้างอิงหลักการจากเอกสารที่เผยแพร่สาธารณะ
+            - text: ไม่ใช่ระบบจัดกลุ่มอย่างเป็นทางการ และไม่รับประกันผลการเบิกจ่าย
+        - generic [ref=e51]:
+          - generic [ref=e52]: English
+          - paragraph [ref=e53]:
+            - text: DischargeX supports charge summary drafting and coding review.
+            - text: Based on publicly available coding principles and reference materials.
+            - text: Not a statutory grouper; reimbursement outcomes depend on institutional rules and documentation.
+        - generic [ref=e54]:
+          - generic [ref=e55]: ลิงก์
+          - list [ref=e56]:
+            - listitem [ref=e57]:
+              - link "About" [ref=e58] [cursor=pointer]:
+                - /url: /about
+            - listitem [ref=e59]:
+              - link "Reference & Legal Notice" [ref=e60] [cursor=pointer]:
+                - /url: /legal
+            - listitem [ref=e61]:
+              - link "Privacy Policy" [ref=e62] [cursor=pointer]:
+                - /url: /privacy-policy
+            - listitem [ref=e63]:
+              - link "Terms of Service" [ref=e64] [cursor=pointer]:
+                - /url: /terms-of-service
+            - listitem [ref=e65]:
+              - link "แนวทางใช้งาน" [ref=e66] [cursor=pointer]:
+                - /url: /guidelines
+            - listitem [ref=e67]:
+              - link "แพ็กเกจ" [ref=e68] [cursor=pointer]:
+                - /url: /pricing
+        - generic [ref=e69]:
+          - generic [ref=e70]: Reference
+          - paragraph [ref=e71]: Thai clinical documentation reference set [R1-R6] — ICD-10 / ICD-10-TM / DRG audit-oriented guidance
+          - paragraph [ref=e72]: "Last reviewed: 2026-04-21"
+      - paragraph [ref=e73]: © 2026 DischargeX
+  - button "เปิดแชทช่วยเหลือ" [ref=e74]:
+    - img [ref=e75]

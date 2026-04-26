@@ -1,0 +1,227 @@
+- generic [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - link "DischargeX" [ref=e5] [cursor=pointer]:
+        - /url: /chat
+      - navigation [ref=e6]:
+        - link "About" [ref=e7] [cursor=pointer]:
+          - /url: /about
+        - link "Reference" [ref=e8] [cursor=pointer]:
+          - /url: /legal
+        - link "AI Chat" [ref=e9] [cursor=pointer]:
+          - /url: /chat
+        - link "สรุปชาร์จ" [ref=e10] [cursor=pointer]:
+          - /url: /app
+        - link "แนวทาง" [ref=e11] [cursor=pointer]:
+          - /url: /guidelines
+        - link "Knowledge" [ref=e12] [cursor=pointer]:
+          - /url: /knowledge
+        - button "Admin" [ref=e93]:
+          - generic "Admin" [ref=e94]
+          - img [ref=e95]
+  - main [ref=e14]:
+    - generic [ref=e15]:
+      - complementary [ref=e17]:
+        - button "+ แชทใหม่" [ref=e18]
+        - generic [ref=e19]:
+          - generic [ref=e97]:
+            - button "คนท้องไตรมาสแรกใช้ amoxicillin ได้ไหม สร" [ref=e98]
+            - button "ลบ" [ref=e99]
+          - generic [ref=e100]:
+            - 'button "opd med test: คนไข้ตั้งครรภ์ 24 สัปดาห์" [ref=e101]'
+            - button "ลบ" [ref=e102]
+          - generic [ref=e103]:
+            - button "หญิงตั้งครรภ์ 10 สัปดาห์ ใช้ amoxicillin" [ref=e104]
+            - button "ลบ" [ref=e105]
+          - generic [ref=e106]:
+            - button "ยา amoxicillin มีผลข้างเคียงอะไรสำคัญ แล" [ref=e107]
+            - button "ลบ" [ref=e108]
+          - generic [ref=e109]:
+            - 'button "opd test3: เด็กชาย 8 ปี คันซอกนิ้วมือกลา" [ref=e110]'
+            - button "ลบ" [ref=e111]
+          - generic [ref=e112]:
+            - 'button "opd test2: เด็กชาย 8 ปี คันซอกนิ้วมือกลา" [ref=e113]'
+            - button "ลบ" [ref=e114]
+          - generic [ref=e115]:
+            - 'button "opd test: เด็กชาย 8 ปี คันตามซอกนิ้วมือก" [ref=e116]'
+            - button "ลบ" [ref=e117]
+          - generic [ref=e118]:
+            - 'button "coding precise test: เคสไข้ ไอ เจ็บคอ ต้" [ref=e119]'
+            - button "ลบ" [ref=e120]
+          - generic [ref=e121]:
+            - 'button "coding fast test: ผู้ป่วย URI อยากได้ตัว" [ref=e122]'
+            - button "ลบ" [ref=e123]
+          - generic [ref=e124]:
+            - 'button "ทดสอบโหมด coding: ช่วยยกตัวอย่าง ICD-10" [ref=e125]'
+            - button "ลบ" [ref=e126]
+          - generic [ref=e127]:
+            - button "หญิง 37 ปี ปวดหัวเป็นๆหายๆ มา 3 ปี เป็นม" [ref=e128]
+            - button "ลบ" [ref=e129]
+          - generic [ref=e130]:
+            - button "สกสดมดใแแใแใ" [ref=e131]
+            - button "ลบ" [ref=e132]
+          - generic [ref=e133]:
+            - button "แชทใหม่" [ref=e134]
+            - button "ลบ" [ref=e135]
+          - generic [ref=e136]:
+            - button "เคสชายไทย 45 ปี 2 วันเหนื่อยหอบ เป็นโรค" [ref=e137]
+            - button "ลบ" [ref=e138]
+          - generic [ref=e139]:
+            - button "ชายไทย 45 ปี โรคเบาหวาน" [ref=e140]
+            - button "ลบ" [ref=e141]
+          - generic [ref=e142]:
+            - button "งูเห่ากัด 10 นาทีก่อน นำงูมาด้วย อาการยั" [ref=e143]
+            - button "ลบ" [ref=e144]
+          - generic [ref=e145]:
+            - button "เด้กชาบไทย 8 ขวบ คันตามนิ้วมือ นิ้วเท้า" [ref=e146]
+            - button "ลบ" [ref=e147]
+          - generic [ref=e148]:
+            - button "เด้กชาบไทย 8 ขวบ คันตามนิ้วมือ นิ้วเท้า" [ref=e149]
+            - button "ลบ" [ref=e150]
+          - generic [ref=e151]:
+            - button "สรุป diagnosis ให้หน่อย 19/02/69 09:45" [ref=e152]
+            - button "ลบ" [ref=e153]
+          - generic [ref=e154]:
+            - button "ชาย35 ปี ไข้ ไอ หอบ 2 เดือน lung crepita" [ref=e155]
+            - button "ลบ" [ref=e156]
+          - generic [ref=e157]:
+            - button "ชาย35 ปี ไข้ ไอ หอบ 2 เดือน lung crepita" [ref=e158]
+            - button "ลบ" [ref=e159]
+          - generic [ref=e160]:
+            - button "ชาย 45 ปี ไข้ ไอหอบ lung wheezing Rt lun" [ref=e161]
+            - button "ลบ" [ref=e162]
+      - generic [ref=e23]:
+        - generic [ref=e24]:
+          - generic [ref=e25]:
+            - generic [ref=e26]: AI
+            - generic [ref=e27]:
+              - generic [ref=e28]:
+                - heading "OPD Assistant Demo" [level=1] [ref=e243]
+                - generic [ref=e30]: OPD
+              - paragraph [ref=e31]: ซักประวัติ · ตรวจร่างกาย · DDx · RDU/ICD-10
+            - button "ซ่อนตั้งค่า" [ref=e32]
+          - generic [ref=e33]:
+            - generic [ref=e34]:
+              - button "Coding" [ref=e35]
+              - button "OPD" [active] [ref=e36]
+            - generic [ref=e37]: โหมด OPD เน้นแนวทางคลินิก
+          - generic [ref=e39]: OPD · Fast
+          - generic [ref=e40]:
+            - button "Fast" [ref=e41]
+            - button "Precise" [ref=e42]
+            - generic [ref=e43]: ตอบเร็ว/คุ้มโควต้า (เหมาะใช้ต่อเนื่อง)
+          - generic [ref=e44]:
+            - generic [ref=e45]: "สไตล์ตอบ:"
+            - combobox [ref=e46]:
+              - option "สั้น"
+              - option "สมดุล"
+              - option "ละเอียด" [selected]
+            - combobox [ref=e47]:
+              - option "อัตโนมัติ"
+              - option "หัวข้อ bullet"
+              - option "ย่อหน้า" [selected]
+            - combobox [ref=e48]:
+              - option "โทนกลาง" [selected]
+              - option "ทางการ"
+              - option "กันเอง"
+            - generic [ref=e49]: ระบบจะจำรายผู้ใช้ให้อัตโนมัติ
+          - paragraph [ref=e50]: "โหมด OPD รวม: ซักประวัติ/ตรวจร่างกาย/DDx/แผนรักษา + RDU โดยต้องเช็กข้อบ่งชี้ยาฆ่าเชื้อ และชื่อโรคให้ใส่ (ICD-10: ...)"
+          - paragraph [ref=e51]: ทั้งสองโหมดคุยได้ทุกเรื่องในแชทเดียวกัน ต่างกันที่โครงคำตอบเริ่มต้น
+          - generic [ref=e52]:
+            - generic [ref=e53]: "ลัดไปหน้าอื่น:"
+            - link "สรุปชาร์จ" [ref=e54] [cursor=pointer]:
+              - /url: /app
+            - link "ราคา/แพ็กเกจ" [ref=e55] [cursor=pointer]:
+              - /url: /pricing
+            - link "แนวทางใช้งาน" [ref=e56] [cursor=pointer]:
+              - /url: /guidelines
+        - generic [ref=e59]:
+          - generic [ref=e165]:
+            - paragraph [ref=e169]:
+              - generic [ref=e170]: คนท้องไตรมาสแรกใช้ amoxicillin ได้ไหม สรุป side effects, interactions, monitoring แบบสั้น
+            - button "แก้ไขแล้วส่งใหม่" [ref=e171]:
+              - img [ref=e172]
+          - generic [ref=e174]:
+            - generic [ref=e175]:
+              - generic [ref=e178]:
+                - paragraph [ref=e179]:
+                  - generic [ref=e180]: โดยทั่วไป **amoxicillin เป็นยาปฏิชีวนะที่ใช้ได้ในหญิงตั้งครรภ์ รวมถึงไตรมาสแรก เมื่อมีข้อบ่งชี้ชัดเจน** แต่ควรเป็นการสั่งโดยแพทย์ และต้องทบทวนประวัติแพ้ยา/ข้อบ่งชี้ก่อนเสมอ นี่เป็นข้อมูลสนับสนุนเบื้องต้น ควรยืนยันกับ formulary/แนวทางสูติกรรมของสถานพยาบาล
+                - paragraph [ref=e181]:
+                  - generic [ref=e182]: "**Indication fit for this case**"
+                - paragraph [ref=e183]:
+                  - generic [ref=e184]: ใช้เมื่อสงสัย/ยืนยันติดเชื้อแบคทีเรียที่ไวต่อยา เช่น strep throat, dental infection, UTI บางกรณี, sinusitis/otitis media ที่เข้าเกณฑ์ bacterial infection
+                - paragraph [ref=e185]:
+                  - generic [ref=e186]: ถ้าเป็นหวัด ไอจากไวรัส หรือท้องเสียส่วนใหญ่ มักไม่จำเป็นต้องใช้ antibiotic
+                - paragraph [ref=e187]:
+                  - generic [ref=e188]: "**Common adverse effects**"
+                - paragraph [ref=e189]:
+                  - generic [ref=e190]: คลื่นไส้ อาเจียน ปวดท้อง ถ่ายเหลว ผื่นคัน เชื้อราในช่องคลอด/ช่องปาก
+                - paragraph [ref=e191]:
+                  - generic [ref=e192]: "**Serious red-flag adverse effects**"
+                - paragraph [ref=e193]:
+                  - generic [ref=e194]: แพ้ยารุนแรง เช่น หายใจลำบาก หน้าบวม ปากบวม ลมพิษทั่วตัว, ผื่นรุนแรง/ผิวลอก, ถ่ายเหลวรุนแรงหรือมีมูกเลือด, ตัวเหลืองตาเหลือง ควรหยุดยาและพบแพทย์ทันที
+                - paragraph [ref=e195]:
+                  - generic [ref=e196]: "**Major drug-drug interactions**"
+                - generic [ref=e197]:
+                  - generic [ref=e198]: •
+                  - generic [ref=e200]: "**Warfarin**: อาจเพิ่มความเสี่ยงเลือดออก ต้องติดตาม INR"
+                - generic [ref=e201]:
+                  - generic [ref=e202]: •
+                  - generic [ref=e204]: "**Methotrexate**: อาจเพิ่มระดับ/พิษของ methotrexate"
+                - generic [ref=e205]:
+                  - generic [ref=e206]: •
+                  - generic [ref=e208]: "**Allopurinol**: เพิ่มโอกาสเกิดผื่น"
+                - generic [ref=e209]:
+                  - generic [ref=e210]: •
+                  - generic [ref=e212]: "ยาคุมกำเนิด: ผลลดประสิทธิภาพไม่เด่นชัด แต่ถ้ามีอาเจียน/ท้องเสียมากอาจกระทบการดูดซึม"
+                - paragraph [ref=e213]:
+                  - generic [ref=e214]: "**Contraindications / cautions**"
+                - paragraph [ref=e215]:
+                  - generic [ref=e216]: ห้ามใช้ถ้าเคยแพ้ amoxicillin/penicillin หรือเคยแพ้ beta-lactam รุนแรง
+                - paragraph [ref=e217]:
+                  - generic [ref=e218]: ระวังในผู้ป่วยไตเสื่อม ต้องปรับขนาดยา
+                - paragraph [ref=e219]:
+                  - generic [ref=e220]: ถ้ามีประวัติผื่นจาก amoxicillin หรือสงสัย infectious mononucleosis ต้องระวังผื่นมากขึ้น
+                - paragraph [ref=e221]:
+                  - generic [ref=e222]: ควรยืนยันอายุครรภ์จริง โรคประจำตัว และยาที่ใช้อยู่ทั้งหมด
+                - paragraph [ref=e223]:
+                  - generic [ref=e224]: "**Monitoring and follow-up**"
+                - paragraph [ref=e225]:
+                  - generic [ref=e226]: ติดตามอาการติดเชื้อดีขึ้นภายใน 48–72 ชม., ไข้ลด ปวดลด ปัสสาวะ/อาการเฉพาะตำแหน่งดีขึ้น
+                - paragraph [ref=e227]:
+                  - generic [ref=e228]: เฝ้าระวังผื่น อาการแพ้ ถ่ายเหลวรุนแรง และอาการเชื้อรา
+                - paragraph [ref=e229]:
+                  - generic [ref=e230]: ถ้าใช้ใน UTI ควรพิจารณา urine culture/ผล sensitivity และติดตามตามแนวทาง ANC
+                - paragraph [ref=e231]:
+                  - generic [ref=e232]: "**Short actionable recommendation**"
+                - paragraph [ref=e233]:
+                  - generic [ref=e234]: ใช้ได้ในไตรมาสแรก **ถ้ามีข้อบ่งชี้ bacterial infection และไม่มีประวัติแพ้ penicillin**; ก่อนจ่ายให้เช็ก allergy, renal function ถ้ามีโรคไต, ยาร่วมโดยเฉพาะ warfarin/methotrexate และวาง follow-up 48–72 ชม.
+              - generic [ref=e235]: "source: internal knowledge"
+            - generic [ref=e236]:
+              - generic [ref=e237]: คำตอบนี้ช่วยไหม?
+              - button "👍 ช่วย" [ref=e238]
+              - button "👎 ไม่ตรง" [ref=e239]
+              - button "หลักฐานไม่พอ" [ref=e240]
+              - button "คำวินิจฉัยเก่า" [ref=e241]
+              - button "ไม่จำเพาะพอ" [ref=e242]
+        - generic [ref=e62]:
+          - generic [ref=e63]:
+            - textbox "เล่าเคส หรือแนบรูป EKG/X-ray…" [ref=e244]
+            - generic [ref=e65]:
+              - button "เลือกรูปจากเครื่อง" [ref=e66]:
+                - img [ref=e67]
+              - button "ถ่ายรูป" [ref=e71]:
+                - img [ref=e72]
+              - button "เริ่มไมค์" [ref=e75]:
+                - img [ref=e76]
+              - button "ส่ง" [disabled] [ref=e79]:
+                - img [ref=e80]
+          - generic [ref=e83]: ระบบปกปิดข้อมูลระบุตัวผู้ป่วยอัตโนมัติก่อนส่งไป AI (เช่น ชื่อ, เลขบัตร, HN, AN)
+          - button "แสดงตัวอย่าง prompt" [ref=e85]
+          - generic [ref=e86]:
+            - button "สรุปเคส OPD" [ref=e245]
+            - button "สรุป SOAP" [ref=e246]
+            - button "Regenerate answer" [ref=e88]
+            - button "Stop generating" [disabled] [ref=e89]
+            - button "Retry stream" [disabled] [ref=e90]
+  - alert [ref=e91]

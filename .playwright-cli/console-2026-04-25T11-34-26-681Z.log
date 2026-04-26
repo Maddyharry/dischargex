@@ -1,0 +1,4 @@
+[   17509ms] [ERROR] Failed to load resource: the server responded with a status of 403 () @ https://dischargex.net/api/summarize:0
+[   17510ms] [ERROR] Error: บัญชีนี้ถูกใช้งานพร้อมกันเกินจำนวนอุปกรณ์ที่อนุญาตสำหรับแผน "trial". กรุณาออกจากระบบจากอุปกรณ์อื่น หรืออัปเกรดแผน.
+    at tg (https://dischargex.net/_next/static/chunks/5072-252d1f9915cb90b7.js:1:39594)
+    at async tk (https://dischargex.net/_next/static/chunks/5072-252d1f9915cb90b7.js:1:42911) @ https://dischargex.net/_next/static/chunks/5072-252d1f9915cb90b7.js:0

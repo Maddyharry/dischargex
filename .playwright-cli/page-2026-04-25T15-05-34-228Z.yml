@@ -1,0 +1,205 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - link "DischargeX" [ref=e5] [cursor=pointer]:
+        - /url: /chat
+      - navigation [ref=e6]:
+        - link "About" [ref=e7] [cursor=pointer]:
+          - /url: /about
+        - link "Reference" [ref=e8] [cursor=pointer]:
+          - /url: /legal
+        - link "AI Chat" [ref=e9] [cursor=pointer]:
+          - /url: /chat
+        - link "สรุปชาร์จ" [ref=e10] [cursor=pointer]:
+          - /url: /app
+        - link "แนวทาง" [ref=e11] [cursor=pointer]:
+          - /url: /guidelines
+        - link "Knowledge" [ref=e12] [cursor=pointer]:
+          - /url: /knowledge
+        - link "แพ็กเกจ" [ref=e13] [cursor=pointer]:
+          - /url: /pricing
+        - button "Admin" [ref=e94]:
+          - generic "Admin" [ref=e95]
+          - img [ref=e96]
+  - main [ref=e15]:
+    - generic [ref=e16]:
+      - complementary [ref=e18]:
+        - button "+ แชทใหม่" [ref=e19]
+        - generic [ref=e20]:
+          - generic [ref=e98]:
+            - 'button "ทดสอบหลังแก้: สรุปสั้นๆเรื่องการติดตามผู" [ref=e193]'
+            - button "ลบ" [ref=e100]
+          - generic [ref=e101]:
+            - button "แชทใหม่" [ref=e102]
+            - button "ลบ" [ref=e103]
+          - generic [ref=e104]:
+            - 'button "ทดสอบทั่วไป: อธิบายสั้นๆว่าควรติดตามผู้ป" [ref=e105]'
+            - button "ลบ" [ref=e106]
+          - generic [ref=e107]:
+            - 'button "ทดสอบทั่วไป: อธิบายสั้นๆว่าคนไข้ความดันส" [ref=e108]'
+            - button "ลบ" [ref=e109]
+          - generic [ref=e110]:
+            - button "คนท้องไตรมาสแรกใช้ amoxicillin ได้ไหม สร" [ref=e111]
+            - button "ลบ" [ref=e112]
+          - generic [ref=e113]:
+            - 'button "ทดสอบทั่วไป: อธิบายสั้นๆว่าคนไข้ความดันส" [ref=e114]'
+            - button "ลบ" [ref=e115]
+          - generic [ref=e116]:
+            - 'button "ทดสอบทั่วไป: อธิบายสั้นๆว่าคนไข้ความดันส" [ref=e117]'
+            - button "ลบ" [ref=e118]
+          - generic [ref=e119]:
+            - button "คนท้องไตรมาสแรกใช้ amoxicillin ได้ไหม สร" [ref=e120]
+            - button "ลบ" [ref=e121]
+          - generic [ref=e122]:
+            - 'button "opd med verify: คนท้อง 24 สัปดาห์ UTI จะ" [ref=e123]'
+            - button "ลบ" [ref=e124]
+          - generic [ref=e125]:
+            - button "คนท้องไตรมาสแรกใช้ amoxicillin ได้ไหม สร" [ref=e126]
+            - button "ลบ" [ref=e127]
+          - generic [ref=e128]:
+            - 'button "opd med test: คนไข้ตั้งครรภ์ 24 สัปดาห์" [ref=e129]'
+            - button "ลบ" [ref=e130]
+          - generic [ref=e131]:
+            - button "หญิงตั้งครรภ์ 10 สัปดาห์ ใช้ amoxicillin" [ref=e132]
+            - button "ลบ" [ref=e133]
+          - generic [ref=e134]:
+            - button "ยา amoxicillin มีผลข้างเคียงอะไรสำคัญ แล" [ref=e135]
+            - button "ลบ" [ref=e136]
+          - generic [ref=e137]:
+            - 'button "opd test3: เด็กชาย 8 ปี คันซอกนิ้วมือกลา" [ref=e138]'
+            - button "ลบ" [ref=e139]
+          - generic [ref=e140]:
+            - 'button "opd test2: เด็กชาย 8 ปี คันซอกนิ้วมือกลา" [ref=e141]'
+            - button "ลบ" [ref=e142]
+          - generic [ref=e143]:
+            - 'button "opd test: เด็กชาย 8 ปี คันตามซอกนิ้วมือก" [ref=e144]'
+            - button "ลบ" [ref=e145]
+          - generic [ref=e146]:
+            - 'button "coding precise test: เคสไข้ ไอ เจ็บคอ ต้" [ref=e147]'
+            - button "ลบ" [ref=e148]
+          - generic [ref=e149]:
+            - 'button "coding fast test: ผู้ป่วย URI อยากได้ตัว" [ref=e150]'
+            - button "ลบ" [ref=e151]
+          - generic [ref=e152]:
+            - 'button "ทดสอบโหมด coding: ช่วยยกตัวอย่าง ICD-10" [ref=e153]'
+            - button "ลบ" [ref=e154]
+          - generic [ref=e155]:
+            - button "หญิง 37 ปี ปวดหัวเป็นๆหายๆ มา 3 ปี เป็นม" [ref=e156]
+            - button "ลบ" [ref=e157]
+          - generic [ref=e158]:
+            - button "สกสดมดใแแใแใ" [ref=e159]
+            - button "ลบ" [ref=e160]
+          - generic [ref=e161]:
+            - button "แชทใหม่" [ref=e162]
+            - button "ลบ" [ref=e163]
+          - generic [ref=e164]:
+            - button "เคสชายไทย 45 ปี 2 วันเหนื่อยหอบ เป็นโรค" [ref=e165]
+            - button "ลบ" [ref=e166]
+          - generic [ref=e167]:
+            - button "ชายไทย 45 ปี โรคเบาหวาน" [ref=e168]
+            - button "ลบ" [ref=e169]
+          - generic [ref=e170]:
+            - button "งูเห่ากัด 10 นาทีก่อน นำงูมาด้วย อาการยั" [ref=e171]
+            - button "ลบ" [ref=e172]
+          - generic [ref=e173]:
+            - button "เด้กชาบไทย 8 ขวบ คันตามนิ้วมือ นิ้วเท้า" [ref=e174]
+            - button "ลบ" [ref=e175]
+          - generic [ref=e176]:
+            - button "เด้กชาบไทย 8 ขวบ คันตามนิ้วมือ นิ้วเท้า" [ref=e177]
+            - button "ลบ" [ref=e178]
+          - generic [ref=e179]:
+            - button "สรุป diagnosis ให้หน่อย 19/02/69 09:45" [ref=e180]
+            - button "ลบ" [ref=e181]
+          - generic [ref=e182]:
+            - button "ชาย35 ปี ไข้ ไอ หอบ 2 เดือน lung crepita" [ref=e183]
+            - button "ลบ" [ref=e184]
+          - generic [ref=e185]:
+            - button "ชาย35 ปี ไข้ ไอ หอบ 2 เดือน lung crepita" [ref=e186]
+            - button "ลบ" [ref=e187]
+          - generic [ref=e188]:
+            - button "ชาย 45 ปี ไข้ ไอหอบ lung wheezing Rt lun" [ref=e189]
+            - button "ลบ" [ref=e190]
+      - generic [ref=e24]:
+        - generic [ref=e25]:
+          - generic [ref=e26]:
+            - generic [ref=e27]: AI
+            - generic [ref=e28]:
+              - generic [ref=e29]:
+                - heading "แชทปรึกษาสรุปชาร์จ" [level=1] [ref=e30]
+                - generic [ref=e31]: Coding
+              - paragraph [ref=e32]: ICD-10 / coding guidance · สรุปชาร์จ
+            - button "ซ่อนตั้งค่า" [ref=e33]
+          - generic [ref=e34]:
+            - generic [ref=e35]:
+              - button "Coding" [ref=e36]
+              - button "OPD" [ref=e37]
+            - generic [ref=e38]: โหมด Coding เน้นรหัสและสรุปชาร์จ
+          - generic [ref=e39]:
+            - generic [ref=e40]: Coding · Fast
+            - generic [ref=e194]: Streaming...
+          - generic [ref=e41]:
+            - button "Fast" [ref=e42]
+            - button "Precise" [ref=e43]
+            - generic [ref=e44]: ตอบเร็ว/คุ้มโควต้า (เหมาะใช้ต่อเนื่อง)
+          - generic [ref=e45]:
+            - generic [ref=e46]: "สไตล์ตอบ:"
+            - combobox [ref=e47]:
+              - option "สั้น"
+              - option "สมดุล"
+              - option "ละเอียด" [selected]
+            - combobox [ref=e48]:
+              - option "อัตโนมัติ"
+              - option "หัวข้อ bullet"
+              - option "ย่อหน้า" [selected]
+            - combobox [ref=e49]:
+              - option "โทนกลาง" [selected]
+              - option "ทางการ"
+              - option "กันเอง"
+            - generic [ref=e50]: ระบบจะจำรายผู้ใช้ให้อัตโนมัติ
+          - paragraph [ref=e51]: ถามโรค/แนวทางลง diagnosis และการบันทึกสรุป โดยอิงชุดความรู้ในระบบและอ้างอิงเอกสารมาตรฐานเป็น [R#] (ไม่ใช่คำแนะทางการรักษาแทนแพทย์)
+          - paragraph [ref=e52]: ทั้งสองโหมดคุยได้ทุกเรื่องในแชทเดียวกัน ต่างกันที่โครงคำตอบเริ่มต้น
+          - generic [ref=e53]:
+            - generic [ref=e54]: "ลัดไปหน้าอื่น:"
+            - link "สรุปชาร์จ" [ref=e55] [cursor=pointer]:
+              - /url: /app
+            - link "ราคา/แพ็กเกจ" [ref=e56] [cursor=pointer]:
+              - /url: /pricing
+            - link "แนวทางใช้งาน" [ref=e57] [cursor=pointer]:
+              - /url: /guidelines
+          - paragraph [ref=e58]: "[R#] คือเลขเอกสารอ้างอิง เช่น [R2] = เอกสารลำดับที่ 2 ในชุดมาตรฐานของระบบ"
+        - generic [ref=e60]:
+          - generic [ref=e198]:
+            - paragraph [ref=e202]:
+              - generic [ref=e204]: "ทดสอบหลังแก้: สรุปสั้นๆเรื่องการติดตามผู้ป่วยเบาหวาน"
+            - button "แก้ไขแล้วส่งใหม่" [disabled]:
+              - img
+          - generic [ref=e205]:
+            - generic [ref=e208]: "source: internal knowledge"
+            - generic [ref=e209]:
+              - generic [ref=e210]: คำตอบนี้ช่วยไหม?
+              - button "👍 ช่วย" [ref=e211]
+              - button "👎 ไม่ตรง" [ref=e212]
+              - button "หลักฐานไม่พอ" [ref=e213]
+              - button "คำวินิจฉัยเก่า" [ref=e214]
+              - button "ไม่จำเพาะพอ" [ref=e215]
+          - generic [ref=e222]: AI กำลังคิดและสรุปคำตอบ...
+        - generic [ref=e63]:
+          - generic [ref=e64]:
+            - textbox "ถาม diagnosis / แนบรูปตรวจเพื่อช่วยอ่านเบื้องต้น…" [ref=e65]
+            - generic [ref=e66]:
+              - button "เลือกรูปจากเครื่อง" [disabled] [ref=e67]:
+                - img [ref=e68]
+              - button "ถ่ายรูป" [disabled] [ref=e72]:
+                - img [ref=e73]
+              - button "เริ่มไมค์" [disabled] [ref=e76]:
+                - img [ref=e77]
+              - button "กำลังตอบ..." [disabled] [ref=e223]:
+                - img [ref=e81]
+          - generic [ref=e84]: ระบบปกปิดข้อมูลระบุตัวผู้ป่วยอัตโนมัติก่อนส่งไป AI (เช่น ชื่อ, เลขบัตร, HN, AN)
+          - button "แสดงตัวอย่าง prompt" [ref=e86]
+          - generic [ref=e87]:
+            - button "สรุป diagnosis" [disabled] [ref=e88]
+            - button "Regenerate answer" [disabled] [ref=e89]
+            - button "Stop generating" [ref=e90]
+            - button "Retry stream" [disabled] [ref=e91]
+  - alert [ref=e92]

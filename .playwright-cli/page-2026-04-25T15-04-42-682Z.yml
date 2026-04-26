@@ -1,0 +1,66 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - link "DischargeX" [ref=e5] [cursor=pointer]:
+        - /url: /
+      - navigation [ref=e6]:
+        - link "About" [ref=e7] [cursor=pointer]:
+          - /url: /about
+        - link "Reference" [ref=e8] [cursor=pointer]:
+          - /url: /legal
+        - link "AI Chat" [ref=e9] [cursor=pointer]:
+          - /url: /chat
+        - link "สรุปชาร์จ" [ref=e10] [cursor=pointer]:
+          - /url: /app
+        - link "แนวทาง" [ref=e11] [cursor=pointer]:
+          - /url: /guidelines
+        - link "Knowledge" [ref=e12] [cursor=pointer]:
+          - /url: /knowledge
+        - link "แพ็กเกจ" [ref=e13] [cursor=pointer]:
+          - /url: /pricing
+  - main [ref=e15]:
+    - paragraph [ref=e16]: กรุณาเข้าสู่ระบบ
+  - contentinfo [ref=e17]:
+    - generic [ref=e18]:
+      - generic [ref=e19]:
+        - generic [ref=e20]:
+          - generic [ref=e21]: DischargeX
+          - paragraph [ref=e22]:
+            - text: DischargeX เป็นเครื่องมือช่วยสรุปและทบทวน coding
+            - text: อ้างอิงหลักการจากเอกสารที่เผยแพร่สาธารณะ
+            - text: ไม่ใช่ระบบจัดกลุ่มอย่างเป็นทางการ และไม่รับประกันผลการเบิกจ่าย
+        - generic [ref=e23]:
+          - generic [ref=e24]: English
+          - paragraph [ref=e25]:
+            - text: DischargeX supports charge summary drafting and coding review.
+            - text: Based on publicly available coding principles and reference materials.
+            - text: Not a statutory grouper; reimbursement outcomes depend on institutional rules and documentation.
+        - generic [ref=e26]:
+          - generic [ref=e27]: ลิงก์
+          - list [ref=e28]:
+            - listitem [ref=e29]:
+              - link "About" [ref=e30] [cursor=pointer]:
+                - /url: /about
+            - listitem [ref=e31]:
+              - link "Reference & Legal Notice" [ref=e32] [cursor=pointer]:
+                - /url: /legal
+            - listitem [ref=e33]:
+              - link "Privacy Policy" [ref=e34] [cursor=pointer]:
+                - /url: /privacy-policy
+            - listitem [ref=e35]:
+              - link "Terms of Service" [ref=e36] [cursor=pointer]:
+                - /url: /terms-of-service
+            - listitem [ref=e37]:
+              - link "แนวทางใช้งาน" [ref=e38] [cursor=pointer]:
+                - /url: /guidelines
+            - listitem [ref=e39]:
+              - link "แพ็กเกจ" [ref=e40] [cursor=pointer]:
+                - /url: /pricing
+        - generic [ref=e41]:
+          - generic [ref=e42]: Reference
+          - paragraph [ref=e43]: Thai clinical documentation reference set [R1-R6] — ICD-10 / ICD-10-TM / DRG audit-oriented guidance
+          - paragraph [ref=e44]: "Last reviewed: 2026-04-21"
+      - paragraph [ref=e45]: © 2026 DischargeX
+  - button "เปิดแชทช่วยเหลือ" [ref=e46]:
+    - img [ref=e47]
+  - alert [ref=e49]
