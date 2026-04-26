@@ -20,6 +20,22 @@ export default function GuidelinesPage() {
           กรุณาอ่านก่อนใช้งาน เพื่อความปลอดภัยของผู้ป่วยและความถูกต้องของงาน
         </p>
 
+        <div className="mt-6 rounded-2xl border border-cyan-500/25 bg-cyan-950/20 p-4 text-sm leading-relaxed text-cyan-50/95">
+          <p className="font-medium text-cyan-100">คู่มือ SEO (อ่านเพิ่มได้)</p>
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-cyan-50/90">
+            <li>
+              <Link href="/summary-charge" className="text-cyan-200 underline underline-offset-2 hover:text-white">
+                สรุปชาร์จคืออะไร — checklist และวิธีทำให้ครบ
+              </Link>
+            </li>
+            <li>
+              <Link href="/icd10-review" className="text-cyan-200 underline underline-offset-2 hover:text-white">
+                ทบทวน ICD-10 ก่อนลงสรุปชาร์จ
+              </Link>
+            </li>
+          </ul>
+        </div>
+
         <section className="mt-8 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-lg font-semibold text-white">วิดีโอสอนใช้งานเบื้องต้น</h2>
@@ -194,6 +210,16 @@ export default function GuidelinesPage() {
               <li><span className="font-medium text-slate-100">หน้าแรก</span> (<Link href="/" className="text-cyan-300 underline hover:text-cyan-200">/</Link>) — ดูภาพรวมว่าระบบมีอะไรและเริ่มจากจุดไหน</li>
               <li><span className="font-medium text-slate-100">AI Chat</span> (<Link href="/chat" className="text-cyan-300 underline hover:text-cyan-200">/chat</Link>) — ถาม diagnosis checklist, differential, และแนวทางบันทึกเคส</li>
               <li><span className="font-medium text-slate-100">สรุปชาร์จ</span> (<Link href="/app" className="text-cyan-300 underline hover:text-cyan-200">/app</Link>) — วางข้อความจาก chart เพื่อสร้างสรุปและทบทวน coding</li>
+              <li>
+                <span className="font-medium text-slate-100">คู่มือสรุปชาร์จ (SEO)</span> (
+                <Link href="/summary-charge" className="text-cyan-300 underline hover:text-cyan-200">/summary-charge</Link>
+                ) — นิยาม สรุปชาร์จ checklist และลิงก์ไปหน้าใช้งานจริง
+              </li>
+              <li>
+                <span className="font-medium text-slate-100">ทบทวน ICD-10 (SEO)</span> (
+                <Link href="/icd10-review" className="text-cyan-300 underline hover:text-cyan-200">/icd10-review</Link>
+                ) — checklist ทบทวนรหัสก่อนลงสรุปชาร์จ
+              </li>
               <li><span className="font-medium text-slate-100">แพ็กเกจ/ราคา</span> (<Link href="/pricing" className="text-cyan-300 underline hover:text-cyan-200">/pricing</Link>) — ดูราคาอัปเดตล่าสุดและช่องทางชำระเงิน</li>
               <li><span className="font-medium text-slate-100">โปรไฟล์และแจ้งเตือน</span> (<Link href="/app/profile" className="text-cyan-300 underline hover:text-cyan-200">/app/profile</Link>) — ตรวจสถานะบัญชี แพ็กเกจ และการแจ้งเตือนจากทีม</li>
             </ul>

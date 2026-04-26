@@ -187,6 +187,22 @@ export default function Home() {
               >
                 ดูแพ็กเกจและราคา
               </Link>
+              <span className="mx-2 text-slate-600">·</span>
+              <Link
+                href="/summary-charge"
+                data-telemetry-click="landing_hero_summary_charge_seo"
+                className="text-sm font-medium text-cyan-300/95 underline-offset-4 transition hover:text-cyan-200 hover:underline"
+              >
+                สรุปชาร์จคืออะไร
+              </Link>
+              <span className="mx-2 text-slate-600">·</span>
+              <Link
+                href="/icd10-review"
+                data-telemetry-click="landing_hero_icd10_review_seo"
+                className="text-sm font-medium text-cyan-300/95 underline-offset-4 transition hover:text-cyan-200 hover:underline"
+              >
+                ทบทวน ICD-10
+              </Link>
             </div>
           </div>
         </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import type { DiseaseCatalogAudit, DiseaseSummary, KnowledgeReference } from "@/lib/clinical-knowledge";
@@ -291,6 +292,17 @@ export default function KnowledgePage() {
             <span className="font-medium text-amber-50">สปสช</span> เป็นหลัก; รหัส ICD-10 ควรอิงเอกสารคู่มือ/ประกาศ สปสช
             หรือแนวทางที่เทียบเคียงได้ ไม่ใช่ข้อความทั่วไป
           </p>
+          <div className="mt-2 rounded-lg border border-cyan-500/30 bg-cyan-950/25 px-2 py-2 text-[11px] leading-snug text-cyan-100/95">
+            <span className="font-medium text-cyan-50">เชื่อมกับคู่มือสรุปชาร์จ</span>
+            <div className="mt-1 flex flex-col gap-1">
+              <Link href="/summary-charge" className="text-cyan-200 underline underline-offset-2 hover:text-white">
+                สรุปชาร์จคืออะไร — checklist
+              </Link>
+              <Link href="/icd10-review" className="text-cyan-200 underline underline-offset-2 hover:text-white">
+                ทบทวน ICD-10 ก่อนลงสรุปชาร์จ
+              </Link>
+            </div>
+          </div>
           {catalogMeta ? (
             <div className="mt-2 space-y-2">
               <div className="rounded-lg border border-emerald-500/25 bg-emerald-950/20 px-2 py-1.5 text-[11px] leading-snug text-emerald-100/95">
