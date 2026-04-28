@@ -12,6 +12,7 @@
 - `profit-calculator.html` - ตารางคำนวณกำไรแบบจัดหน้าแล้วสำหรับ export เป็น PDF
 - `Profit-Calculator-Worksheet.pdf` - ไฟล์คำนวณกำไรแบบสวย พร้อมส่งเป็น bonus
 - `Profit-Calculator-Formula.xlsx` - ไฟล์ Excel จัดหน้าแล้ว พร้อมสูตรคำนวณกำไร
+- `AI-Sales-Kit-Customer-Delivery.zip` - ZIP สำหรับส่งลูกค้าจริง มีเฉพาะ PDF/XLSX ไม่มีไฟล์ source `.md`
 - `Prompt-Pack.pdf` - Prompt Pack แบบ PDF สำหรับส่งลูกค้า
 - `Content-Calendar-30-Days.pdf` - แผนโพสต์ 30 วันแบบ PDF
 - `FAQ-Template.pdf` - FAQ Template แบบ PDF
@@ -34,11 +35,11 @@
 
 1. ใช้ `AI-Sales-Kit-Ebook.pdf` เป็นไฟล์หนังสือหลัก
 2. ถ้าต้องการแก้ดีไซน์ ให้เปิด `ai-sales-kit-preview.html` แล้วปรับ HTML/CSS หรือเอาเนื้อหาจาก `ai-sales-kit-ebook.md` ไปจัดใน Canva/Google Docs
-3. ส่ง bonus เพิ่มเป็นไฟล์ PDF: `Prompt-Pack.pdf`, `Content-Calendar-30-Days.pdf`, `FAQ-Template.pdf`, `Profit-Calculator-Worksheet.pdf`, `LINE-OA-Reply-Script.pdf`, `Ad-Testing-Plan.pdf`, และ `Launch-Checklist.pdf`
-4. ส่ง `Profit-Calculator-Formula.xlsx` ให้ลูกค้าใช้กรอกตัวเลขจริง หรืออัปโหลด `profit-calculator.csv` เข้า Google Sheets เป็นตัวเลือกเสริม
-5. ทำ zip file รวม PDF, bonus และลิงก์ Google Sheet
+3. ส่งลูกค้าด้วย `AI-Sales-Kit-Customer-Delivery.zip` สำหรับแพ็ก 299 บาท เพราะใน ZIP มีเฉพาะไฟล์ PDF/XLSX ที่เปิดง่าย
+4. ส่ง `AI-Sales-Kit-Ebook.pdf` อย่างเดียวสำหรับแพ็ก 199 บาท
+5. ส่ง `Profit-Calculator-Formula.xlsx` ให้ลูกค้าใช้กรอกตัวเลขจริง หรืออัปโหลด `profit-calculator.csv` เข้า Google Sheets เป็นตัวเลือกเสริม
 6. ใช้ข้อความจาก `launch-sales-page.md`, `ad-test-kit.md`, และ `payment-delivery-flow.md` เพื่อทำหน้าขาย ยิงแอด และส่งไฟล์ให้ลูกค้า
-7. ถ้าต้องการไม่ผ่านคนเลย ให้ใช้ `full-automation-blueprint.md` เป็นแผนต่อระบบแชท + QR payment + ส่งไฟล์อัตโนมัติ
+7. ถ้าต้องการไม่ผ่านคนเลย ให้ใช้ `full-automation-blueprint.md` และ route `/ai-sales-kit` เป็นแผนต่อระบบแชท + QR payment + ส่งไฟล์อัตโนมัติ
 
 ## คำแนะนำราคา
 
@@ -46,3 +47,17 @@
 - ชุดรวมพร้อม bonus: 299 บาท
 - ราคาเต็มหลังมี mockup/รีวิว: 399-690 บาท
 - Bonus ที่ควรเพิ่มภายหลัง: วิดีโอสั้น 5-10 นาที สอนใช้ prompt กับ ChatGPT/Gemini
+
+## ระบบ automation ที่เพิ่มในแอป
+
+- หน้าขาย/checkout: `/ai-sales-kit`
+- หน้าตรวจสถานะและรับไฟล์: `/ai-sales-kit/success?order=ORDER_ID`
+- Checkout API: `/api/ai-sales-kit/checkout`
+- Status API: `/api/ai-sales-kit/status/[orderId]`
+- Download API: `/api/ai-sales-kit/download/[token]`
+- Opn webhook: `/api/ai-sales-kit/webhook/opn`
+
+Environment variables ที่ต้องตั้งก่อนใช้เงินจริง:
+
+- `OPN_SECRET_KEY` หรือ `OMISE_SECRET_KEY`
+- `OPN_WEBHOOK_SECRET` ถ้าเปิด signature verification

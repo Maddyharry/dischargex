@@ -282,9 +282,29 @@ Action:
 2. LINE OA เป็น inbox หลัก
 3. ใช้ bot platform หรือ Make/n8n เชื่อม order + payment gateway
 4. ใช้ PromptPay QR ผ่าน gateway ที่มี webhook
-5. ส่งไฟล์ผ่าน Google Drive private link หรือ signed link
+5. ส่งไฟล์ผ่าน `AI-Sales-Kit-Customer-Delivery.zip` สำหรับ Full Bundle หรือ `AI-Sales-Kit-Ebook.pdf` สำหรับ Ebook Only
 6. บันทึก order ลง Google Sheets/Airtable
 7. ส่ง Purchase event กลับ Meta
+
+## Implementation ใน repo นี้
+
+ระบบเริ่มต้นถูกทำไว้ที่:
+
+- หน้า checkout: `/ai-sales-kit`
+- หน้า status/download หลังจ่าย: `/ai-sales-kit/success?order=<orderId>`
+- สร้าง QR order: `POST /api/ai-sales-kit/checkout`
+- เช็กสถานะ: `GET /api/ai-sales-kit/status/<orderId>`
+- รับ webhook Opn: `POST /api/ai-sales-kit/webhook/opn`
+- ดาวน์โหลดหลังจ่าย: `GET /api/ai-sales-kit/download/<token>`
+
+Env ที่ต้องตั้งก่อนใช้จริง:
+
+- `OPN_SECRET_KEY` หรือ `OMISE_SECRET_KEY`
+- `OPN_WEBHOOK_SECRET` ถ้าต้องการตรวจ signature webhook
+- `APP_ORIGIN` หรือ `NEXTAUTH_URL`
+- `DATABASE_URL`
+
+หมายเหตุ: ใน development ถ้าไม่มี `OPN_SECRET_KEY` ระบบจะสร้าง mock QR text เพื่อทดสอบ flow ได้ แต่ production ต้องมี key จริง
 
 ## สิ่งที่ต้องตัดสินใจก่อนลงมือ
 

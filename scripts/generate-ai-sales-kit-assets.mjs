@@ -187,12 +187,12 @@ fs.rmSync(xlsxPath, { force: true });
 execFileSync("zip", ["-qr", xlsxPath, "."], { cwd: buildDir });
 
 const docs = [
-  ["prompt-pack.md", "Prompt-Pack.pdf", "Prompt Pack 50 แบบ"],
-  ["content-calendar-30-days.md", "Content-Calendar-30-Days.pdf", "Content Calendar 30 วัน"],
-  ["faq-template.md", "FAQ-Template.pdf", "FAQ Template"],
-  ["bonus-line-oa-reply-script.md", "Bonus-Line-OA-Reply-Script.pdf", "Bonus LINE OA Reply Script"],
-  ["bonus-ad-testing-plan.md", "Bonus-Ad-Testing-Plan.pdf", "Bonus แผน Test แอด 7 วัน"],
-  ["bonus-launch-checklist.md", "Bonus-Launch-Checklist.pdf", "Bonus Launch Checklist"],
+  ["prompt-pack.md", "Prompt-Pack", "Prompt Pack 50 แบบ"],
+  ["content-calendar-30-days.md", "Content-Calendar-30-Days", "Content Calendar 30 วัน"],
+  ["faq-template.md", "FAQ-Template", "FAQ Template"],
+  ["bonus-line-oa-reply-script.md", "LINE-OA-Reply-Script", "LINE OA Reply Script"],
+  ["bonus-ad-testing-plan.md", "Ad-Testing-Plan", "แผน Test แอด 7 วัน"],
+  ["bonus-launch-checklist.md", "Launch-Checklist", "Launch Checklist"],
 ];
 
 const mdToHtml = (markdown, title) => {
@@ -232,9 +232,9 @@ const mdToHtml = (markdown, title) => {
 </html>`;
 };
 
-for (const [source, htmlName, title] of docs.map(([source, pdf, title]) => [source, pdf.replace(/\.pdf$/, ".html"), title])) {
+for (const [source, baseName, title] of docs) {
   const markdown = fs.readFileSync(path.join(productDir, source), "utf8");
-  fs.writeFileSync(path.join(productDir, htmlName), mdToHtml(markdown, title));
+  fs.writeFileSync(path.join(productDir, `${baseName}.html`), mdToHtml(markdown, title));
 }
 
 console.log(

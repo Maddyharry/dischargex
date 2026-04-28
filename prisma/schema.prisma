@@ -188,6 +188,35 @@ model PaymentRequest {
   @@index([contactEmail])
 }
 
+model AiSalesKitOrder {
+  id                 String    @id
+  packageId          String
+  amountThb          Int
+  customerEmail      String?
+  customerLineId     String?
+  status             String    @default("created") // created | qr_created | paid | delivered | failed | expired
+  paymentProvider    String    @default("opn")
+  opnSourceId        String?
+  opnChargeId        String?
+  qrImageUrl         String?   @db.Text
+  qrText             String?   @db.Text
+  downloadToken      String?   @unique
+  sourceCampaign     String?
+  sourceAd           String?
+  deliveryWebhookOk  Boolean?
+  deliveryWebhookLog String?   @db.Text
+  metaCapiOk         Boolean?
+  metaCapiLog        String?   @db.Text
+  paidAt             DateTime?
+  deliveredAt        DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@index([customerEmail])
+  @@index([opnChargeId])
+  @@index([status, createdAt])
+}
+
 model EntitlementLog {
   id               String   @id @default(cuid())
   userId           String

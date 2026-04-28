@@ -29,13 +29,10 @@
 - Google Sheet จดออเดอร์
 
 ### ไฟล์ที่ควรส่งลูกค้า
-1. `AI-Sales-Kit-Ebook.pdf`
-2. `Profit-Calculator-Worksheet.pdf`
-3. `Profit-Calculator-Formula.xlsx`
-4. `Prompt-Pack.pdf`
-5. `Content-Calendar-30-Days.pdf`
-6. `FAQ-Template.pdf`
-7. Bonus PDF 3 ไฟล์
+1. Ebook Only: ส่ง `AI-Sales-Kit-Ebook.pdf`
+2. Full Bundle: ส่ง `AI-Sales-Kit-Customer-Delivery.zip`
+
+`AI-Sales-Kit-Customer-Delivery.zip` มีเฉพาะไฟล์ที่ลูกค้าเปิดง่าย: PDF และ Excel `.xlsx` ไม่มีไฟล์ source `.md` หรือ HTML ปนอยู่
 
 ### วิธีตั้ง Google Drive
 1. สร้าง folder ชื่อ `AI Sales Kit - Customer Files`
