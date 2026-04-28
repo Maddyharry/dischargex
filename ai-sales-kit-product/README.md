@@ -1,6 +1,6 @@
 # AI Sales Kit สำหรับแม่ค้าออนไลน์
 
-โฟลเดอร์นี้คือชุดไฟล์ต้นฉบับสำหรับทำ Ebook และ digital product ขายราคาเปิดตัว 299 บาท
+โฟลเดอร์นี้คือชุดไฟล์ต้นฉบับสำหรับทำ Ebook และ digital product โดยตั้งราคา Ebook อย่างเดียว 199 บาท และชุดรวมพร้อม bonus 299 บาท
 
 ## ไฟล์หลัก
 
@@ -15,6 +15,7 @@
 - `launch-sales-page.md` - หน้าขายเวอร์ชันพร้อมนำไปใช้จริง
 - `ad-test-kit.md` - ชุดข้อความแอดและ creative brief สำหรับ test รอบแรก
 - `payment-delivery-flow.md` - ขั้นตอนรับเงินและส่งไฟล์แบบง่าย
+- `full-automation-blueprint.md` - flow ระบบอัตโนมัติเต็มรูปแบบ: แชท, QR payment, ส่งไฟล์, tracking, ads automation
 - `canva-layout-guide.md` - คู่มือจัดหน้าใน Canva/Google Docs/HTML
 - `ai-sales-kit-preview.html` - ไฟล์ preview สำหรับเปิดดูใน browser และ print เป็น PDF
 - `AI-Sales-Kit-Ebook.pdf` - หนังสือที่จัดหน้าแล้ว พร้อมส่งให้ลูกค้าหรือใช้เป็น draft ก่อนปรับดีไซน์เพิ่ม
@@ -30,9 +31,11 @@
 4. ถ้าต้องการไฟล์กรอกเลขจริง ให้อัปโหลด `profit-calculator.csv` เข้า Google Sheets แล้วตั้งค่าเป็น view/copy link
 5. ทำ zip file รวม PDF, bonus และลิงก์ Google Sheet
 6. ใช้ข้อความจาก `launch-sales-page.md`, `ad-test-kit.md`, และ `payment-delivery-flow.md` เพื่อทำหน้าขาย ยิงแอด และส่งไฟล์ให้ลูกค้า
+7. ถ้าต้องการไม่ผ่านคนเลย ให้ใช้ `full-automation-blueprint.md` เป็นแผนต่อระบบแชท + QR payment + ส่งไฟล์อัตโนมัติ
 
 ## คำแนะนำราคา
 
-- ราคา test: 299 บาท
+- Ebook อย่างเดียว: 199 บาท
+- ชุดรวมพร้อม bonus: 299 บาท
 - ราคาเต็มหลังมี mockup/รีวิว: 399-690 บาท
 - Bonus ที่ควรเพิ่มภายหลัง: วิดีโอสั้น 5-10 นาที สอนใช้ prompt กับ ChatGPT/Gemini

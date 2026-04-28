@@ -1,16 +1,28 @@
-# Flow รับเงินและส่งไฟล์แบบง่าย
+# Flow รับเงินและส่งไฟล์
 
-เป้าหมายคือเริ่มขายได้ก่อน โดยไม่ต้องทำระบบ automation ซับซ้อน
+เป้าหมายคือให้ลูกค้าทัก/ซื้อ/จ่าย QR/รับไฟล์ได้โดยไม่ต้องรอคุณตอบเอง
 
-## Flow แนะนำสำหรับเริ่มวันนี้
+## Flow แนะนำแบบ Auto
 
-แอด → หน้าขาย → ลูกค้าทัก LINE/Facebook → ส่งเลขพร้อมเพย์ → ลูกค้าส่งสลิป → ส่งลิงก์ดาวน์โหลด → เก็บรายชื่อไว้ขายสินค้าต่อ
+แอด → Landing page → Checkout เลือกแพ็ก → QR PromptPay → payment webhook ยืนยันจ่าย → ส่งไฟล์อัตโนมัติ → LINE/email follow up → ส่ง purchase event กลับ Meta
 
-## Option 1: Manual PromptPay
+## Stack ที่แนะนำ
 
-เหมาะที่สุดสำหรับเริ่ม test เพราะไม่ต้องต่อระบบ
+### Stack A: ทำจริงจังและ auto ที่สุด
+- Landing page: Next.js, Carrd, Framer หรือ WordPress
+- Payment: Opn Payments, GB Prime Pay หรือ HitPay ที่รองรับ PromptPay QR และ webhook
+- Delivery: email อัตโนมัติ + Google Drive/S3 signed link
+- Chat: LINE OA + Messaging API หรือ no-code bot เช่น Zaapi/Zell724/Thunder Solution
+- Data: Google Sheet/Airtable สำหรับ order log
+- Ads: Meta Pixel + Conversion API + custom audience
 
-### สิ่งที่ต้องเตรียม
+### Stack B: no-code มากขึ้น
+- Landing/checkout: แพลตฟอร์มขายไฟล์ที่รองรับ payment ไทย หรือ payment link จาก gateway
+- Chat: LINE OA bot platform
+- Automation: Make/Zapier webhook → Google Sheet → email/LINE message
+- Ads: Meta Pixel บน landing page + manual campaign rules
+
+## สิ่งที่ต้องเตรียม
 - QR พร้อมเพย์ หรือเลขพร้อมเพย์
 - Google Drive folder สำหรับเก็บไฟล์
 - ข้อความตอบลูกค้า 5 ชุด
@@ -42,7 +54,10 @@
 ถ้าสนใจ แอดมินส่งรายละเอียดชำระเงินให้ได้เลยค่ะ
 
 ### ส่งรายละเอียดชำระเงิน
-ยอดชำระ 299 บาทค่ะ
+เลือกแพ็กได้เลยค่ะ
+
+1. Ebook อย่างเดียว 199 บาท
+2. Bundle ครบชุด 299 บาท
 
 โอนผ่านพร้อมเพย์: [ใส่เลขพร้อมเพย์]
 ชื่อบัญชี: [ใส่ชื่อบัญชี]
@@ -76,23 +91,21 @@
 - ส่งไฟล์แล้วหรือยัง
 - หมายเหตุ
 
-## Option 2: Gumroad หรือ Payhip
+## Manual PromptPay เป็น fallback
 
-เหมาะถ้าอยากให้ระบบรับเงินและส่งไฟล์อัตโนมัติ
+ใช้เฉพาะช่วง test แรกหรือช่วงที่ payment gateway ยังไม่ผ่านอนุมัติ เพราะยังต้องเช็กสลิปเอง
 
-### ข้อดี
-- ลูกค้าจ่ายแล้วได้รับไฟล์เอง
-- มีหน้าสินค้าสำเร็จรูป
-- ไม่ต้องเช็กสลิปเองทุกออเดอร์
+## Payment gateway ที่ควรดู
 
-### ข้อควรระวัง
-- อาจมีค่าธรรมเนียม
-- การรับเงินไทยอาจไม่สะดวกเท่า PromptPay
-- ต้องตรวจ policy ของแพลตฟอร์มก่อนขาย
+ดูตัวที่รองรับ QR PromptPay และ webhook:
+- Opn Payments
+- GB Prime Pay
+- HitPay
+- ผู้ให้บริการ LINE OA bot ที่มีระบบ QR/payment verification ในตัว
 
-## Option 3: LINE OA แบบง่าย
+## LINE OA แบบง่าย
 
-ยังไม่ต้องทำบอทซับซ้อน ใช้ข้อความตอบกลับสำเร็จรูปก่อน
+ถ้าใช้ LINE เป็นช่องทางหลัก ให้ตั้งเมนูและข้อความอัตโนมัติไว้ก่อน
 
 ### Rich menu/ข้อความที่ควรมี
 - ดูรายละเอียดสินค้า
@@ -113,10 +126,11 @@
 
 - [ ] ลิงก์ดาวน์โหลดเปิดได้จริง
 - [ ] ไฟล์ PDF เปิดบนมือถือได้
-- [ ] พร้อมเพย์ถูกต้อง
-- [ ] ข้อความตอบลูกค้าถูกเตรียมไว้
-- [ ] Google Sheet จดออเดอร์พร้อมใช้
-- [ ] มีข้อความ follow up หลังซื้อ
+- [ ] QR PromptPay/checkout จ่ายได้จริง
+- [ ] webhook ยืนยัน payment สำเร็จ
+- [ ] ระบบส่งไฟล์อัตโนมัติสำเร็จ
+- [ ] Google Sheet/Airtable จดออเดอร์อัตโนมัติ
+- [ ] Pixel/Conversion API รับ event Purchase
 - [ ] มี refund policy หรือเงื่อนไขชัดเจน
 
 ## Refund policy แนะนำ

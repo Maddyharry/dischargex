@@ -20,6 +20,7 @@
 - `launch-sales-page.md`
 - `ad-test-kit.md`
 - `payment-delivery-flow.md`
+- `full-automation-blueprint.md`
 - `bonus-line-oa-reply-script.md`
 - `bonus-ad-testing-plan.md`
 - `bonus-launch-checklist.md`
