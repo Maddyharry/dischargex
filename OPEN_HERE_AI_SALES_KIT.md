@@ -11,9 +11,13 @@
 - `AI-Sales-Kit-Ebook.pdf`
 - `ai-sales-kit-preview.html`
 - `ai-sales-kit-ebook.md`
-- `prompt-pack.md`
-- `content-calendar-30-days.md`
-- `faq-template.md`
+- `Prompt-Pack.pdf`
+- `Content-Calendar-30-Days.pdf`
+- `FAQ-Template.pdf`
+- `LINE-OA-Reply-Script.pdf`
+- `Ad-Testing-Plan.pdf`
+- `Launch-Checklist.pdf`
+- `Profit-Calculator-Formula.xlsx`
 - `profit-calculator.csv`
 - `profit-calculator.html`
 - `Profit-Calculator-Worksheet.pdf`

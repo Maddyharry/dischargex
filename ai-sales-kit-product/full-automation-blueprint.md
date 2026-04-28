@@ -43,6 +43,41 @@ Ad -> Landing Page -> LINE OA/Checkout -> เลือกแพ็ก -> สร�
 
 ## Payment QR options
 
+## Provider ที่แนะนำให้เลือก
+
+### ตัวเลือกหลัก: Opn Payments
+
+ผมแนะนำเริ่มจาก Opn Payments เป็นตัวเลือกหลัก ถ้าคุณต้องการระบบที่จ่ายผ่าน QR PromptPay, คิดเงินเป็นรายบิล, รับ webhook เมื่อชำระสำเร็จ และต่อระบบส่งไฟล์อัตโนมัติเองได้
+
+เหตุผล:
+- รองรับ PromptPay QR ผ่าน API
+- เหมาะกับ checkout บนเว็บและระบบ webhook
+- ใช้กับ order reference ได้ ทำให้จับคู่ยอดกับลูกค้าอัตโนมัติ
+- ต่อกับ Make, n8n หรือ backend เล็ก ๆ ได้
+
+ค่าใช้จ่ายและเงื่อนไขจริงต้องเช็กกับผู้ให้บริการตอนสมัคร merchant เพราะอาจเปลี่ยนตามประเภทบัญชี/ธุรกิจ
+
+### ตัวเลือกสำรอง: GB Prime Pay
+
+เลือก GB Prime Pay ถ้าคุณอยากได้ payment gateway ไทยที่โฟกัส QR/PromptPay และมี callback สำหรับผลชำระเงิน เหมาะกับระบบที่ต้องการ QR payment แบบไทย ๆ และคิดตามรายการ
+
+### ตัวเลือก no-code/LINE-first
+
+ถ้าต้องการทำเร็วโดยไม่เขียนโค้ดมาก ให้ดูแพลตฟอร์ม LINE OA bot ที่มี QR payment หรือ slip verification ในตัว เช่น bot platform ที่ต่อ LINE OA + Google Sheets + API ได้ แต่ต้องเช็กให้ชัดว่าส่งไฟล์หลังจ่ายได้อัตโนมัติจริงไหม
+
+## Flow ที่ผมแนะนำให้ build จริง
+
+1. ใช้ landing page เป็นหน้าขาย
+2. ปุ่มซื้อพาไป checkout หรือ LINE OA
+3. ลูกค้าเลือก `Ebook Only 199` หรือ `Full Bundle 299`
+4. ระบบสร้าง order และ QR PromptPay ด้วย Opn Payments
+5. ลูกค้าจ่ายผ่าน QR
+6. Opn webhook แจ้ง payment success
+7. ระบบส่งไฟล์ตามแพ็กผ่าน LINE/email/download link
+8. ระบบบันทึก order ลง Google Sheets/Airtable
+9. ระบบยิง Purchase event กลับ Meta
+10. ระบบส่ง follow-up หลังซื้ออัตโนมัติ
+
 ### Option 1: Opn Payments
 
 เหมาะกับระบบเว็บ/checkout ที่ต้องการ PromptPay QR และ webhook จ่ายสำเร็จ

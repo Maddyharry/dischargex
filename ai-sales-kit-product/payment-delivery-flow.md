@@ -31,10 +31,11 @@
 ### ไฟล์ที่ควรส่งลูกค้า
 1. `AI-Sales-Kit-Ebook.pdf`
 2. `Profit-Calculator-Worksheet.pdf`
-3. `prompt-pack.md` หรือ PDF ที่แปลงแล้ว
-4. `content-calendar-30-days.md` หรือ PDF ที่แปลงแล้ว
-5. `faq-template.md`
-6. Bonus 3 ไฟล์
+3. `Profit-Calculator-Formula.xlsx`
+4. `Prompt-Pack.pdf`
+5. `Content-Calendar-30-Days.pdf`
+6. `FAQ-Template.pdf`
+7. Bonus PDF 3 ไฟล์
 
 ### วิธีตั้ง Google Drive
 1. สร้าง folder ชื่อ `AI Sales Kit - Customer Files`
