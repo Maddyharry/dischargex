@@ -15,5 +15,10 @@
 - `content-calendar-30-days.md`
 - `faq-template.md`
 - `profit-calculator.csv`
+- `profit-calculator.html`
+- `Profit-Calculator.pdf`
+- `bonus-line-oa-reply-script.md`
+- `bonus-ad-testing-plan.md`
+- `bonus-launch-checklist.md`
 - `sales-page-and-ads.md`
 - `canva-layout-guide.md`

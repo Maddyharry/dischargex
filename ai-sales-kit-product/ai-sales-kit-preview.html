@@ -31,7 +31,8 @@
       background: #e9edf5;
       color: var(--ink);
       font-family: "Noto Sans Thai", "Sarabun", "Tahoma", sans-serif;
-      line-height: 1.68;
+      font-size: 18px;
+      line-height: 1.78;
     }
 
     .page {
@@ -39,7 +40,7 @@
       width: 210mm;
       min-height: 297mm;
       margin: 18px auto;
-      padding: 22mm 19mm 20mm;
+      padding: 20mm 18mm 18mm;
       overflow: hidden;
       background: var(--page);
       box-shadow: 0 16px 40px rgba(23, 32, 51, 0.15);
@@ -52,7 +53,7 @@
       right: 18mm;
       bottom: 10mm;
       color: #9aa5b8;
-      font-size: 10px;
+      font-size: 12px;
       content: "AI Sales Kit สำหรับแม่ค้าออนไลน์";
     }
 
@@ -64,18 +65,25 @@
       padding: 26mm 22mm;
       color: #ffffff;
       background:
-        radial-gradient(circle at 82% 14%, rgba(249, 115, 22, 0.95), transparent 22%),
-        radial-gradient(circle at 5% 90%, rgba(255, 255, 255, 0.22), transparent 24%),
-        linear-gradient(135deg, #16246c 0%, #2647d9 56%, #5b4bff 100%);
+        radial-gradient(circle at 84% 14%, rgba(249, 115, 22, 0.95), transparent 21%),
+        radial-gradient(circle at 18% 88%, rgba(255, 255, 255, 0.24), transparent 24%),
+        linear-gradient(135deg, #091540 0%, #172a8a 44%, #6d28d9 100%);
     }
 
     .cover::after {
       color: rgba(255, 255, 255, 0.72);
-      content: "พร้อม Prompt, Script, FAQ และแผนโพสต์ 30 วัน";
+      content: "Ebook + Prompt Pack + Content Calendar + Profit Calculator";
+    }
+
+    .cover-layout {
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 18mm;
+      align-items: center;
     }
 
     .cover-card {
-      max-width: 168mm;
+      max-width: 110mm;
     }
 
     .eyebrow {
@@ -92,7 +100,7 @@
 
     h1 {
       margin: 22mm 0 8mm;
-      font-size: 58px;
+      font-size: 62px;
       line-height: 1.08;
       letter-spacing: -0.04em;
     }
@@ -100,7 +108,7 @@
     h2 {
       margin: 0 0 12px;
       color: var(--brand);
-      font-size: 30px;
+      font-size: 34px;
       line-height: 1.25;
       letter-spacing: -0.02em;
     }
@@ -108,7 +116,7 @@
     h3 {
       margin: 22px 0 8px;
       color: var(--brand-dark);
-      font-size: 18px;
+      font-size: 22px;
     }
 
     p {
@@ -129,7 +137,7 @@
       width: 100%;
       border-collapse: collapse;
       margin-top: 12px;
-      font-size: 12px;
+      font-size: 14px;
     }
 
     th {
@@ -148,7 +156,7 @@
     .subtitle {
       max-width: 150mm;
       color: rgba(255, 255, 255, 0.86);
-      font-size: 25px;
+      font-size: 27px;
       line-height: 1.48;
     }
 
@@ -167,6 +175,37 @@
       font-weight: 700;
     }
 
+    .mock-stack {
+      display: grid;
+      gap: 12px;
+    }
+
+    .mock-card {
+      border: 1px solid rgba(255, 255, 255, 0.26);
+      border-radius: 24px;
+      padding: 18px;
+      background: rgba(255, 255, 255, 0.14);
+      box-shadow: 0 24px 54px rgba(3, 7, 18, 0.18);
+    }
+
+    .mock-card strong {
+      display: block;
+      margin-bottom: 8px;
+      color: #ffedd5;
+      font-size: 26px;
+    }
+
+    .price-pill {
+      display: inline-flex;
+      margin-top: 18mm;
+      border-radius: 999px;
+      padding: 12px 18px;
+      background: #ffffff;
+      color: var(--brand-dark);
+      font-size: 22px;
+      font-weight: 900;
+    }
+
     .chapter-label {
       margin-bottom: 8px;
       color: var(--accent);
@@ -178,7 +217,7 @@
 
     .lead {
       color: var(--muted);
-      font-size: 18px;
+      font-size: 21px;
     }
 
     .box,
@@ -247,7 +286,27 @@
 
     .small {
       color: var(--muted);
-      font-size: 12px;
+      font-size: 14px;
+    }
+
+    .bonus-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin-top: 16px;
+    }
+
+    .bonus-card {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 16px;
+      background: #fffaf5;
+    }
+
+    .bonus-card strong {
+      display: block;
+      color: var(--accent);
+      font-size: 24px;
     }
 
     @media print {

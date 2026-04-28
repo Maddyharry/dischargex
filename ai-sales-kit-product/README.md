@@ -9,22 +9,27 @@
 - `content-calendar-30-days.md` - แผนโพสต์ 30 วัน
 - `faq-template.md` - FAQ template สำหรับร้านค้าออนไลน์
 - `profit-calculator.csv` - ตารางคำนวณกำไร/ต้นทุนแอด เปิดได้ด้วย Google Sheets หรือ Excel
+- `profit-calculator.html` - ตารางคำนวณกำไรแบบจัดหน้าแล้วสำหรับ export เป็น PDF
+- `Profit-Calculator.pdf` - ไฟล์คำนวณกำไรแบบสวย พร้อมส่งเป็น bonus
 - `sales-page-and-ads.md` - หน้าขายและข้อความยิงแอด
 - `canva-layout-guide.md` - คู่มือจัดหน้าใน Canva/Google Docs/HTML
 - `ai-sales-kit-preview.html` - ไฟล์ preview สำหรับเปิดดูใน browser และ print เป็น PDF
 - `AI-Sales-Kit-Ebook.pdf` - หนังสือที่จัดหน้าแล้ว พร้อมส่งให้ลูกค้าหรือใช้เป็น draft ก่อนปรับดีไซน์เพิ่ม
+- `bonus-line-oa-reply-script.md` - bonus script ตอบแชท/LINE OA
+- `bonus-ad-testing-plan.md` - bonus แผน test แอด 7 วัน
+- `bonus-launch-checklist.md` - bonus checklist ก่อนเริ่มขาย
 
 ## วิธีทำเป็นสินค้าขายจริง
 
 1. ใช้ `AI-Sales-Kit-Ebook.pdf` เป็นไฟล์หนังสือหลัก
 2. ถ้าต้องการแก้ดีไซน์ ให้เปิด `ai-sales-kit-preview.html` แล้วปรับ HTML/CSS หรือเอาเนื้อหาจาก `ai-sales-kit-ebook.md` ไปจัดใน Canva/Google Docs
-3. ทำ `prompt-pack.md`, `content-calendar-30-days.md`, และ `faq-template.md` เป็น PDF แยก
-4. อัปโหลด `profit-calculator.csv` เข้า Google Sheets แล้วตั้งค่าเป็น view/copy link
-5. ทำ zip file รวม PDF และลิงก์ Google Sheet
+3. ส่ง bonus เพิ่ม: `prompt-pack.md`, `content-calendar-30-days.md`, `faq-template.md`, `Profit-Calculator.pdf`, และไฟล์ bonus ทั้ง 3 ชุด
+4. ถ้าต้องการไฟล์กรอกเลขจริง ให้อัปโหลด `profit-calculator.csv` เข้า Google Sheets แล้วตั้งค่าเป็น view/copy link
+5. ทำ zip file รวม PDF, bonus และลิงก์ Google Sheet
 6. ใช้ข้อความจาก `sales-page-and-ads.md` ทำหน้าขายและยิงแอด
 
 ## คำแนะนำราคา
 
-- ราคา test: 199 บาท
-- ราคาเต็มหลังมี mockup/รีวิว: 299-499 บาท
+- ราคา test: 199-299 บาท
+- ราคาเต็มหลังมี mockup/รีวิว: 399-690 บาท
 - Bonus ที่ควรเพิ่มภายหลัง: วิดีโอสั้น 5-10 นาที สอนใช้ prompt กับ ChatGPT/Gemini
