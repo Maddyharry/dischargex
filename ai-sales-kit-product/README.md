@@ -39,7 +39,7 @@
 4. ส่ง `AI-Sales-Kit-Ebook.pdf` อย่างเดียวสำหรับแพ็ก 199 บาท
 5. ส่ง `Profit-Calculator-Formula.xlsx` ให้ลูกค้าใช้กรอกตัวเลขจริง หรืออัปโหลด `profit-calculator.csv` เข้า Google Sheets เป็นตัวเลือกเสริม
 6. ใช้ข้อความจาก `launch-sales-page.md`, `ad-test-kit.md`, และ `payment-delivery-flow.md` เพื่อทำหน้าขาย ยิงแอด และส่งไฟล์ให้ลูกค้า
-7. ถ้าต้องการไม่ผ่านคนเลย ให้ใช้ `full-automation-blueprint.md` และ route `/ai-sales-kit` เป็นแผนต่อระบบแชท + QR payment + ส่งไฟล์อัตโนมัติ
+7. ถ้าต้องการไม่ผ่านคนเลย ให้ใช้ `full-automation-blueprint.md` เป็นแผนทำระบบแยกต่างหาก เช่น landing page/checkout ของ AI Sales Kit + QR payment + ส่งไฟล์อัตโนมัติ
 
 ## คำแนะนำราคา
 
@@ -48,16 +48,17 @@
 - ราคาเต็มหลังมี mockup/รีวิว: 399-690 บาท
 - Bonus ที่ควรเพิ่มภายหลัง: วิดีโอสั้น 5-10 นาที สอนใช้ prompt กับ ChatGPT/Gemini
 
-## ระบบ automation ที่เพิ่มในแอป
+## แนวทาง automation แยกจาก DischargeX
 
-- หน้าขาย/checkout: `/ai-sales-kit`
-- หน้าตรวจสถานะและรับไฟล์: `/ai-sales-kit/success?order=ORDER_ID`
-- Checkout API: `/api/ai-sales-kit/checkout`
-- Status API: `/api/ai-sales-kit/status/[orderId]`
-- Download API: `/api/ai-sales-kit/download/[token]`
-- Opn webhook: `/api/ai-sales-kit/webhook/opn`
+ไม่ควรวาง AI Sales Kit ในเว็บ DischargeX เพราะเป็นคนละสินค้า/คนละกลุ่มลูกค้า ให้ทำเป็นระบบแยก เช่น:
 
-Environment variables ที่ต้องตั้งก่อนใช้เงินจริง:
+- โดเมน/landing page แยกสำหรับ AI Sales Kit
+- checkout แยกที่สร้าง PromptPay QR ผ่าน Opn Payments
+- webhook แยกสำหรับรับ payment success
+- delivery storage แยกสำหรับส่ง `AI-Sales-Kit-Customer-Delivery.zip`
+- Meta Pixel/Conversion API แยกตาม ad account หรือ pixel ของสินค้านี้
+
+Environment variables ที่ระบบแยกต้องใช้ก่อนรับเงินจริง:
 
 - `OPN_SECRET_KEY` หรือ `OMISE_SECRET_KEY`
 - `OPN_WEBHOOK_SECRET` ถ้าเปิด signature verification

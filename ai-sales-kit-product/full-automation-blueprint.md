@@ -286,25 +286,32 @@ Action:
 6. บันทึก order ลง Google Sheets/Airtable
 7. ส่ง Purchase event กลับ Meta
 
-## Implementation ใน repo นี้
+## Implementation แนะนำ
 
-ระบบเริ่มต้นถูกทำไว้ที่:
+ไม่ควรเอาระบบนี้ไปปนกับเว็บ DischargeX เพราะเป็นคนละสินค้าและคนละกลุ่มลูกค้า ให้ทำเป็นเว็บ/mini-app แยก เช่น:
 
-- หน้า checkout: `/ai-sales-kit`
-- หน้า status/download หลังจ่าย: `/ai-sales-kit/success?order=<orderId>`
-- สร้าง QR order: `POST /api/ai-sales-kit/checkout`
-- เช็กสถานะ: `GET /api/ai-sales-kit/status/<orderId>`
-- รับ webhook Opn: `POST /api/ai-sales-kit/webhook/opn`
-- ดาวน์โหลดหลังจ่าย: `GET /api/ai-sales-kit/download/<token>`
+- `saleskit.yourdomain.com`
+- `ai-sales-kit.yourdomain.com`
+- Carrd/Framer/Webflow + payment automation
+- LINE OA + bot platform + payment gateway
 
-Env ที่ต้องตั้งก่อนใช้จริง:
+Endpoint ที่ควรมีในระบบแยก:
+
+- หน้า checkout: `/checkout`
+- หน้า status/download หลังจ่าย: `/success?order=<orderId>`
+- สร้าง QR order: `POST /api/checkout`
+- เช็กสถานะ: `GET /api/orders/<orderId>`
+- รับ webhook Opn: `POST /api/webhooks/opn`
+- ดาวน์โหลดหลังจ่าย: `GET /api/download/<token>`
+
+Env ที่ต้องตั้งก่อนใช้จริงในระบบแยก:
 
 - `OPN_SECRET_KEY` หรือ `OMISE_SECRET_KEY`
 - `OPN_WEBHOOK_SECRET` ถ้าต้องการตรวจ signature webhook
-- `APP_ORIGIN` หรือ `NEXTAUTH_URL`
+- `APP_ORIGIN`
 - `DATABASE_URL`
 
-หมายเหตุ: ใน development ถ้าไม่มี `OPN_SECRET_KEY` ระบบจะสร้าง mock QR text เพื่อทดสอบ flow ได้ แต่ production ต้องมี key จริง
+หมายเหตุ: production ต้องมี key จริงและ webhook URL ที่ payment gateway เรียกได้จากอินเทอร์เน็ต
 
 ## สิ่งที่ต้องตัดสินใจก่อนลงมือ
 
