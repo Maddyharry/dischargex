@@ -16,7 +16,10 @@
 - `faq-template.md`
 - `profit-calculator.csv`
 - `profit-calculator.html`
-- `Profit-Calculator.pdf`
+- `Profit-Calculator-Worksheet.pdf`
+- `launch-sales-page.md`
+- `ad-test-kit.md`
+- `payment-delivery-flow.md`
 - `bonus-line-oa-reply-script.md`
 - `bonus-ad-testing-plan.md`
 - `bonus-launch-checklist.md`
