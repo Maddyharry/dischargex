@@ -120,9 +120,7 @@ export default function GuidelinesPage() {
                 <span className="font-medium text-slate-100">เข้าสู่ระบบ</span> — ล็อกอินด้วย Google หรืออีเมล/รหัสผ่านจากหน้า Login
               </li>
               <li>
-                <span className="font-medium text-slate-100">เริ่มจาก AI Chat หรือเข้าหน้าสรุปชาร์จ</span> — เริ่มคุยเคสที่{" "}
-                <Link href="/chat" className="text-cyan-300 underline hover:text-cyan-200">/chat</Link>{" "}
-                เพื่อถามแนวทางก่อน แล้วค่อยเข้า{" "}
+                <span className="font-medium text-slate-100">เข้าหน้าสรุปชาร์จ</span> — ไปที่{" "}
                 <Link href="/app" className="text-cyan-300 underline hover:text-cyan-200">/app</Link>{" "}
                 เพื่อสร้างสรุปชาร์จ
               </li>
@@ -208,7 +206,6 @@ export default function GuidelinesPage() {
             </h2>
             <ul className="mt-4 space-y-3 text-sm leading-6 text-slate-300 list-disc list-inside">
               <li><span className="font-medium text-slate-100">หน้าแรก</span> (<Link href="/" className="text-cyan-300 underline hover:text-cyan-200">/</Link>) — ดูภาพรวมว่าระบบมีอะไรและเริ่มจากจุดไหน</li>
-              <li><span className="font-medium text-slate-100">AI Chat</span> (<Link href="/chat" className="text-cyan-300 underline hover:text-cyan-200">/chat</Link>) — ถาม diagnosis checklist, differential, และแนวทางบันทึกเคส</li>
               <li><span className="font-medium text-slate-100">สรุปชาร์จ</span> (<Link href="/app" className="text-cyan-300 underline hover:text-cyan-200">/app</Link>) — วางข้อความจาก chart เพื่อสร้างสรุปและทบทวน coding</li>
               <li>
                 <span className="font-medium text-slate-100">คู่มือสรุปชาร์จ (SEO)</span> (

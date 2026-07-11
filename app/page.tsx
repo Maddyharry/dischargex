@@ -129,24 +129,17 @@ export default function Home() {
 
             <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
               <Link
-                href="/chat"
-                data-telemetry-click="landing_hero_chat_entry"
-                data-google-conversion-label="CHAT_ENTRY"
+                href="/app/guest?tutorial=1"
+                data-telemetry-click="landing_hero_guest_demo"
+                data-google-conversion-label="TRIAL_ENTRY"
                 className="inline-flex min-w-[190px] items-center justify-center rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 px-7 py-3.5 text-sm font-semibold text-white shadow-lg shadow-cyan-900/40 transition hover:brightness-110"
               >
-                เริ่มแชทเคสทันที (AI Chat)
+                ลองสรุปชาร์จทันที (ไม่ต้องสมัคร)
               </Link>
               <LandingSignupCta
                 telemetryKey="landing_hero_signup"
                 className="inline-flex min-w-[160px] items-center justify-center rounded-2xl border border-cyan-500/50 bg-cyan-500/10 px-7 py-3.5 text-sm font-semibold text-cyan-100 shadow-sm shadow-cyan-900/20 transition hover:border-cyan-400/70 hover:bg-cyan-500/15"
               />
-              <Link
-                href="/app/guest?tutorial=1"
-                data-telemetry-click="landing_hero_guest_demo"
-                className="inline-flex min-w-[160px] items-center justify-center rounded-2xl border border-emerald-500/50 bg-emerald-500/10 px-7 py-3.5 text-sm font-semibold text-emerald-100 shadow-sm shadow-emerald-900/20 transition hover:border-emerald-400/70 hover:bg-emerald-500/15"
-              >
-                ลองใช้แบบสาธิต (ไม่ต้องสมัคร)
-              </Link>
               <Link
                 href="/guidelines"
                 data-telemetry-click="landing_hero_guidelines"
@@ -248,12 +241,12 @@ export default function Home() {
           </h2>
           <div className="mt-6 grid gap-4 md:grid-cols-2">
             <div className="rounded-2xl border border-cyan-500/25 bg-cyan-950/20 p-5">
-              <h3 className="text-base font-semibold text-cyan-100">AI Chat (เริ่มเร็ว)</h3>
+              <h3 className="text-base font-semibold text-cyan-100">Automator (โปรแกรมกรอก HOSxP อัตโนมัติ)</h3>
               <p className="mt-2 text-sm leading-relaxed text-slate-300">
-                ใช้ถามแนวทาง diagnosis, differential, evidence checklist และประเด็นที่ควรประเมินเพิ่มก่อนลงวินิจฉัย
+                โปรแกรมบนคอมที่สรุปชาร์จและกรอกเข้า HOSxP ให้ต่อเนื่องหลายเคสโดยไม่ต้องนั่งเฝ้า สำหรับแพ็ก Pro ขึ้นไป
               </p>
-              <Link href="/chat" className="mt-3 inline-block text-sm text-cyan-300 underline underline-offset-2 hover:text-cyan-200">
-                ไป AI Chat
+              <Link href="/pricing" className="mt-3 inline-block text-sm text-cyan-300 underline underline-offset-2 hover:text-cyan-200">
+                ดูแพ็กที่ปลดล็อก Automator
               </Link>
             </div>
             <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
@@ -415,12 +408,12 @@ export default function Home() {
             </p>
             <div className="relative mt-8 flex flex-wrap gap-3">
               <Link
-                href="/chat"
-                data-telemetry-click="landing_bottom_chat"
-                data-google-conversion-label="CHAT_ENTRY"
+                href="/app/guest?tutorial=1"
+                data-telemetry-click="landing_bottom_guest_demo"
+                data-google-conversion-label="TRIAL_ENTRY"
                 className="inline-flex min-w-[190px] items-center justify-center rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 px-7 py-3.5 text-sm font-semibold text-white shadow-lg shadow-cyan-900/40 transition hover:brightness-110"
               >
-                เริ่มแชทเคสทันที
+                ลองสรุปชาร์จทันที
               </Link>
               <LandingSignupCta
                 telemetryKey="landing_bottom_signup"

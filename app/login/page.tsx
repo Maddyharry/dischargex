@@ -28,7 +28,7 @@ function LoginForm() {
   const error = searchParams.get("error") || "";
   const errorMsg = ERROR_MESSAGES[error] || (error ? ERROR_MESSAGES.Default : null);
   const callbackUrl = (searchParams.get("callbackUrl") || "").trim();
-  const postLoginUrl = callbackUrl || "/chat";
+  const postLoginUrl = callbackUrl || "/app";
   const registered = searchParams.get("registered") === "1";
   const reset = searchParams.get("reset") === "1";
   const verified = searchParams.get("verified") === "1";

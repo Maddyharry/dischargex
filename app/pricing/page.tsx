@@ -595,9 +595,6 @@ function PricingPageContent() {
             ทดลองใช้ (Trial) รวมฟีเจอร์ &quot;แนะนำเติม chart / AdjRW ประมาณการ&quot; เช่นเดียวกับ Pro ในขอบเขตที่ระบบกำหนด
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
-            <Link href="/chat" className="rounded-xl border border-cyan-500/40 px-3 py-2 text-xs text-cyan-200 hover:bg-cyan-500/10">
-              เริ่มที่ AI Chat
-            </Link>
             <Link href="/app" className="rounded-xl border border-slate-600 px-3 py-2 text-xs text-slate-200 hover:bg-slate-800">
               ไปหน้าสรุปชาร์จ
             </Link>
