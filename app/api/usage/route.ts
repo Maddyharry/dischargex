@@ -13,16 +13,17 @@ import {
 } from "@/lib/billing-rules";
 import { applyScheduledPlanChangeIfDue } from "@/lib/subscription-switch";
 import { getPlanTokenBudgetThb } from "@/lib/token-billing";
+import { resolveEmailFromBearerToken } from "@/lib/api-token";
 
 export const runtime = "nodejs";
 
-export async function GET() {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.email) {
+export async function GET(req: Request) {
+  const bearerEmail = await resolveEmailFromBearerToken(req);
+  const session = bearerEmail ? null : await getServerSession(authOptions);
+  const email = bearerEmail || session?.user?.email;
+  if (!email) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
-
-  const email = session.user.email;
   const now = new Date();
 
   let dbUser = await prisma.user.findUnique({
@@ -61,7 +62,7 @@ export async function GET() {
   }
 
   const normalizedPlanId = normalizePlanId(
-    dbUser?.plan ?? (session.user as { plan?: string } | null | undefined)?.plan ?? "trial"
+    dbUser?.plan ?? (session?.user as { plan?: string } | null | undefined)?.plan ?? "trial"
   );
   const plan = getPlanDefinition(normalizedPlanId);
   const extraCredits = dbUser?.extraCredits ?? 0;
