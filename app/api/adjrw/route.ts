@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { calcAdjRwFromDrg } from "@/lib/tdrg";
+import { calcAdjRwFromDrg, normalizeThaiDrgCode } from "@/lib/tdrg";
 
 export const runtime = "nodejs";
 
@@ -18,7 +18,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const drgCode = String((body as { drgCode?: unknown } | null)?.drgCode ?? "").trim();
+  const drgCode = normalizeThaiDrgCode(String((body as { drgCode?: unknown } | null)?.drgCode ?? "").trim());
   const losDaysRaw = (body as { losDays?: unknown } | null)?.losDays;
   const losDays = typeof losDaysRaw === "number" ? losDaysRaw : Number(losDaysRaw);
 

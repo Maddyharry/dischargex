@@ -270,6 +270,19 @@ function PageContent() {
   const [lastRunStrategy, setLastRunStrategy] = useState<SummaryStrategy | null>(null);
   const [recalcCompare, setRecalcCompare] = useState<RecalcCompareResult | null>(null);
   const [undoAlternativeSnapshot, setUndoAlternativeSnapshot] = useState<UndoAlternativeSnapshot | null>(null);
+  /** DRG + LOS → AdjRW ตามตาราง Appendix G และสูตร Appendix H (Thai DRG 6.3.3) — ไม่ใช่ผลจาก AI */
+  const [formulaDrgInput, setFormulaDrgInput] = useState("");
+  const [formulaLosInput, setFormulaLosInput] = useState("");
+  const [formulaAdjrwLoading, setFormulaAdjrwLoading] = useState(false);
+  const [formulaAdjrwError, setFormulaAdjrwError] = useState("");
+  const [formulaAdjrwResult, setFormulaAdjrwResult] = useState<{
+    drgCode: string;
+    losDays: number;
+    baseRw: number;
+    adjrw: number;
+    caseType: string;
+    details: string;
+  } | null>(null);
   const [mobileSectionIndex, setMobileSectionIndex] = useState(0);
   const [isMobileViewport, setIsMobileViewport] = useState(false);
   const [chatBannerDismissed, setChatBannerDismissed] = useState(false);
@@ -1055,6 +1068,70 @@ function PageContent() {
     });
   }
 
+  async function fetchAdjrwFromFormula() {
+    setFormulaAdjrwError("");
+    setFormulaAdjrwResult(null);
+    const drgCode = formulaDrgInput.trim();
+    const losParsed = Number(String(formulaLosInput).trim().replace(",", "."));
+    if (!drgCode) {
+      setFormulaAdjrwError("กรุณาใส่รหัส DRG จาก grouper โรงพยาบาล (เช่น 501 หรือ 00501)");
+      return;
+    }
+    if (!Number.isFinite(losParsed) || losParsed < 0) {
+      setFormulaAdjrwError("กรุณาใส่จำนวนวันนอน (LOS) เป็นตัวเลข ≥ 0");
+      return;
+    }
+    if (isGuestWorkspace || !session?.user?.email) {
+      setFormulaAdjrwError("ต้องเข้าสู่ระบบ (โหมดสมาชิก) เพื่อคำนวณจากสูตร TDRG");
+      return;
+    }
+    setFormulaAdjrwLoading(true);
+    try {
+      const res = await fetch("/api/adjrw", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ drgCode, losDays: losParsed }),
+      });
+      const data = (await res.json()) as {
+        ok?: boolean;
+        error?: string;
+        drgCode?: string;
+        losDays?: number;
+        baseRw?: number;
+        adjrw?: number;
+        caseType?: string;
+        details?: string;
+      };
+      if (!res.ok || !data.ok) {
+        setFormulaAdjrwError(data.error || `HTTP ${res.status}`);
+        return;
+      }
+      if (
+        data.drgCode == null ||
+        data.losDays == null ||
+        data.baseRw == null ||
+        data.adjrw == null ||
+        !data.caseType ||
+        data.details == null
+      ) {
+        setFormulaAdjrwError("คำตอบจากเซิร์ฟเวอร์ไม่สมบูรณ์");
+        return;
+      }
+      setFormulaAdjrwResult({
+        drgCode: data.drgCode,
+        losDays: data.losDays,
+        baseRw: data.baseRw,
+        adjrw: data.adjrw,
+        caseType: data.caseType,
+        details: data.details,
+      });
+    } catch (e) {
+      setFormulaAdjrwError(e instanceof Error ? e.message : "เกิดข้อผิดพลาด");
+    } finally {
+      setFormulaAdjrwLoading(false);
+    }
+  }
+
   async function handleGenerate() {
     setLoading(true);
     setError("");
@@ -1149,6 +1226,10 @@ function PageContent() {
     setDiagnosisItems([]);
     setRecalcCompare(null);
     setUndoAlternativeSnapshot(null);
+    setFormulaDrgInput("");
+    setFormulaLosInput("");
+    setFormulaAdjrwError("");
+    setFormulaAdjrwResult(null);
     setError("");
     setWorkspaceSnapshot(null);
   }
@@ -1183,6 +1264,10 @@ function PageContent() {
     setShowDiseaseGraph(false);
     setShowWeakSupported(false);
     setDiagnosisItems([]);
+    setFormulaDrgInput("");
+    setFormulaLosInput("");
+    setFormulaAdjrwError("");
+    setFormulaAdjrwResult(null);
     setError("");
   }
 
@@ -2060,7 +2145,7 @@ function PageContent() {
               ) : null}
               <div className="grid gap-3 md:grid-cols-3">
                 <Stat label="LOS Days" value={meta.losDays ?? "-"} />
-                <Stat label="Adj RW (estimate)" value={meta.adjrw ?? "-"} />
+                <Stat label="Adj RW (โมเดลประมาณการ)" value={meta.adjrw ?? "-"} />
                 <Stat
                   label="Confidence"
                   value={
@@ -2070,6 +2155,87 @@ function PageContent() {
                     </div>
                   }
                 />
+              </div>
+
+              <div className="mt-4 rounded-2xl border border-slate-600/70 bg-slate-950/50 p-4 text-sm text-slate-200">
+                <div className="font-semibold text-slate-100">AdjRW จากสูตร Thai DRG 6.3.3 (Appendix H)</div>
+                <p className="mt-1 text-xs leading-relaxed text-slate-400">
+                  ใส่รหัส DRG ที่ได้จาก grouper ของโรงพยาบาล/สปสช. และ LOS (วัน) ระบบจะคำนวณจากตาราง Appendix G + สูตร Appendix H
+                  ในข้อมูลของ DischargeX — ไม่ใช่การจัดกลุ่ม DRG ใหม่ และไม่แทนที่คำแนะจาก AI ด้านบน
+                </p>
+                {isGuestWorkspace || !session?.user?.email ? (
+                  <p className="mt-2 text-xs text-amber-200/90">เข้าสู่ระบบที่หน้าหลัก (ไม่ใช่โหมด guest) เพื่อใช้งานคำนวณนี้</p>
+                ) : (
+                  <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end">
+                    <label className="flex min-w-[140px] flex-1 flex-col gap-1 text-xs text-slate-400">
+                      รหัส DRG
+                      <input
+                        value={formulaDrgInput}
+                        onChange={(e) => setFormulaDrgInput(e.target.value)}
+                        placeholder="เช่น 501 หรือ 00501"
+                        className="rounded-xl border border-slate-600 bg-slate-900/90 px-3 py-2 text-sm text-slate-100 outline-none focus:border-cyan-500"
+                        inputMode="text"
+                        autoComplete="off"
+                      />
+                    </label>
+                    <label className="flex min-w-[120px] flex-1 flex-col gap-1 text-xs text-slate-400">
+                      LOS (วัน)
+                      <input
+                        value={formulaLosInput}
+                        onChange={(e) => setFormulaLosInput(e.target.value)}
+                        placeholder="เช่น 4"
+                        className="rounded-xl border border-slate-600 bg-slate-900/90 px-3 py-2 text-sm text-slate-100 outline-none focus:border-cyan-500"
+                        inputMode="decimal"
+                        autoComplete="off"
+                      />
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => void fetchAdjrwFromFormula()}
+                        disabled={formulaAdjrwLoading}
+                        className="rounded-xl bg-gradient-to-r from-slate-600 to-slate-700 px-4 py-2 text-xs font-semibold text-white shadow hover:brightness-110 disabled:opacity-50"
+                      >
+                        {formulaAdjrwLoading ? "กำลังคำนวณ…" : "คำนวณ AdjRW"}
+                      </button>
+                      {meta.losDays != null ? (
+                        <button
+                          type="button"
+                          onClick={() => setFormulaLosInput(String(meta.losDays))}
+                          className="rounded-xl border border-slate-600 px-3 py-2 text-xs text-slate-300 hover:bg-slate-800/80"
+                        >
+                          ใช้ LOS จากสรุป ({meta.losDays})
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                )}
+                {formulaAdjrwError ? (
+                  <div className="mt-2 rounded-lg border border-rose-800/50 bg-rose-950/30 px-3 py-2 text-xs text-rose-200">
+                    {formulaAdjrwError}
+                  </div>
+                ) : null}
+                {formulaAdjrwResult ? (
+                  <div className="mt-3 rounded-xl border border-emerald-800/40 bg-emerald-950/25 px-3 py-3 text-xs text-emerald-50/95">
+                    <div className="text-sm font-semibold text-emerald-100">
+                      AdjRW = {formulaAdjrwResult.adjrw.toFixed(4)}{" "}
+                      <span className="font-normal text-emerald-200/80">
+                        (DRG {formulaAdjrwResult.drgCode}, LOS {formulaAdjrwResult.losDays} วัน)
+                      </span>
+                    </div>
+                    <div className="mt-1 text-emerald-100/85">
+                      RW ฐานจากตาราง: {formulaAdjrwResult.baseRw.toFixed(4)} · กรณี LOS:{" "}
+                      {formulaAdjrwResult.caseType === "low"
+                        ? "ต่ำ (low)"
+                        : formulaAdjrwResult.caseType === "high"
+                          ? "สูง (high)"
+                          : "ปกติ (normal)"}
+                    </div>
+                    <div className="mt-1 font-mono text-[11px] leading-relaxed text-emerald-200/75">
+                      {formulaAdjrwResult.details}
+                    </div>
+                  </div>
+                ) : null}
               </div>
 
               {recalcLoading ? (

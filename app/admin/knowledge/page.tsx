@@ -34,6 +34,33 @@ type PendingDocument = {
   createdAt: string;
 };
 
+type GuidelineAssistantAnalysis = {
+  suggestedAction: "new_topic" | "expand_topic";
+  targetSlug: string;
+  topicName: string;
+  changeSummary: string[];
+  fields: {
+    diagnosisToWrite: string[];
+    thinkWhen: string[];
+    considerMore: string[];
+    notYetDiagnosis: string[];
+    investigations: string[];
+    icd10: string[];
+    refs: string[];
+    diagnosticCriteria: Array<{
+      label: string;
+      criteria: string;
+      priority?: "core" | "supporting";
+      sourceType?: "thai_guideline" | "thai_reference" | "international_fallback";
+      sourceNote?: string;
+      lastReviewed?: string;
+    }>;
+  };
+  candidateTopics: Array<{ slug: string; name: string }>;
+  externalSources: Array<{ sourceName: string; title: string; url: string }>;
+  sourceMeta?: { sourceName?: string; sourceType?: string; charCount?: number };
+};
+
 export default function AdminKnowledgePage() {
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,6 +75,13 @@ export default function AdminKnowledgePage() {
   const [gapTargetSlug, setGapTargetSlug] = useState<Record<string, string>>({});
   const [gapTopicName, setGapTopicName] = useState<Record<string, string>>({});
   const [gapTab, setGapTab] = useState<"high" | "review_later">("high");
+  const [assistantTopicHint, setAssistantTopicHint] = useState("");
+  const [assistantSourceName, setAssistantSourceName] = useState("");
+  const [assistantContent, setAssistantContent] = useState("");
+  const [assistantFile, setAssistantFile] = useState<File | null>(null);
+  const [assistantLoading, setAssistantLoading] = useState(false);
+  const [assistantNotice, setAssistantNotice] = useState<string | null>(null);
+  const [assistantAnalysis, setAssistantAnalysis] = useState<GuidelineAssistantAnalysis | null>(null);
 
   async function loadAll() {
     const resp = await fetch("/api/admin/knowledge", { cache: "no-store" });
@@ -157,6 +191,83 @@ export default function AdminKnowledgePage() {
     }
   }
 
+  async function runGuidelineAssistant(discoverOnly = false) {
+    setAssistantLoading(true);
+    setAssistantNotice(null);
+    setAssistantAnalysis(null);
+    try {
+      const form = new FormData();
+      form.set("topicHint", assistantTopicHint.trim());
+      form.set("sourceName", assistantSourceName.trim());
+      form.set("discoverOnly", discoverOnly ? "1" : "0");
+      form.set("content", assistantContent.trim());
+      if (assistantFile) form.set("file", assistantFile);
+      const res = await fetch("/api/admin/knowledge/update-assistant", {
+        method: "POST",
+        body: form,
+      });
+      const data = (await res.json()) as {
+        ok?: boolean;
+        error?: string;
+        mode?: string;
+        analysis?: GuidelineAssistantAnalysis;
+        externalSources?: Array<{ sourceName: string; title: string; url: string }>;
+      };
+      if (!res.ok || !data.ok) throw new Error(data.error || "วิเคราะห์ guideline ไม่สำเร็จ");
+      if (discoverOnly) {
+        setAssistantNotice(`ค้นหาอัปเดตเสร็จแล้ว พบแหล่งอ้างอิง ${data.externalSources?.length || 0} รายการ`);
+      } else if (data.analysis) {
+        setAssistantAnalysis(data.analysis);
+        setAssistantNotice("AI วิเคราะห์เสร็จแล้ว — ตรวจทานแล้วกด Approve ได้ทันที");
+      }
+    } catch (error) {
+      setAssistantNotice(error instanceof Error ? error.message : "วิเคราะห์ guideline ไม่สำเร็จ");
+    } finally {
+      setAssistantLoading(false);
+    }
+  }
+
+  async function approveAssistantUpdate() {
+    if (!assistantAnalysis) return;
+    const actionBody =
+      assistantAnalysis.suggestedAction === "new_topic"
+        ? {
+            action: "approve_pending_gap",
+            gapId: "",
+            publishMode: "new_topic",
+            topicName: assistantAnalysis.topicName,
+          }
+        : null;
+    if (actionBody) {
+      setAssistantNotice("กรุณาสร้างหัวข้อใหม่ผ่าน Pending gaps เพื่อคง trace ของเอกสาร");
+      return;
+    }
+    if (!assistantAnalysis.targetSlug) {
+      setAssistantNotice("ยังไม่มี target topic ที่จะอัปเดต");
+      return;
+    }
+    setAssistantLoading(true);
+    try {
+      const res = await fetch("/api/admin/knowledge", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "approve_topic_edit",
+          slug: assistantAnalysis.targetSlug,
+          payload: assistantAnalysis.fields,
+        }),
+      });
+      const data = (await res.json()) as { ok?: boolean; error?: string };
+      if (!res.ok || !data.ok) throw new Error(data.error || "approve ไม่สำเร็จ");
+      setAssistantNotice(`Approve update สำเร็จ: ${assistantAnalysis.targetSlug}`);
+      await loadAll();
+    } catch (error) {
+      setAssistantNotice(error instanceof Error ? error.message : "approve ไม่สำเร็จ");
+    } finally {
+      setAssistantLoading(false);
+    }
+  }
+
   return (
     <main className="min-h-screen bg-[#081120] text-slate-100">
       <div className="mx-auto max-w-5xl px-4 py-8">
@@ -171,6 +282,82 @@ export default function AdminKnowledgePage() {
           มีข้อมูลใหม่รออนุมัติ {pendingGaps.length + pendingDocuments.length} รายการ
         </div>
         <div className="mt-4 space-y-4">
+          <div className="rounded-xl border border-indigo-500/25 bg-indigo-950/15 p-4">
+            <div className="text-sm font-semibold text-indigo-100">Guideline Update Assistant (Text / PDF)</div>
+            <p className="mt-1 text-xs text-slate-300">
+              วาง guideline ใหม่หรือแนบ PDF แล้วให้ AI สรุปว่าอะไรเปลี่ยน ควรปรับหัวข้อไหน และกด approve เข้า knowledge ได้
+            </p>
+            <input
+              value={assistantTopicHint}
+              onChange={(e) => setAssistantTopicHint(e.target.value)}
+              placeholder="โรค/หัวข้อ เช่น acute diarrhea, UTI, stroke fast track"
+              className="mt-3 w-full rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2 text-sm"
+            />
+            <input
+              value={assistantSourceName}
+              onChange={(e) => setAssistantSourceName(e.target.value)}
+              placeholder="ชื่อเอกสาร/แหล่ง เช่น MOPH guideline 2026"
+              className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2 text-sm"
+            />
+            <textarea
+              value={assistantContent}
+              onChange={(e) => setAssistantContent(e.target.value)}
+              placeholder="วางเนื้อหา guideline (ถ้าแนบ PDF ไม่จำเป็น)"
+              className="mt-2 h-28 w-full rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2 text-sm"
+            />
+            <input
+              type="file"
+              accept=".pdf,text/plain"
+              onChange={(e) => setAssistantFile(e.target.files?.[0] || null)}
+              className="mt-2 block w-full text-xs text-slate-300"
+            />
+            {assistantNotice ? <div className="mt-2 text-xs text-indigo-100">{assistantNotice}</div> : null}
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                onClick={() => void runGuidelineAssistant(true)}
+                disabled={assistantLoading || !assistantTopicHint.trim()}
+                className="rounded-md border border-cyan-700 px-2 py-1 text-xs text-cyan-200 disabled:opacity-60"
+              >
+                {assistantLoading ? "กำลังค้น..." : "ค้นหาว่ามีโรคไหนอัปเดตบ้าง"}
+              </button>
+              <button
+                onClick={() => void runGuidelineAssistant(false)}
+                disabled={assistantLoading || (!assistantContent.trim() && !assistantFile)}
+                className="rounded-md border border-indigo-700 px-2 py-1 text-xs text-indigo-200 disabled:opacity-60"
+              >
+                {assistantLoading ? "กำลังวิเคราะห์..." : "AI วิเคราะห์ update"}
+              </button>
+              <button
+                onClick={() => void approveAssistantUpdate()}
+                disabled={assistantLoading || !assistantAnalysis}
+                className="rounded-md border border-emerald-700 px-2 py-1 text-xs text-emerald-200 disabled:opacity-60"
+              >
+                Approve update เข้า knowledge
+              </button>
+            </div>
+            {assistantAnalysis ? (
+              <div className="mt-3 rounded-lg border border-white/10 bg-slate-950/40 p-3 text-xs text-slate-200">
+                <div>
+                  Action: {assistantAnalysis.suggestedAction} | Target: {assistantAnalysis.targetSlug || "-"} | Topic:{" "}
+                  {assistantAnalysis.topicName}
+                </div>
+                {assistantAnalysis.changeSummary?.length ? (
+                  <div className="mt-2 space-y-1">
+                    {assistantAnalysis.changeSummary.map((row, idx) => (
+                      <div key={`chg-${idx}`}>- {row}</div>
+                    ))}
+                  </div>
+                ) : null}
+                {assistantAnalysis.externalSources?.length ? (
+                  <div className="mt-2 space-y-1 text-slate-300">
+                    {assistantAnalysis.externalSources.slice(0, 4).map((src, idx) => (
+                      <div key={`src-${idx}`}>ReferenceSource: {src.sourceName} - {src.title} ({src.url})</div>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
           <div className="rounded-xl border border-emerald-500/25 bg-emerald-950/15 p-4">
             <div className="text-sm font-semibold text-emerald-100">Pending knowledge gaps from user demand</div>
             <div className="mt-3 flex gap-2">

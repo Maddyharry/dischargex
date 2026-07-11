@@ -22,6 +22,14 @@ export type DiseaseSummary = {
   icd9?: string[];
   seeAlso: string[];
   refs: string[];
+  diagnosticCriteria?: Array<{
+    label: string;
+    criteria: string;
+    priority?: "core" | "supporting";
+    sourceType?: "thai_guideline" | "thai_reference" | "international_fallback";
+    sourceNote?: string;
+    lastReviewed?: string;
+  }>;
   /** Real-world examples copied/summarized from official slide/PDF references */
   sourceExamples?: string[];
   chartChecklist?: {
@@ -90,6 +98,26 @@ export const DISEASE_SUMMARIES: DiseaseSummary[] = [
     icd10: ["A41.9", "R65.1", "R57.2"],
     seeAlso: ["pneumonia", "acute-respiratory-failure", "acute-diarrhea"],
     refs: ["R1", "R2", "R4", "R5"],
+    diagnosticCriteria: [
+      {
+        label: "SIRS + infection",
+        criteria:
+          "พิจารณา sepsis เมื่อมี SIRS อย่างน้อย 2 ใน 4 ข้อ (BT >38/<36, PR >90, RR >24 หรือ PaCO2 <32, WBC >12,000/<4,000 หรือ band >10%) ร่วมกับ source หรือสงสัย infection ชัด",
+        priority: "core",
+        sourceType: "thai_reference",
+        sourceNote: "CODING AUDIT 2562",
+        lastReviewed: "2026-04-27",
+      },
+      {
+        label: "Septic shock",
+        criteria:
+          "ต้องมี hypotension + poor perfusion หลัง fluid พอ หรือจำเป็นต้องใช้ vasopressor",
+        priority: "core",
+        sourceType: "thai_reference",
+        sourceNote: "CODING AUDIT 2562",
+        lastReviewed: "2026-04-27",
+      },
+    ],
     sourceExamples: [
       "CODING AUDIT 2562 p.4: Sepsis (A40.-, A41.-) — มีอาการของ SIRS + ติดเชื้อที่อวัยวะ/ระบบ + H/C ต้อง Positive (ยกเว้น Immunocompromised ผล Negative แต่ต้องส่ง H/C) + รักษาด้วย ATB 5-7 วันหาย or ตายใน 3-5 วัน",
       "CODING AUDIT 2562 p.4: ไม่วินิจฉัย Sepsis เป็น Pdx เมื่อ — ให้ ATB 1-2 วันไข้ลง + D/C [Fever; R50.9]",
@@ -144,6 +172,26 @@ export const DISEASE_SUMMARIES: DiseaseSummary[] = [
     icd10: ["J18.9", "J15.9", "J12.9", "J69.0", "J96.0"],
     seeAlso: ["sepsis-septic-shock", "acute-respiratory-failure"],
     refs: ["R2", "R4", "R5"],
+    diagnosticCriteria: [
+      {
+        label: "Clinical + CXR criteria",
+        criteria:
+          "มีอาการเข้าได้กับปอดอักเสบ (เช่น ไข้ ไอ เสมหะ หอบ เจ็บหน้าอก) ร่วมกับ CXR พบ new infiltration หรือ follow-up film ผิดปกติ",
+        priority: "core",
+        sourceType: "thai_reference",
+        sourceNote: "CODING AUDIT 2562",
+        lastReviewed: "2026-04-27",
+      },
+      {
+        label: "Acute respiratory failure co-diagnosis",
+        criteria:
+          "พิจารณาเพิ่ม ARF (J96.0) เมื่อ O2 sat < 90% หรือ PaO2 < 55 หรือจำเป็นต้อง respiratory support",
+        priority: "supporting",
+        sourceType: "thai_reference",
+        sourceNote: "CODING AUDIT 2562",
+        lastReviewed: "2026-04-27",
+      },
+    ],
     sourceExamples: [
       "CODING AUDIT 2562 p.14: Pneumonia, unspecified — J18.9 (ไข้ > 38.3 + ไอมีเสมหะ + หอบเหนื่อย + acute < 2 wk + CXR new infiltration)",
       "CODING AUDIT 2562 p.14: Bronchopneumonia, unspecified — J18.0 (เมื่อไม่พบเชื้อ)",
@@ -197,6 +245,34 @@ export const DISEASE_SUMMARIES: DiseaseSummary[] = [
     icd10: ["A09.9", "A09.0", "A04.9", "K52.1", "K52.9", "E87.6", "E87.1"],
     seeAlso: ["hypovolemic-shock", "aki-acute-renal-failure"],
     refs: ["R1", "R2", "R4", "R5", "R6", "R7", "R8"],
+    diagnosticCriteria: [
+      {
+        label: "Acute diarrhea definition",
+        criteria: "ถ่ายเหลวหรือเป็นน้ำ >= 3 ครั้งใน 24 ชั่วโมง",
+        priority: "core",
+        sourceType: "international_fallback",
+        sourceNote: "WHO case definition fallback (ใช้เมื่อ guideline ไทยไม่ระบุนิยามเชิงตัวเลขชัด)",
+        lastReviewed: "2026-04-27",
+      },
+      {
+        label: "Default coding context (ไทย)",
+        criteria:
+          "ถ่ายเหลวเฉียบพลันที่ยังไม่แยกสาเหตุชัด ให้ใช้ Acute diarrhea, unspecified (A09.9) และหลีกเลี่ยงการใช้คำว่า AGE ใน narrative",
+        priority: "core",
+        sourceType: "thai_reference",
+        sourceNote: "CODING AUDIT 2562 / เอกสารให้รหัส รพ.สต. 2567",
+        lastReviewed: "2026-04-27",
+      },
+      {
+        label: "Electrolyte co-diagnosis threshold",
+        criteria:
+          "พิจารณา Hypokalemia เมื่อ K < 2.5 และมีการรักษา; พิจารณา Hyponatremia เมื่อ Na < 125 และมีการรักษา",
+        priority: "supporting",
+        sourceType: "thai_reference",
+        sourceNote: "CODING AUDIT 2562",
+        lastReviewed: "2026-04-27",
+      },
+    ],
     sourceExamples: [
       "CODING AUDIT 2562 p.21: ถ่ายเหลวไม่ทราบสาเหตุ -> Acute diarrhea (A09.9)",
       "CODING AUDIT 2562 p.21: ตรวจพบ/สงสัยติดเชื้อ -> Acute infectious diarrhea (A09.0)",

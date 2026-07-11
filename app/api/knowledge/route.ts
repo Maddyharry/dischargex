@@ -14,7 +14,17 @@ export async function GET(req: NextRequest) {
   const list = !q
     ? all
     : all.filter((d) =>
-        [d.name, ...d.aliases, ...d.diagnosisToWrite, ...d.icd10, ...d.investigations].join(" ").toLowerCase().includes(q)
+        [
+          d.name,
+          ...d.aliases,
+          ...d.diagnosisToWrite,
+          ...d.icd10,
+          ...d.investigations,
+          ...(d.diagnosticCriteria || []).flatMap((row) => [row.label, row.criteria]),
+        ]
+          .join(" ")
+          .toLowerCase()
+          .includes(q)
       );
   const catalogMeta = auditDiseaseCatalog(all);
   const topicMeta = await getKnowledgeTopicMetaMap();
@@ -34,7 +44,14 @@ export async function POST(req: NextRequest) {
     const staticKnowledge = await getMergedKnowledge(false);
     const staticHits = staticKnowledge
       .filter((d) =>
-        [d.name, ...d.aliases, ...d.diagnosisToWrite, ...d.investigations, ...d.icd10]
+        [
+          d.name,
+          ...d.aliases,
+          ...d.diagnosisToWrite,
+          ...d.investigations,
+          ...d.icd10,
+          ...(d.diagnosticCriteria || []).flatMap((row) => [row.label, row.criteria]),
+        ]
           .join(" ")
           .toLowerCase()
           .includes(q.toLowerCase())

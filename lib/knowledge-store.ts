@@ -35,6 +35,14 @@ type KnowledgeSupplement = {
   icd10: string[];
   seeAlso: string[];
   refs: string[];
+  diagnosticCriteria?: Array<{
+    label: string;
+    criteria: string;
+    priority?: "core" | "supporting";
+    sourceType?: "thai_guideline" | "thai_reference" | "international_fallback";
+    sourceNote?: string;
+    lastReviewed?: string;
+  }>;
   updatedAt: string;
 };
 
@@ -214,6 +222,29 @@ function summarizeDraft(entry: PendingKnowledgeEntry) {
 
 function mergeUniqueLimited(base: string[], incoming: string[], max = 20) {
   return uniq([...base, ...incoming.map((x) => x.trim()).filter(Boolean)]).slice(0, max);
+}
+
+function mergeCriteriaLimited(
+  base: NonNullable<DiseaseSummary["diagnosticCriteria"]> = [],
+  incoming: NonNullable<DiseaseSummary["diagnosticCriteria"]> = [],
+  max = 20
+) {
+  const map = new Map<string, NonNullable<DiseaseSummary["diagnosticCriteria"]>[number]>();
+  for (const row of [...base, ...incoming]) {
+    const criteria = String(row?.criteria || "").trim();
+    if (!criteria) continue;
+    if (!map.has(criteria)) {
+      map.set(criteria, {
+        label: String(row?.label || "Criteria").trim() || "Criteria",
+        criteria,
+        priority: row?.priority,
+        sourceType: row?.sourceType,
+        sourceNote: row?.sourceNote,
+        lastReviewed: row?.lastReviewed,
+      });
+    }
+  }
+  return Array.from(map.values()).slice(0, max);
 }
 
 function normalizeIcdCode(raw: string) {
@@ -430,8 +461,10 @@ function parseDraftToSupplement(entry: PendingKnowledgeEntry): Omit<KnowledgeSup
     diagnosisToWrite,
     thinkWhen,
     considerMore,
+    notYetDiagnosis: [],
     investigations,
     icd10,
+    seeAlso: [],
     refs,
   };
 }
@@ -752,6 +785,7 @@ export async function getMergedKnowledge(includeDeprecated = false): Promise<Dis
       icd10: mergedIcd10,
       seeAlso: mergeUniqueLimited(item.seeAlso || [], supplement?.seeAlso || [], 20),
       refs: mergeUniqueLimited(item.refs || [], supplement?.refs || [], 20),
+      diagnosticCriteria: mergeCriteriaLimited(item.diagnosticCriteria || [], supplement?.diagnosticCriteria || [], 20),
       deprecated: ov.deprecated ?? item.deprecated ?? false,
       version: ov.version ?? item.version ?? "2026.04",
       effectiveDate: ov.effectiveDate ?? supplement?.updatedAt?.slice(0, 10) ?? item.effectiveDate ?? "2026-04-21",
@@ -779,6 +813,14 @@ type ApproveTopicEditPayload = {
   icd10?: string[];
   seeAlso?: string[];
   refs?: string[];
+  diagnosticCriteria?: Array<{
+    label: string;
+    criteria: string;
+    priority?: "core" | "supporting";
+    sourceType?: "thai_guideline" | "thai_reference" | "international_fallback";
+    sourceNote?: string;
+    lastReviewed?: string;
+  }>;
 };
 
 function sanitizeLines(input: unknown, max = 30) {
@@ -801,6 +843,7 @@ function summarizeApprovedPayload(payload: ApproveTopicEditPayload) {
     `ICD:${sanitizeLines(payload.icd10, 30).length}`,
     `SeeAlso:${sanitizeLines(payload.seeAlso, 30).length}`,
     `Refs:${sanitizeLines(payload.refs, 30).length}`,
+    `Criteria:${Array.isArray(payload.diagnosticCriteria) ? payload.diagnosticCriteria.length : 0}`,
   ];
   return parts.join(" · ");
 }
@@ -823,6 +866,7 @@ function buildDetailedChanges(
     icd10: string[];
     seeAlso: string[];
     refs: string[];
+    diagnosticCriteria: string[];
   },
   next: {
     diagnosisToWrite: string[];
@@ -833,6 +877,7 @@ function buildDetailedChanges(
     icd10: string[];
     seeAlso: string[];
     refs: string[];
+    diagnosticCriteria: string[];
   }
 ) {
   const fields: Array<{ key: keyof typeof next; label: string }> = [
@@ -844,6 +889,7 @@ function buildDetailedChanges(
     { key: "icd10", label: "ICD-10" },
     { key: "seeAlso", label: "ดูหัวข้อถัดไป" },
     { key: "refs", label: "References" },
+    { key: "diagnosticCriteria", label: "Diagnostic criteria" },
   ];
   const changes = fields
     .map(({ key, label }) => {
@@ -884,6 +930,7 @@ export async function approveKnowledgeTopicEdit(
     icd10: [],
     seeAlso: [],
     refs: [],
+    diagnosticCriteria: [],
     updatedAt: nowIso,
   };
   const nextData = {
@@ -895,6 +942,7 @@ export async function approveKnowledgeTopicEdit(
     icd10: sanitizeLines(payload.icd10, 30),
     seeAlso: sanitizeLines(payload.seeAlso, 30),
     refs: sanitizeLines(payload.refs, 30),
+        diagnosticCriteria: mergeCriteriaLimited([], Array.isArray(payload.diagnosticCriteria) ? payload.diagnosticCriteria : [], 30),
     updatedAt: nowIso,
   };
   supplements[key] = nextData;
@@ -930,6 +978,7 @@ export async function approveKnowledgeTopicEdit(
           icd10: current.icd10 || [],
           seeAlso: current.seeAlso || [],
           refs: current.refs || [],
+          diagnosticCriteria: (current.diagnosticCriteria || []).map((x) => `${x.label}: ${x.criteria}`),
         },
         {
           diagnosisToWrite: nextData.diagnosisToWrite,
@@ -940,6 +989,7 @@ export async function approveKnowledgeTopicEdit(
           icd10: nextData.icd10,
           seeAlso: nextData.seeAlso,
           refs: nextData.refs,
+          diagnosticCriteria: (nextData.diagnosticCriteria || []).map((x) => `${x.label}: ${x.criteria}`),
         }
       ),
     },

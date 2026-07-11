@@ -5,11 +5,22 @@ type Table = Record<string, DrgParams>;
 
 const table = tdrg as unknown as Table;
 
-export function calcAdjRwFromDrg(drgCode: string, losDays: number) {
-  const params = table[drgCode];
-  if (!params) {
-    return { ok: false as const, adjrw: null, details: `DRG ${drgCode} not found in Appendix G.` };
+/** Normalize user input to Appendix G keys (5-digit DRG strings). */
+export function normalizeThaiDrgCode(raw: string): string {
+  const s = String(raw || "").trim();
+  if (!s) return "";
+  if (/^\d+$/.test(s)) {
+    return s.length <= 5 ? s.padStart(5, "0") : s;
   }
-  const r = computeAdjRW(drgCode, params, losDays);
+  return s.toUpperCase();
+}
+
+export function calcAdjRwFromDrg(drgCode: string, losDays: number) {
+  const key = normalizeThaiDrgCode(drgCode);
+  const params = table[key];
+  if (!params) {
+    return { ok: false as const, adjrw: null, details: `DRG ${key || drgCode} not found in Appendix G.` };
+  }
+  const r = computeAdjRW(key, params, losDays);
   return { ok: true as const, adjrw: r.adjrw, caseType: r.caseType, details: r.details, baseRw: params.rw };
 }

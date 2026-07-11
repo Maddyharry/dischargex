@@ -1081,6 +1081,7 @@ function compactKnowledgeSummaries(items: Awaited<ReturnType<typeof getMergedKno
     name: d.name,
     aliases: d.aliases.slice(0, 4),
     diagnosisToWrite: d.diagnosisToWrite.slice(0, 2),
+    diagnosticCriteria: (d.diagnosticCriteria || []).slice(0, 3),
     investigations: d.investigations.slice(0, 2),
     icd10: d.icd10.slice(0, 6),
     refs: d.refs,
@@ -1090,7 +1091,8 @@ function compactKnowledgeSummaries(items: Awaited<ReturnType<typeof getMergedKno
 function rankKnowledge(message: string, items: Awaited<ReturnType<typeof getMergedKnowledge>>) {
   const q = message.toLowerCase();
   const scored = items.map((d) => {
-    const tokens = [d.name, ...d.aliases, ...d.icd10].map((x) => x.toLowerCase());
+    const criteriaTokens = (d.diagnosticCriteria || []).flatMap((row) => [row.label, row.criteria]);
+    const tokens = [d.name, ...d.aliases, ...d.icd10, ...criteriaTokens].map((x) => x.toLowerCase());
     const score = tokens.reduce((acc, token) => (q.includes(token) ? acc + 1 : acc), 0);
     return { d, score };
   })

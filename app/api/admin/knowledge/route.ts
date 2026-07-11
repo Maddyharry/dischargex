@@ -63,6 +63,14 @@ export async function PATCH(req: NextRequest) {
       icd10?: string[];
       seeAlso?: string[];
       refs?: string[];
+      diagnosticCriteria?: Array<{
+        label: string;
+        criteria: string;
+        priority?: "core" | "supporting";
+        sourceType?: "thai_guideline" | "thai_reference" | "international_fallback";
+        sourceNote?: string;
+        lastReviewed?: string;
+      }>;
     };
   };
   if (body.action === "approve_document" || body.action === "reject_document") {
