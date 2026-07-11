@@ -3,6 +3,7 @@ import OpenAI from "openai";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { resolveEmailFromBearerToken } from "@/lib/api-token";
 import {
   getDailyApproxLimit,
   getCreditCycleBounds,
@@ -1232,12 +1233,12 @@ function getMaxDevices(rawPlan: string | null | undefined): number {
 
 export async function POST(req: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.email) {
+    const bearerEmail = await resolveEmailFromBearerToken(req);
+    const session = bearerEmail ? null : await getServerSession(authOptions);
+    const email = bearerEmail || session?.user?.email;
+    if (!email) {
       return json({ error: "Unauthorized" }, 401);
     }
-
-    const email = session.user.email;
 
     const userSelect = {
       id: true,
@@ -1261,7 +1262,7 @@ export async function POST(req: Request) {
         const created = await prisma.user.create({
           data: {
             email,
-            name: session.user.name ?? "User",
+            name: session?.user?.name ?? "User",
             plan: "trial",
             role: "user",
           },
@@ -1279,7 +1280,7 @@ export async function POST(req: Request) {
     const userId = dbUser?.id;
     const isAdminUser = dbUser?.role === "admin";
     const plan = normalizePlanId(
-      dbUser?.plan ?? (session.user as { plan?: string } | null | undefined)?.plan ?? "trial"
+      dbUser?.plan ?? (session?.user as { plan?: string } | null | undefined)?.plan ?? "trial"
     );
     const planDefinition = getPlanDefinition(plan);
     const isBasicPlan = planDefinition.tier === "basic";

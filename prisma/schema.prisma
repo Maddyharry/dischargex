@@ -56,6 +56,7 @@ model User {
   usageLogs        UsageLog[]
   paymentRequests  PaymentRequest[]
   deviceSessions   DeviceSession[]
+  apiTokens        ApiToken[]
   feedbacks        Feedback[]
   entitlementLogs  EntitlementLog[]
   sentReferrals    Referral[] @relation("Referrer")
@@ -215,6 +216,22 @@ model DeviceSession {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, deviceId])
+}
+
+// Bearer token สำหรับ automator (desktop app) เรียก API แทน session cookie
+// เก็บแค่ hash ของ token ไม่เก็บ raw token ไว้เลย
+model ApiToken {
+  id         String    @id @default(cuid())
+  userId     String
+  tokenHash  String    @unique
+  label      String?
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 // แจ้งข้อผิดพลาด / คำถามลูกค้า และแชทบอท
