@@ -18,7 +18,7 @@ const BLOCK_STYLES: Record<string, string> = {
 
 export default function KnowledgePage() {
   const { data: session } = useSession();
-  const isAdmin = session?.user?.role === "admin";
+  const isAdmin = (session?.user as { role?: string } | undefined)?.role === "admin";
   const [items, setItems] = useState<DiseaseSummary[]>([]);
   const [references, setReferences] = useState<KnowledgeReference[]>([]);
   const [catalogMeta, setCatalogMeta] = useState<DiseaseCatalogAudit | null>(null);
