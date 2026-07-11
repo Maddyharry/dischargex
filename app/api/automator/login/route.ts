@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { compare } from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { createApiToken } from "@/lib/api-token";
+import { consumeRateLimit, getRequestIdentity } from "@/lib/request-rate-limit";
 
 export const runtime = "nodejs";
 
@@ -12,6 +13,23 @@ export async function POST(req: Request) {
 
   if (!email || !password) {
     return NextResponse.json({ ok: false, error: "กรุณากรอกอีเมลและรหัสผ่าน" }, { status: 400 });
+  }
+
+  // ป้องกัน brute-force: จำกัดทั้งต่อ IP และต่ออีเมลที่พยายามล็อกอิน
+  const ipIdentity = getRequestIdentity(null, req.headers.get("x-forwarded-for"), req.headers.get("user-agent"));
+  const ipRate = consumeRateLimit(`automator-login:${ipIdentity}`, 10, 60_000);
+  if (!ipRate.allowed) {
+    return NextResponse.json(
+      { ok: false, error: "พยายามล็อกอินถี่เกินไป กรุณารอสักครู่" },
+      { status: 429, headers: { "Retry-After": String(ipRate.retryAfterSec) } }
+    );
+  }
+  const emailRate = consumeRateLimit(`automator-login-email:${email}`, 5, 60_000);
+  if (!emailRate.allowed) {
+    return NextResponse.json(
+      { ok: false, error: "พยายามล็อกอินถี่เกินไป กรุณารอสักครู่" },
+      { status: 429, headers: { "Retry-After": String(emailRate.retryAfterSec) } }
+    );
   }
 
   const user = await prisma.user.findUnique({
