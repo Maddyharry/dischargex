@@ -444,6 +444,12 @@ function parseDraftToSupplement(entry: PendingKnowledgeEntry): Omit<KnowledgeSup
     sectioned.considerMore.length ? sectioned.considerMore : [`ประเด็นเพิ่มเติม: ${entry.question.slice(0, 200)}`],
     8
   );
+  const notYetDiagnosis = compactKnowledgeLines(
+    sectioned.notYetDiagnosis.length
+      ? sectioned.notYetDiagnosis
+      : ["ยังไม่ควรลงวินิจฉัยแบบฟันธง หากยังไม่มีหลักฐานจากเอกสารมาตรฐานที่เพียงพอ"],
+    5
+  );
   const investigations = compactKnowledgeLines(
     sectioned.investigations.length
       ? sectioned.investigations
@@ -461,7 +467,7 @@ function parseDraftToSupplement(entry: PendingKnowledgeEntry): Omit<KnowledgeSup
     diagnosisToWrite,
     thinkWhen,
     considerMore,
-    notYetDiagnosis: [],
+    notYetDiagnosis,
     investigations,
     icd10,
     seeAlso: [],
