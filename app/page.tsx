@@ -245,8 +245,8 @@ export default function Home() {
               <p className="mt-2 text-sm leading-relaxed text-slate-300">
                 โปรแกรมบนคอมที่สรุปชาร์จและกรอกเข้า HOSxP ให้ต่อเนื่องหลายเคสโดยไม่ต้องนั่งเฝ้า สำหรับแพ็ก Pro ขึ้นไป
               </p>
-              <Link href="/pricing" className="mt-3 inline-block text-sm text-cyan-300 underline underline-offset-2 hover:text-cyan-200">
-                ดูแพ็กที่ปลดล็อก Automator
+              <Link href="/automator" className="mt-3 inline-block text-sm text-cyan-300 underline underline-offset-2 hover:text-cyan-200">
+                ดู Automator เพิ่มเติม
               </Link>
             </div>
             <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
