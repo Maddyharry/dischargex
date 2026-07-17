@@ -1,0 +1,584 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AI Sales Kit สำหรับแม่ค้าออนไลน์</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 0;
+    }
+
+    :root {
+      --ink: #172033;
+      --muted: #647086;
+      --brand: #2647d9;
+      --brand-dark: #16246c;
+      --accent: #f97316;
+      --cream: #fff7ed;
+      --soft-blue: #eef3ff;
+      --line: #dbe3f5;
+      --page: #ffffff;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: #e9edf5;
+      color: var(--ink);
+      font-family: "Noto Sans Thai", "Sarabun", "Tahoma", sans-serif;
+      font-size: 18px;
+      line-height: 1.78;
+    }
+
+    .page {
+      position: relative;
+      width: 210mm;
+      min-height: 297mm;
+      margin: 18px auto;
+      padding: 20mm 18mm 18mm;
+      overflow: hidden;
+      background: var(--page);
+      box-shadow: 0 16px 40px rgba(23, 32, 51, 0.15);
+      break-after: page;
+      page-break-after: always;
+    }
+
+    .page::after {
+      position: absolute;
+      right: 18mm;
+      bottom: 10mm;
+      color: #9aa5b8;
+      font-size: 12px;
+      content: "AI Sales Kit สำหรับแม่ค้าออนไลน์";
+    }
+
+    .cover {
+      display: flex;
+      min-height: 297mm;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 26mm 22mm;
+      color: #ffffff;
+      background:
+        radial-gradient(circle at 84% 14%, rgba(249, 115, 22, 0.95), transparent 21%),
+        radial-gradient(circle at 18% 88%, rgba(255, 255, 255, 0.24), transparent 24%),
+        linear-gradient(135deg, #091540 0%, #172a8a 44%, #6d28d9 100%);
+    }
+
+    .cover::after {
+      color: rgba(255, 255, 255, 0.72);
+      content: "Ebook + Prompt Pack + Content Calendar + Profit Calculator";
+    }
+
+    .cover-layout {
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 18mm;
+      align-items: center;
+    }
+
+    .cover-card {
+      max-width: 110mm;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      border: 1px solid rgba(255, 255, 255, 0.35);
+      border-radius: 999px;
+      padding: 8px 14px;
+      background: rgba(255, 255, 255, 0.12);
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 22mm 0 8mm;
+      font-size: 62px;
+      line-height: 1.08;
+      letter-spacing: -0.04em;
+    }
+
+    h2 {
+      margin: 0 0 12px;
+      color: var(--brand);
+      font-size: 34px;
+      line-height: 1.25;
+      letter-spacing: -0.02em;
+    }
+
+    h3 {
+      margin: 22px 0 8px;
+      color: var(--brand-dark);
+      font-size: 22px;
+    }
+
+    p {
+      margin: 0 0 12px;
+    }
+
+    ul,
+    ol {
+      margin: 0 0 14px;
+      padding-left: 22px;
+    }
+
+    li {
+      margin: 5px 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+      font-size: 14px;
+    }
+
+    th {
+      background: var(--brand);
+      color: #ffffff;
+    }
+
+    th,
+    td {
+      border: 1px solid var(--line);
+      padding: 8px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    .subtitle {
+      max-width: 150mm;
+      color: rgba(255, 255, 255, 0.86);
+      font-size: 27px;
+      line-height: 1.48;
+    }
+
+    .cover-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-top: 18mm;
+    }
+
+    .cover-feature {
+      border: 1px solid rgba(255, 255, 255, 0.24);
+      border-radius: 18px;
+      padding: 14px;
+      background: rgba(255, 255, 255, 0.12);
+      font-weight: 700;
+    }
+
+    .mock-stack {
+      display: grid;
+      gap: 12px;
+    }
+
+    .mock-card {
+      border: 1px solid rgba(255, 255, 255, 0.26);
+      border-radius: 24px;
+      padding: 18px;
+      background: rgba(255, 255, 255, 0.14);
+      box-shadow: 0 24px 54px rgba(3, 7, 18, 0.18);
+    }
+
+    .mock-card strong {
+      display: block;
+      margin-bottom: 8px;
+      color: #ffedd5;
+      font-size: 26px;
+    }
+
+    .price-pill {
+      display: inline-flex;
+      margin-top: 18mm;
+      border-radius: 999px;
+      padding: 12px 18px;
+      background: #ffffff;
+      color: var(--brand-dark);
+      font-size: 22px;
+      font-weight: 900;
+    }
+
+    .chapter-label {
+      margin-bottom: 8px;
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .lead {
+      color: var(--muted);
+      font-size: 21px;
+    }
+
+    .box,
+    .prompt,
+    .action {
+      margin: 16px 0;
+      border-radius: 18px;
+      padding: 16px 18px;
+    }
+
+    .box {
+      border: 1px solid var(--line);
+      background: var(--soft-blue);
+    }
+
+    .prompt {
+      border-left: 6px solid var(--accent);
+      background: var(--cream);
+    }
+
+    .action {
+      border: 1px dashed var(--brand);
+      background: #f8fbff;
+    }
+
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    .toc {
+      margin-top: 22px;
+      border-top: 1px solid var(--line);
+    }
+
+    .toc-row {
+      display: flex;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--line);
+      padding: 11px 0;
+    }
+
+    .toc-row span:last-child {
+      color: var(--muted);
+    }
+
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin: 18px 0;
+    }
+
+    .stat {
+      border-radius: 16px;
+      padding: 14px;
+      background: #f7f8fc;
+    }
+
+    .stat strong {
+      display: block;
+      color: var(--brand);
+      font-size: 22px;
+    }
+
+    .small {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .bonus-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin-top: 16px;
+    }
+
+    .bonus-card {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 16px;
+      background: #fffaf5;
+    }
+
+    .bonus-card strong {
+      display: block;
+      color: var(--accent);
+      font-size: 24px;
+    }
+
+    @media print {
+      body {
+        background: #ffffff;
+      }
+
+      .page {
+        margin: 0;
+        box-shadow: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <section class="page cover">
+    <div class="cover-card">
+      <div class="eyebrow">Digital Product Starter Pack</div>
+      <h1>AI Sales Kit<br>สำหรับแม่ค้าออนไลน์</h1>
+      <p class="subtitle">ใช้ AI ช่วยตอบแชท คิดโพสต์ และปิดการขายใน 7 วัน แม้ไม่เคยใช้ ChatGPT หรือ Gemini มาก่อน</p>
+      <div class="cover-grid">
+        <div class="cover-feature">50 Prompt พร้อมใช้</div>
+        <div class="cover-feature">แผนโพสต์ 30 วัน</div>
+        <div class="cover-feature">Script ปิดการขาย</div>
+      </div>
+    </div>
+    <p>ฉบับเริ่มต้นสำหรับร้านเล็ก Facebook, TikTok, Shopee, LINE OA และ Instagram</p>
+  </section>
+
+  <section class="page">
+    <div class="chapter-label">Start Here</div>
+    <h2>คู่มือนี้ช่วยอะไร</h2>
+    <p class="lead">เป้าหมายคือช่วยให้แม่ค้าออนไลน์มีชุดคำสั่งพร้อมใช้ ไม่ต้องเริ่มจากหน้าว่าง และใช้ AI เป็นผู้ช่วยร่างคำตอบลูกค้า คอนเทนต์ แคปชัน และข้อความปิดการขายได้เร็วขึ้น</p>
+    <div class="stat-grid">
+      <div class="stat"><strong>7 วัน</strong>แผนเริ่มใช้แบบทีละขั้น</div>
+      <div class="stat"><strong>50</strong>Prompt สำหรับงานขายจริง</div>
+      <div class="stat"><strong>30</strong>ไอเดียโพสต์พร้อม hook</div>
+    </div>
+    <div class="box">
+      <h3>เหมาะกับใคร</h3>
+      <ul>
+        <li>แม่ค้าออนไลน์มือใหม่ที่ขายผ่าน Facebook, TikTok, Shopee, LINE OA หรือ Instagram</li>
+        <li>ร้านเล็กที่ยังไม่มีแอดมินประจำ</li>
+        <li>คนที่ตอบลูกค้าซ้ำ ๆ ทุกวันจนไม่มีเวลาคิดคอนเทนต์</li>
+        <li>คนที่อยากใช้ AI แต่ไม่รู้จะเริ่มสั่งงานยังไง</li>
+      </ul>
+    </div>
+    <div class="action">
+      <h3>วิธีใช้คู่มือนี้</h3>
+      <ol>
+        <li>กรอกข้อมูลสินค้า 1 ตัวให้ครบก่อน</li>
+        <li>คัดลอก prompt ไปใช้กับ ChatGPT, Gemini หรือ Claude</li>
+        <li>ตรวจราคา สต็อก เงื่อนไข และน้ำเสียงก่อนส่งให้ลูกค้า</li>
+        <li>เก็บคำตอบที่ใช้ได้ดีไว้เป็นคลังคำตอบของร้าน</li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="page">
+    <div class="chapter-label">Contents</div>
+    <h2>สารบัญ</h2>
+    <div class="toc">
+      <div class="toc-row"><span>บทที่ 1 เข้าใจ AI แบบง่ายที่สุด</span><span>01</span></div>
+      <div class="toc-row"><span>บทที่ 2 สูตรเขียน Prompt ให้ AI เข้าใจ</span><span>02</span></div>
+      <div class="toc-row"><span>บทที่ 3 แบบฟอร์มข้อมูลร้าน</span><span>03</span></div>
+      <div class="toc-row"><span>บทที่ 4 ใช้ AI ตอบแชทลูกค้า</span><span>04</span></div>
+      <div class="toc-row"><span>บทที่ 5 ใช้ AI คิดคอนเทนต์ขายของ</span><span>05</span></div>
+      <div class="toc-row"><span>บทที่ 6 สูตรแคปชันที่ใช้ขายได้</span><span>06</span></div>
+      <div class="toc-row"><span>บทที่ 7 ใช้ AI ปิดการขาย</span><span>07</span></div>
+      <div class="toc-row"><span>บทที่ 8 FAQ ที่ร้านค้าควรเตรียม</span><span>08</span></div>
+      <div class="toc-row"><span>บทที่ 9 เช็กกำไรก่อนยิงแอด</span><span>09</span></div>
+      <div class="toc-row"><span>บทที่ 10 แผนเริ่มใช้ AI ใน 7 วัน</span><span>10</span></div>
+    </div>
+  </section>
+
+  <section class="page">
+    <div class="chapter-label">Chapter 01</div>
+    <h2>เข้าใจ AI แบบง่ายที่สุด</h2>
+    <p>AI อย่าง ChatGPT หรือ Gemini คือผู้ช่วยเขียนและคิดไอเดีย คุณสามารถสั่งให้ช่วยเขียนคำตอบลูกค้า คิดโพสต์ ทำแคปชัน สรุปสินค้า หรือสร้าง script ไลฟ์ได้ แต่ AI จะตอบดีแค่ไหนขึ้นกับข้อมูลที่คุณให้</p>
+    <div class="two-col">
+      <div class="box">
+        <h3>AI ช่วยได้</h3>
+        <ul>
+          <li>เขียนคำตอบลูกค้า</li>
+          <li>คิดไอเดียโพสต์</li>
+          <li>สร้าง FAQ</li>
+          <li>วางข้อความโปรโมชัน</li>
+        </ul>
+      </div>
+      <div class="box">
+        <h3>AI ยังแทนคุณไม่ได้</h3>
+        <ul>
+          <li>เช็กสต็อกจริง</li>
+          <li>รับประกันยอดขาย</li>
+          <li>รู้ต้นทุนถ้าคุณไม่บอก</li>
+          <li>ตัดสินใจแทนเจ้าของร้าน</li>
+        </ul>
+      </div>
+    </div>
+    <div class="action"><strong>กฎสำคัญ:</strong> ใช้ AI เป็นผู้ช่วยร่างคำตอบ แล้วคุณตรวจความถูกต้องก่อนส่งจริงทุกครั้ง</div>
+  </section>
+
+  <section class="page">
+    <div class="chapter-label">Chapter 02</div>
+    <h2>สูตรเขียน Prompt ให้ AI เข้าใจ</h2>
+    <p>Prompt คือคำสั่งที่คุณพิมพ์บอก AI ถ้าคุณสั่งกว้างเกินไป AI จะตอบกว้าง ถ้าคุณให้ข้อมูลชัด AI จะช่วยคุณได้ดีขึ้นมาก</p>
+    <div class="prompt">คุณคือ [บทบาท] ช่วยเขียน [สิ่งที่ต้องการ] สำหรับสินค้า [สินค้า] กลุ่มลูกค้า [ลูกค้า] ใช้น้ำเสียง [น้ำเสียง] เป้าหมายคือ [เป้าหมาย]</div>
+    <h3>ตัวอย่าง</h3>
+    <div class="prompt">คุณคือแอดมินร้านค้าออนไลน์ ช่วยเขียนคำตอบลูกค้าที่ถามว่าสินค้าราคาเท่าไหร่ สำหรับสินค้ากระเป๋าผ้า กลุ่มลูกค้าผู้หญิงวัยทำงาน ใช้น้ำเสียงสุภาพ เป็นกันเอง เป้าหมายคือให้ลูกค้ารู้ราคา จุดเด่น และทักกลับเพื่อสั่งซื้อ</div>
+    <h3>ข้อมูลที่ควรเตรียมก่อนใช้ AI</h3>
+    <div class="two-col">
+      <ul>
+        <li>ชื่อสินค้า</li>
+        <li>ราคาขาย</li>
+        <li>จุดเด่น 3-5 ข้อ</li>
+        <li>เหมาะกับใคร</li>
+      </ul>
+      <ul>
+        <li>วิธีใช้</li>
+        <li>วิธีสั่งซื้อ</li>
+        <li>ค่าส่งและระยะเวลาจัดส่ง</li>
+        <li>โปรโมชันปัจจุบัน</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="page">
+    <div class="chapter-label">Chapter 03</div>
+    <h2>แบบฟอร์มข้อมูลร้าน</h2>
+    <p>คัดลอกแบบฟอร์มนี้แล้วกรอกก่อนเริ่มใช้ prompt เพื่อให้ AI เขียนคำตอบตรงกับร้านจริง</p>
+    <table>
+      <tr><th>ข้อมูล</th><th>กรอกของร้านคุณ</th></tr>
+      <tr><td>ชื่อสินค้า</td><td></td></tr>
+      <tr><td>ราคา / โปรโมชัน</td><td></td></tr>
+      <tr><td>จุดเด่นหลัก 3 ข้อ</td><td></td></tr>
+      <tr><td>ปัญหาที่สินค้าช่วยแก้</td><td></td></tr>
+      <tr><td>เหมาะกับลูกค้าแบบไหน</td><td></td></tr>
+      <tr><td>วิธีใช้ / ข้อควรระวัง</td><td></td></tr>
+      <tr><td>ระยะเวลาจัดส่ง</td><td></td></tr>
+      <tr><td>ช่องทางชำระเงิน</td><td></td></tr>
+    </table>
+  </section>
+
+  <section class="page">
+    <div class="chapter-label">Chapter 04</div>
+    <h2>Prompt ตอบแชทลูกค้า</h2>
+    <h3>ลูกค้าถามราคา</h3>
+    <div class="prompt">ช่วยเขียนคำตอบลูกค้าที่ถามว่า "ราคาเท่าไหร่" สำหรับสินค้า [ชื่อสินค้า] ราคา [ราคา] จุดเด่นคือ [จุดเด่น] โปรโมชันคือ [โปรโมชัน] ใช้น้ำเสียงสุภาพ เป็นกันเอง และปิดท้ายด้วยคำถามชวนสั่งซื้อ</div>
+    <p><strong>ตัวอย่าง:</strong> สวัสดีค่ะ สินค้า [ชื่อสินค้า] ราคา [ราคา] นะคะ จุดเด่นคือ [จุดเด่น] ตอนนี้มีโปร [โปรโมชัน] ด้วยค่ะ สนใจให้แอดมินสรุปรายละเอียดและยอดรวมให้ไหมคะ</p>
+    <h3>ลูกค้าบอกว่าแพง</h3>
+    <div class="prompt">ช่วยเขียนคำตอบลูกค้าที่บอกว่าสินค้าแพง ให้เน้นคุณค่า จุดเด่น และความคุ้มค่า โดยไม่กดดันลูกค้า สินค้าคือ [ชื่อสินค้า] ราคา [ราคา] จุดเด่นคือ [จุดเด่น]</div>
+    <p><strong>ตัวอย่าง:</strong> เข้าใจค่ะ ราคานี้อาจดูสูงกว่าบางร้าน แต่สิ่งที่ลูกค้าจะได้คือ [จุดเด่น] และ [ประโยชน์] ค่ะ ถ้าเทียบกับการใช้งานจริง ถือว่าคุ้มสำหรับคนที่ต้องการ [ผลลัพธ์ที่ลูกค้าต้องการ] นะคะ</p>
+  </section>
+
+  <section class="page">
+    <div class="chapter-label">Chapter 05</div>
+    <h2>ใช้ AI คิดคอนเทนต์ขายของ</h2>
+    <p>คอนเทนต์ขายของไม่ควรมีแต่ "ซื้อเลย" ทุกโพสต์ เพราะลูกค้าบางคนยังไม่รู้ว่าตัวเองมีปัญหา บางคนยังไม่เชื่อ และบางคนกำลังเปรียบเทียบร้านอื่น</p>
+    <div class="box">
+      <h3>คอนเทนต์ 5 ประเภทที่ควรมี</h3>
+      <ol>
+        <li>โพสต์ปัญหา: ทำให้ลูกค้ารู้สึกว่า "นี่แหละปัญหาฉัน"</li>
+        <li>โพสต์ให้ความรู้: สอนวิธีเลือก วิธีใช้ หรือข้อควรรู้</li>
+        <li>โพสต์รีวิว: เพิ่มความมั่นใจ</li>
+        <li>โพสต์เบื้องหลัง: ทำให้ร้านดูจริงและน่าเชื่อถือ</li>
+        <li>โพสต์โปรโมชัน: กระตุ้นการตัดสินใจ</li>
+      </ol>
+    </div>
+    <div class="prompt">คุณคือ content strategist สำหรับร้านค้าออนไลน์ ช่วยวางแผนโพสต์ 30 วันสำหรับสินค้า [ชื่อสินค้า] กลุ่มลูกค้า [กลุ่มลูกค้า] โดยแบ่งเป็นโพสต์ปัญหา ให้ความรู้ รีวิว เบื้องหลัง และโปรโมชัน ขอเป็นตารางที่มีวันที่ หัวข้อโพสต์ hook สั้น ๆ และ CTA</div>
+  </section>
+
+  <section class="page">
+    <div class="chapter-label">Chapter 06</div>
+    <h2>สูตรแคปชันที่ใช้ขายได้</h2>
+    <div class="two-col">
+      <div class="box">
+        <h3>สูตร AIDA</h3>
+        <ul>
+          <li>Attention: ดึงความสนใจ</li>
+          <li>Interest: ทำให้สนใจต่อ</li>
+          <li>Desire: ทำให้อยากได้</li>
+          <li>Action: บอกให้ทำอะไรต่อ</li>
+        </ul>
+      </div>
+      <div class="box">
+        <h3>สูตร PAS</h3>
+        <ul>
+          <li>Problem: พูดปัญหา</li>
+          <li>Agitate: ขยายผลกระทบ</li>
+          <li>Solution: เสนอสินค้าเป็นทางแก้</li>
+        </ul>
+      </div>
+    </div>
+    <div class="prompt">ช่วยเขียนแคปชันขายสินค้า [ชื่อสินค้า] ด้วยสูตร AIDA กลุ่มลูกค้าคือ [กลุ่มลูกค้า] จุดเด่นคือ [จุดเด่น] ราคา [ราคา] CTA คือให้ทักแชท ใช้น้ำเสียงเป็นกันเอง</div>
+    <div class="prompt">ช่วยเขียนแคปชันขายสินค้า [ชื่อสินค้า] ด้วยสูตร Problem-Agitate-Solution เริ่มจากปัญหา [ปัญหา] ขยายผลกระทบ แล้วเสนอสินค้าเป็นทางเลือก พร้อม CTA ให้ทักแชท</div>
+  </section>
+
+  <section class="page">
+    <div class="chapter-label">Chapter 07</div>
+    <h2>ใช้ AI ปิดการขาย</h2>
+    <p>การปิดการขายไม่ใช่การกดดันลูกค้า แต่คือการช่วยให้ลูกค้าตัดสินใจง่ายขึ้น โดยตอบข้อกังวลให้ครบและทำขั้นตอนสั่งซื้อให้ชัด</p>
+    <div class="prompt">ช่วยเขียนข้อความปิดการขายแบบนุ่มนวล สำหรับลูกค้าที่สนใจสินค้า [ชื่อสินค้า] แต่ยังไม่ตัดสินใจ ให้ย้ำประโยชน์หลัก โปรโมชัน และขั้นตอนสั่งซื้อแบบสั้น ๆ</div>
+    <div class="prompt">ช่วยเขียนข้อความสรุปยอดสั่งซื้อสินค้า [ชื่อสินค้า] จำนวน [จำนวน] ราคา [ราคา] ค่าส่ง [ค่าส่ง] ยอดรวม [ยอดรวม] พร้อมขอชื่อ ที่อยู่ เบอร์โทร และแนบช่องทางชำระเงิน</div>
+    <div class="action"><strong>Tip:</strong> อย่าปิดการขายด้วยความกดดัน ให้ปิดด้วยความชัดเจน เช่น ราคา ยอดรวม วิธีจ่าย และรอบจัดส่ง</div>
+  </section>
+
+  <section class="page">
+    <div class="chapter-label">Chapter 08</div>
+    <h2>FAQ ที่ร้านค้าควรเตรียม</h2>
+    <p>FAQ ช่วยลดเวลาตอบแชทและทำให้ลูกค้าตัดสินใจง่ายขึ้น ร้านค้าควรมีคำตอบมาตรฐานสำหรับคำถามที่เจอบ่อย</p>
+    <div class="two-col">
+      <ul>
+        <li>ราคาเท่าไหร่</li>
+        <li>มีโปรไหม</li>
+        <li>ส่งกี่วันถึง</li>
+        <li>มีเก็บปลายทางไหม</li>
+        <li>ใช้ยังไง</li>
+      </ul>
+      <ul>
+        <li>เหมาะกับใคร</li>
+        <li>เปลี่ยน/คืนได้ไหม</li>
+        <li>มีรับประกันไหม</li>
+        <li>สั่งซื้อยังไง</li>
+        <li>โอนแล้วต้องแจ้งอะไร</li>
+      </ul>
+    </div>
+    <div class="prompt">ช่วยสร้าง FAQ 15 ข้อสำหรับสินค้า [ชื่อสินค้า] โดยตอบแบบสั้น ชัดเจน สุภาพ เหมาะกับใช้ตอบลูกค้าในแชท ข้อมูลสินค้าคือ [ข้อมูลสินค้า]</div>
+  </section>
+
+  <section class="page">
+    <div class="chapter-label">Chapter 09</div>
+    <h2>เช็กกำไรก่อนยิงแอด</h2>
+    <p>หลายร้านขายได้แต่ไม่เหลือกำไร เพราะไม่ได้รวมต้นทุนทั้งหมดก่อนตั้งราคาและยิงแอด</p>
+    <div class="box">
+      <h3>สูตรง่าย ๆ</h3>
+      <p><strong>กำไรต่อออเดอร์ = ราคาขาย - ต้นทุนสินค้า - ค่าแพ็ก - ค่าส่ง - ค่าธรรมเนียม - ค่าแอด</strong></p>
+      <p>ถ้าขาย 299 บาท ต้นทุนสินค้า 110 บาท ค่าแพ็ก 10 บาท ค่าส่ง 35 บาท ค่าธรรมเนียม 15 บาท และค่าแอด 60 บาท กำไรคือ 69 บาท</p>
+    </div>
+    <div class="prompt">ช่วยคำนวณกำไรต่อออเดอร์จากข้อมูลนี้ ราคาขาย [ราคา] ต้นทุนสินค้า [ต้นทุน] ค่าแพ็ก [ค่าแพ็ก] ค่าส่ง [ค่าส่ง] ค่าธรรมเนียม [ค่าธรรมเนียม] ค่าแอดต่อออเดอร์ [ค่าแอด] แล้วช่วยบอกว่าควรปรับอะไรเพื่อให้กำไรดีขึ้น</div>
+  </section>
+
+  <section class="page">
+    <div class="chapter-label">Chapter 10</div>
+    <h2>แผนเริ่มใช้ AI ใน 7 วัน</h2>
+    <table>
+      <tr><th>วัน</th><th>งานที่ต้องทำ</th><th>ผลลัพธ์ที่ควรได้</th></tr>
+      <tr><td>1</td><td>กรอกข้อมูลสินค้า 1 ตัวให้ครบ</td><td>ข้อมูลพร้อมใช้กับ AI</td></tr>
+      <tr><td>2</td><td>สร้าง FAQ 15 ข้อ</td><td>คำตอบมาตรฐานของร้าน</td></tr>
+      <tr><td>3</td><td>ทำ script ตอบแชท</td><td>คำตอบสำหรับถามราคา ขอส่วนลด แพง ขอคิดก่อน</td></tr>
+      <tr><td>4</td><td>วางแผนโพสต์ 30 วัน</td><td>ตารางคอนเทนต์ทั้งเดือน</td></tr>
+      <tr><td>5</td><td>เขียนแคปชัน 10 โพสต์แรก</td><td>โพสต์พร้อมลง</td></tr>
+      <tr><td>6</td><td>เตรียมโปรโมชันที่ยังมีกำไร</td><td>ข้อเสนอที่ชัดเจน</td></tr>
+      <tr><td>7</td><td>เริ่มใช้จริงและจดผลตอบกลับ</td><td>ข้อมูลสำหรับปรับ prompt</td></tr>
+    </table>
+    <div class="action"><strong>เริ่มเล็กก่อน:</strong> สินค้า 1 ตัว คำตอบ 5 แบบ และโพสต์ 10 ชิ้นแรกก็พอ</div>
+  </section>
+
+  <section class="page">
+    <div class="chapter-label">Final Page</div>
+    <h2>เริ่มจากวันนี้</h2>
+    <p class="lead">AI จะช่วยคุณได้ดีที่สุดเมื่อคุณให้ข้อมูลชัด ใช้ซ้ำ ปรับซ้ำ และวัดผลจากลูกค้าจริง</p>
+    <div class="box">
+      <h3>สิ่งที่ควรทำหลังอ่านจบ</h3>
+      <ol>
+        <li>เลือกสินค้า 1 ตัวที่อยากขายก่อน</li>
+        <li>กรอกแบบฟอร์มข้อมูลร้าน</li>
+        <li>สร้าง FAQ และ script ตอบแชท</li>
+        <li>วางแผนโพสต์ 30 วัน</li>
+        <li>ทดสอบกับลูกค้าจริง แล้วปรับคำตอบให้ดีขึ้น</li>
+      </ol>
+    </div>
+    <p class="small">หมายเหตุ: คู่มือนี้ไม่ได้รับรองยอดขาย ผลลัพธ์ขึ้นกับสินค้า ราคา ข้อเสนอ คอนเทนต์ กลุ่มลูกค้า และการนำไปใช้จริงของแต่ละร้าน</p>
+  </section>
+</body>
+</html>
