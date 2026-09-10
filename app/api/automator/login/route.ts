@@ -7,16 +7,19 @@ import { consumeRateLimit, getRequestIdentity } from "@/lib/request-rate-limit";
 export const runtime = "nodejs";
 
 export async function POST(req: Request) {
-  const body = (await req.json().catch(() => ({}))) as { email?: string; password?: string };
-  const email = body.email?.trim().toLowerCase();
-  const password = body.password;
+  try {
+  const body: unknown = await req.json().catch(() => null);
+  const valid = body !== null && typeof body === "object" && !Array.isArray(body);
+  const fields = valid ? body as Record<string,unknown> : {};
+  const email = typeof fields.email === "string" ? fields.email.trim().toLowerCase() : "";
+  const password = typeof fields.password === "string" ? fields.password : "";
 
-  if (!email || !password) {
+  if (!email || !password || email.length > 254 || password.length > 1024) {
     return NextResponse.json({ ok: false, error: "กรุณากรอกอีเมลและรหัสผ่าน" }, { status: 400 });
   }
 
   // ป้องกัน brute-force: จำกัดทั้งต่อ IP และต่ออีเมลที่พยายามล็อกอิน
-  const ipIdentity = getRequestIdentity(null, req.headers.get("x-forwarded-for"), req.headers.get("user-agent"));
+  const ipIdentity = getRequestIdentity(null, req.headers.get("x-forwarded-for"), null);
   const ipRate = consumeRateLimit(`automator-login:${ipIdentity}`, 10, 60_000);
   if (!ipRate.allowed) {
     return NextResponse.json(
@@ -39,7 +42,7 @@ export async function POST(req: Request) {
 
   if (!user?.passwordHash) {
     return NextResponse.json(
-      { ok: false, error: "ไม่พบบัญชีนี้ หรือบัญชีนี้ล็อกอินด้วย Google เท่านั้น (ตั้งรหัสผ่านที่หน้าเว็บก่อน)" },
+      { ok: false, error: "อีเมลหรือรหัสผ่านไม่ถูกต้อง" },
       { status: 401 }
     );
   }
@@ -60,5 +63,8 @@ export async function POST(req: Request) {
     token: created.rawToken,
     name: user.name,
     plan: user.plan,
-  });
+  }, { headers: { "Cache-Control": "no-store" } });
+  } catch {
+    return NextResponse.json({ ok: false, error: "ระบบเข้าสู่ระบบไม่พร้อมชั่วคราว กรุณาลองใหม่ภายหลัง" }, { status: 503 });
+  }
 }
