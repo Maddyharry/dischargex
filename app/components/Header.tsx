@@ -213,11 +213,11 @@ export function Header() {
             ) : null}
           </div>
           <Link
-            href="/chat"
-            data-google-conversion-label="CHAT_ENTRY"
+            href="/downloads"
+            data-google-conversion-label="AUTOMATOR_DOWNLOAD"
             className="shrink-0 rounded-lg border border-cyan-500/45 bg-cyan-500/12 px-3 py-2 text-sm font-medium text-cyan-100 transition hover:border-cyan-400/60 hover:bg-cyan-500/20 hover:text-white"
           >
-            AI Chat
+            Auto
           </Link>
           <Link
             href="/knowledge"
