@@ -45,6 +45,7 @@ import {
   type TokenUsageSummary,
   shouldEnforceLegacyCreditLimit,
 } from "@/lib/token-billing";
+import { extractSummaryDates, summaryLosDays } from "@/lib/summary-dates";
 import { deidentify } from "@/lib/deidentify";
 import { getMergedKnowledge, queuePendingKnowledgeEntry } from "@/lib/knowledge-store";
 import { retrieveExternalEvidence } from "@/lib/reference-retriever";
@@ -206,66 +207,6 @@ function normalizeIncomingBlocks(blocks: NormalizedBlock[] | undefined) {
         icd10: String(b.icd10 || ""),
       }))
     : [];
-}
-
-function stripTimeKeepDate(s: string) {
-  const m = (s || "").match(/(\d{1,2}\/\d{1,2}\/\d{2,4})/);
-  return m ? m[1] : (s || "").trim();
-}
-
-function parseThaiShortDate(d: string) {
-  const m = d.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
-  if (!m) return null;
-  const dd = parseInt(m[1], 10);
-  const mm = parseInt(m[2], 10);
-  let yy = parseInt(m[3], 10);
-  if (yy < 100) yy = 2500 + yy;
-  const greg = yy - 543;
-  return new Date(Date.UTC(greg, mm - 1, dd));
-}
-
-function getAllDates(text: string) {
-  const matches = [...(text || "").matchAll(/\b(\d{1,2}\/\d{1,2}\/\d{2,4})\b/g)].map((m) => m[1]);
-  return Array.from(new Set(matches));
-}
-
-function extractDates(text: string) {
-  const admit =
-    text.match(/-\s*Admit[\s\S]{0,220}?วันที่เริ่ม\s*:\s*([0-9]{1,2}\/[0-9]{1,2}\/[0-9]{2,4})/i)?.[1] ||
-    text.match(/\bAdmit\b[\s\S]{0,140}?([0-9]{1,2}\/[0-9]{1,2}\/[0-9]{2,4})/i)?.[1] ||
-    text.match(/admit รพ[\s\S]{0,80}?([0-9]{1,2}\/[0-9]{1,2}\/[0-9]{2,4})/i)?.[1] ||
-    null;
-
-  const dcKeywords =
-    text.match(/(?:D\/C|DC|discharge|จำหน่าย)[\s\S]{0,150}?([0-9]{1,2}\/[0-9]{1,2}\/[0-9]{2,4})/i)?.[1] ||
-    null;
-
-  const finalDispositionKeywords =
-    text.match(/(?:refer|referred|dead|against advice|against medical advice)[\s\S]{0,150}?([0-9]{1,2}\/[0-9]{1,2}\/[0-9]{2,4})/i)?.[1] ||
-    null;
-
-  const allDates = getAllDates(text)
-    .map((d) => ({ raw: d, dt: parseThaiShortDate(d) }))
-    .filter((x) => x.dt !== null) as Array<{ raw: string; dt: Date }>;
-
-  allDates.sort((a, b) => a.dt.getTime() - b.dt.getTime());
-  const latest = allDates.length ? allDates[allDates.length - 1].raw : null;
-
-  return {
-    admit,
-    discharge: dcKeywords || finalDispositionKeywords || latest,
-  };
-}
-
-function losDaysFromDDMMYY(admit: string | null, discharge: string | null) {
-  if (!admit || !discharge) return null;
-
-  const a = parseThaiShortDate(admit);
-  const d = parseThaiShortDate(discharge);
-  if (!a || !d) return null;
-
-  const diff = Math.round((d.getTime() - a.getTime()) / 86400000);
-  return Math.max(1, diff);
 }
 
 function splitIcd9LinesKeepProceduresOnly(text: string) {
@@ -1232,6 +1173,7 @@ function getMaxDevices(rawPlan: string | null | undefined): number {
 }
 
 export async function POST(req: Request) {
+  const requestStarted = performance.now();
   try {
     const bearerEmail = await resolveEmailFromBearerToken(req);
     const session = bearerEmail ? null : await getServerSession(authOptions);
@@ -1451,10 +1393,19 @@ export async function POST(req: Request) {
 
     const preprocess = preprocessClinicalText(mergedRaw);
     const clinical = deidentify(preprocess.cleaned);
-    const { admit, discharge } = extractDates(clinical);
-    const losDays = losDaysFromDDMMYY(admit, discharge);
+    const dateEvidence = extractSummaryDates(preprocess.cleaned);
+    const admit = dateEvidence.admit.value;
+    const discharge = dateEvidence.discharge.value;
+    const losDays = summaryLosDays(admit, discharge);
     const warnings: string[] = [];
     warnings.push(...imageExtractWarnings);
+
+    // Date-only recovery from the desktop client reuses source evidence without billing another summary.
+    if (mode === "generate" && blocks.length > 0 && blocks.every(b => b.key === "admit_date" || b.key === "discharge_date")) {
+      return json({ result: { blocks: blocks.map(b => ({ ...b, content: isBasicPlan ? "" : b.key === "admit_date" ? admit || "" : discharge || "", icd10: "" })),
+        warnings: isBasicPlan ? ["แพ็กเกจ Basic ไม่รวมช่องวันที่"] : [],
+        meta: { dates: { admit: isBasicPlan ? "restricted" : dateEvidence.admit.status, discharge: isBasicPlan ? "restricted" : dateEvidence.discharge.status }, dateRecovery: true, charged: false } } });
+    }
 
     if (!clinical || clinical.trim().length < 30) {
       return json({
@@ -1846,10 +1797,10 @@ export async function POST(req: Request) {
 
     for (const blk of normalized) {
       if (blk.key === "admit_date") {
-        blk.content = stripTimeKeepDate(blk.content || admit || "");
+        blk.content = admit || "";
       }
       if (blk.key === "discharge_date") {
-        blk.content = stripTimeKeepDate(blk.content || discharge || "");
+        blk.content = discharge || "";
       }
     }
 
@@ -1885,6 +1836,11 @@ export async function POST(req: Request) {
       warnings.push(...(recalcOut.warnings || []).slice(0, 20));
       normalized = mergeModelBlocksOntoBase(normalized, recalcOut.blocks, "recalc");
       normalized = postProcessBlocks(normalized, warnings);
+      // A coding recalculation must not erase or invent encounter dates.
+      for (const block of normalized) {
+        if (block.key === "admit_date") block.content = admit || "";
+        if (block.key === "discharge_date") block.content = discharge || "";
+      }
 
       if (includeAdjrwMeta) {
         const recalcAdj = toNum(recalcOut.meta?.adjrw_estimate);
@@ -2044,6 +2000,13 @@ export async function POST(req: Request) {
       warnings.push("Missing admit/discharge date for LOS (used as guidance only).");
     }
 
+    if (isBasicPlan && blocks.some(b => b.key === "admit_date" || b.key === "discharge_date")) {
+      warnings.push("แพ็กเกจ Basic ไม่รวมช่องวันที่ Admit/Discharge (ไม่ใช่ข้อผิดพลาดจากการค้นหาวันที่)");
+    } else {
+      if (dateEvidence.admit.source === "chart_boundary" || dateEvidence.discharge.source === "chart_boundary") warnings.push("วันที่อ้างอิงวันเริ่มต้น/วันสุดท้ายของชาร์ต โดยตัดวันนัดออก กรุณายืนยันว่าชาร์ตครบช่วงการนอนโรงพยาบาลก่อนนำไปใช้");
+      if (dateEvidence.admit.status !== "found") warnings.push("วันที่ Admit " + (dateEvidence.admit.status === "ambiguous" ? "มีข้อมูลขัดแย้ง กรุณาตรวจสอบ" : "ไม่มีหลักฐานชัดเจน กรุณากรอกเฉพาะช่องนี้"));
+      if (dateEvidence.discharge.status !== "found") warnings.push("วันที่ Discharge " + (dateEvidence.discharge.status === "ambiguous" ? "มีข้อมูลขัดแย้ง กรุณาตรวจสอบ" : "ไม่มีหลักฐานชัดเจน กรุณากรอกเฉพาะช่องนี้"));
+    }
     const finalWarnings = uniqueWarningsList(warnings);
     const diagnosis_confidence = computeDiagnosisConfidence(normalized, finalWarnings);
 
@@ -2141,6 +2104,14 @@ export async function POST(req: Request) {
       },
     });
 
+    const summaryJobId = mode === "generate" ? crypto.randomUUID() : null;
+    const generationDurationMs = Math.round(performance.now() - requestStarted);
+    if (summaryJobId && userId && !isAdminUser) {
+      try {
+        await prisma.feedback.create({ data: { id: `summary_${summaryJobId}`, userId, type: "summary_job", message: "Summary generated", status: "completed",
+          payload: JSON.stringify({ durationMs: generationDurationMs, production: process.env.VERCEL_ENV === "production" }) } });
+      } catch { /* Statistics are supplementary; a completed summary remains available. */ }
+    }
     return json({
       result: {
         blocks: normalized,
@@ -2152,7 +2123,10 @@ export async function POST(req: Request) {
           upgrade: includeAdjrwMeta ? upgrade : null,
           token_usage: aggregateUsage,
           token_billing_estimate: tokenBilling,
+          dates: { admit: isBasicPlan ? "restricted" : dateEvidence.admit.status, discharge: isBasicPlan ? "restricted" : dateEvidence.discharge.status },
           privacy: { deidentifiedBeforeModel: true },
+          job_id: summaryJobId,
+          generation_duration_ms: generationDurationMs,
         },
         preprocess: preprocess.summary,
         engine: enginePayload,

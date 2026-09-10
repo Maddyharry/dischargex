@@ -9,6 +9,7 @@ export default function AdminPage() {
       <div className="mx-auto max-w-2xl px-4 py-16 space-y-8">
         <h1 className="text-2xl font-semibold text-white">Admin</h1>
         <div className="grid gap-4">
+          <Link href="/admin/automator" className="block rounded-2xl border border-white/10 bg-white/[0.04] p-5">รายงานปัญหาจาก Auto และรูปแบบที่เกิดซ้ำ</Link>
           <Link
             href="/admin/payments"
             className="block rounded-2xl border border-white/10 bg-white/[0.04] p-5 text-slate-100 transition hover:bg-white/[0.08]"
