@@ -1,0 +1,16 @@
+import { beforeEach, expect, it, vi } from "vitest";
+const m = vi.hoisted(() => ({ find: vi.fn(), compare: vi.fn(), token: vi.fn(), limit: vi.fn() }));
+vi.mock("@/lib/prisma", () => ({ prisma: { user: { findUnique: m.find } } }));
+vi.mock("bcryptjs", () => ({ compare: m.compare }));
+vi.mock("@/lib/api-token", () => ({ createApiToken: m.token }));
+vi.mock("@/lib/request-rate-limit", () => ({ getRequestIdentity: () => "test-ip", consumeRateLimit: m.limit }));
+import { POST } from "../app/api/automator/login/route";
+const req = (body: unknown) => new Request("https://dischargex.net/api/automator/login", { method: "POST", body: JSON.stringify(body) });
+const credentials = { email: "example@example.test", password: "synthetic-password" };
+beforeEach(() => { vi.resetAllMocks(); m.limit.mockReturnValue({ allowed: true }); m.find.mockResolvedValue({ id: "synthetic", passwordHash: "hash", emailVerified: new Date(), name: "Example", plan: "trial" }); m.compare.mockResolvedValue(true); m.token.mockResolvedValue({ rawToken: "synthetic-token" }); });
+it.each([null, [], { email: 123, password: {} }, {}])("rejects malformed credentials", async body => { expect((await POST(req(body))).status).toBe(400); expect(m.token).not.toHaveBeenCalled(); });
+it("returns the desktop token for a verified account", async () => { const response = await POST(req(credentials)); expect(response.status).toBe(200); expect(response.headers.get("cache-control")).toBe("no-store"); expect((await response.json()).token).toBe("synthetic-token"); });
+it("rejects bad passwords", async () => { m.compare.mockResolvedValue(false); expect((await POST(req(credentials))).status).toBe(401); expect(m.token).not.toHaveBeenCalled(); });
+it("requires email verification", async () => { m.find.mockResolvedValue({ id: "test", passwordHash: "hash", emailVerified: null }); expect((await POST(req(credentials))).status).toBe(403); expect(m.token).not.toHaveBeenCalled(); });
+it("rate limits before account queries", async () => { m.limit.mockReturnValue({ allowed: false, retryAfterSec: 60 }); expect((await POST(req(credentials))).status).toBe(429); expect(m.find).not.toHaveBeenCalled(); });
+it("reports a service error without leaking internals", async () => { m.token.mockRejectedValue(new Error("PRIVATE DATABASE DETAILS")); const response = await POST(req(credentials)); expect(response.status).toBe(503); expect(await response.text()).not.toContain("PRIVATE"); });
