@@ -42,7 +42,10 @@ export function extractSummaryDates(raw: string): SummaryDates {
     if (!match || match.index !== 0) continue;
     const rest = line.slice(match[0].length).trim();
     const previous = lines[row - 1]?.trim() ?? "";
-    if (appointment.test(rest) || /เกิด|birth|\bdob\b|history|previous|ย้อนหลัง|ประวัติ/i.test(rest)) continue;
+    const entryText = rest.replace(/^\d{1,2}:\d{2}(?::\d{2})?\s*/, "");
+    // A later appointment instruction must not erase the timestamp of this note.
+    // Date-first appointment rows, however, are not chart entries.
+    if (/^(?:[:：,;|-]\s*)?(?:f\s*\/\s*u\b|fu\b|follow[\s-]*up\b|นัด)/i.test(entryText) || /เกิด|birth|\bdob\b|history|previous|ย้อนหลัง|ประวัติ/i.test(rest)) continue;
     if (!rest && appointment.test(previous)) continue;
     // A naked date following any field label is that field's value, not a note.
     if (!rest && /[:：]\s*$/.test(previous)) continue;
@@ -78,7 +81,7 @@ export function extractSummaryDates(raw: string): SummaryDates {
       if (!selected) continue;
       // D/C meds is not discharge; only permit punctuation between shorthand and date.
       if (/^(?:d\/c|dc)$/i.test(label[0]) && !immediateBefore && after && !/^[\s:：-]*$/.test(line.slice(index+label[0].length,after.index))) continue;
-      if (/^(?:d\/c|dc)$/i.test(label[0]) && immediateBefore && /\b(?:drug|med|iv|antibiotic|cef|stop)\b/i.test(line.slice(index+label[0].length))) continue;
+      if (/^(?:d\/c|dc)$/i.test(label[0]) && immediateBefore && !/^[\s:：,;.-]*(?:$|home\b|กลับบ้าน|จำหน่าย)/i.test(line.slice(index+label[0].length))) continue;
       const value = normalizeSummaryDate(selected[0]);
       if (value) { candidates[kind].add(value); usedDates.add(selected.index!); }
     }

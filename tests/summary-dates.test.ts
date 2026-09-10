@@ -1,6 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { extractSummaryDates, normalizeSummaryDate, summaryLosDays } from "../lib/summary-dates";
 describe("evidence-bound encounter dates", () => {
+  it.each(["F/U", "FU", "follow up", "follow-up", "นัด"])("keeps the final note timestamp before an inline %s appointment", label => {
+    const result = extractSummaryDates(`01/09/2569 08:00 initial note\n05/09/2569 10:00 final note ${label} 20/09/2569`);
+    expect(result.discharge.value).toBe("05/09/2569");
+  });
+  it.each(["ceftriaxone", "insulin", "IV", "antibiotic"])("does not treat timestamped D/C %s as an explicit discharge", medication => {
+    expect(extractSummaryDates(`05/09/2569 D/C ${medication}`).discharge.value).toBeNull();
+  });
+  it("accepts timestamped D/C home", () => {
+    expect(extractSummaryDates("05/09/2569 D/C home").discharge.value).toBe("05/09/2569");
+  });
   it.each(["F/U", "FU", "follow up", "follow-up", "นัด"])("excludes %s appointments from chart boundaries", label => {
     const r = extractSummaryDates(`01/09/2569 08:00 initial note\n05/09/2569 10:00 final note\n${label} 20/09/2569`);
     expect(r.admit.value).toBe("01/09/2569");
