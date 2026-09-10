@@ -176,11 +176,9 @@ export function Header() {
               }}
               className="inline-flex items-center gap-1 rounded-lg px-2 py-2 text-xs text-slate-300 hover:bg-white/5 hover:text-white sm:px-2.5 sm:text-sm"
               aria-expanded={moreMenuOpen}
-              aria-haspopup="menu"
-              aria-label="About and Reference"
+              aria-label="เมนูนำทาง"
             >
-              <span className="sm:hidden">More</span>
-              <span className="hidden sm:inline">About / Reference</span>
+              <span>เมนู</span>
               <svg
                 className={`h-4 w-4 shrink-0 text-slate-400 transition ${moreMenuOpen ? "rotate-180" : ""}`}
                 fill="none"
@@ -194,14 +192,16 @@ export function Header() {
             {moreMenuOpen ? (
               <div
                 className="absolute right-0 top-full z-50 mt-1.5 min-w-[11rem] overflow-hidden rounded-xl border border-slate-700 bg-slate-900 py-1 shadow-xl"
-                role="menu"
               >
+                {[["/app", "สรุปชาร์จ"], ["/automator", "Auto สำหรับ HOSxP"], ["/learn", "วิธีใช้"], ["/downloads", "ดาวน์โหลด"], ["/knowledge", "ความรู้"], ["/pricing", "แพ็กเกจ"]].map(([href,label]) => (
+                  <Link key={href} href={href} className="block px-4 py-2.5 text-sm text-slate-200 hover:bg-slate-800 hover:text-white" onClick={() => setMoreMenuOpen(false)}>{label}</Link>
+                ))}
                 <Link
                   href="/about"
                   className="block px-4 py-2.5 text-sm text-slate-200 hover:bg-slate-800 hover:text-white"
                   onClick={() => setMoreMenuOpen(false)}
                 >
-                  About
+                  เกี่ยวกับเรา
                 </Link>
                 <Link
                   href="/legal"
@@ -213,6 +213,7 @@ export function Header() {
               </div>
             ) : null}
           </div>
+          <Link href="/automator" className="hidden shrink-0 rounded-lg px-3 py-2 text-sm text-cyan-200 hover:bg-white/5 lg:inline-flex">Auto สำหรับ HOSxP</Link>
           {isChatEnabled() ? (
             <Link
               href="/chat"
@@ -223,28 +224,22 @@ export function Header() {
             </Link>
           ) : null}
           <Link
-            href="/knowledge"
-            className="shrink-0 rounded-lg border border-slate-600/80 bg-slate-800/40 px-2.5 py-2 text-xs text-slate-200 transition hover:border-slate-500 hover:bg-slate-700/40 hover:text-white md:hidden"
-          >
-            Know
-          </Link>
-          <Link
             href="/app"
             className="hidden shrink-0 rounded-lg border border-slate-600/80 bg-slate-800/40 px-3 py-2 text-sm text-slate-200 transition hover:border-slate-500 hover:bg-slate-700/40 hover:text-white sm:inline-flex"
           >
             สรุปชาร์จ
           </Link>
           <Link
-            href="/guidelines"
+            href="/learn"
             className="hidden shrink-0 rounded-lg px-2.5 py-2 text-sm text-slate-300 hover:bg-white/5 hover:text-white md:inline"
           >
-            แนวทาง
+            วิธีใช้
           </Link>
           <Link
             href="/knowledge"
             className="hidden shrink-0 rounded-lg px-2.5 py-2 text-sm text-slate-300 hover:bg-white/5 hover:text-white md:inline"
           >
-            Knowledge
+            ความรู้
           </Link>
           <Link
             href="/pricing"

@@ -14,6 +14,8 @@ function normalizePath(raw: unknown) {
 }
 
 export async function POST(req: NextRequest) {
+  // Preview/local browsers must never pollute real conversion statistics.
+  if (process.env.VERCEL_ENV !== "production") return NextResponse.json({ ok: true, skipped: true });
   try {
     const body = (await req.json()) as {
       event?: string;

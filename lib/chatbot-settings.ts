@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { FEEDBACK_AI_KNOWLEDGE } from "@/lib/feedback-knowledge";
+import { PRODUCT_HELP_CURRENT } from "./product-help";
 
 const CHATBOT_KNOWLEDGE_KEY = "chatbot_knowledge_v1";
 
@@ -9,9 +10,9 @@ export async function getChatbotKnowledge(): Promise<string> {
       where: { key: CHATBOT_KNOWLEDGE_KEY },
       select: { value: true },
     });
-    return row?.value?.trim() || FEEDBACK_AI_KNOWLEDGE;
+    return (row?.value?.trim() || FEEDBACK_AI_KNOWLEDGE) + "\n\n" + PRODUCT_HELP_CURRENT;
   } catch {
-    return FEEDBACK_AI_KNOWLEDGE;
+    return FEEDBACK_AI_KNOWLEDGE + "\n\n" + PRODUCT_HELP_CURRENT;
   }
 }
 

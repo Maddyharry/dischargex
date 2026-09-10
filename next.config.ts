@@ -4,7 +4,7 @@ import withPWAInit from "next-pwa";
 const isDev = process.env.NODE_ENV !== "production";
 const withPWA = withPWAInit({
   dest: "public",
-  disable: false,
+  disable: isDev,
 });
 
 const securityHeaders = [

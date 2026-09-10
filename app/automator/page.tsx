@@ -4,7 +4,7 @@ import Link from "next/link";
 const PAGE_URL = "https://dischargex.net/automator";
 const PAGE_TITLE = "Automator — โปรแกรมกรอก HOSxP อัตโนมัติจากสรุปชาร์จ AI | DischargeX";
 const PAGE_DESCRIPTION =
-  "โปรแกรมบนคอมพิวเตอร์ที่ดึงข้อมูล doctor order sheet, สรุปชาร์จด้วย AI เครื่องเดียวกับเว็บ, แล้วกรอกเข้า HOSxP ให้ต่อเนื่องหลายเคสโดยไม่ต้องนั่งเฝ้าทีละเคส สำหรับโรงพยาบาลที่ใช้ HOSxP.";
+  "โปรแกรมบนคอมพิวเตอร์ที่ดึงข้อมูล doctor order sheet, สรุปชาร์จด้วย AI เครื่องเดียวกับเว็บ, แล้วกรอกเข้า HOSxP ให้ต่อเนื่องหลายเคสพร้อมปุ่มพักและหยุดทีละเคส สำหรับโรงพยาบาลที่ใช้ HOSxP.";
 
 export const metadata: Metadata = {
   title: { absolute: PAGE_TITLE },
@@ -96,18 +96,18 @@ export default function AutomatorPage() {
             สำหรับโรงพยาบาลที่ใช้ HOSxP
           </p>
           <h1 className="mt-5 text-3xl font-bold tracking-tight text-white md:text-4xl">
-            Automator — สรุปชาร์จและกรอก HOSxP ต่อเนื่องหลายเคส โดยไม่ต้องนั่งเฝ้า
+            Automator — สรุปชาร์จและกรอก HOSxP ต่อเนื่องหลายเคส พร้อมปุ่มพักและหยุด
           </h1>
           <p className="mt-4 max-w-3xl text-base leading-relaxed text-slate-300">
             โปรแกรมบนคอมพิวเตอร์ที่ดึงข้อความจาก doctor order sheet, สรุปชาร์จด้วย AI เครื่องเดียวกับที่ใช้บนเว็บ
-            แล้วกรอกเข้า HOSxP ให้ต่อเนื่องทีละคิว — ตั้งจำนวนเคส กดเริ่ม แล้วกลับมาตรวจผลทีหลังได้
+            แล้วกรอกเข้า HOSxP ให้ต่อเนื่องทีละคิว — ตั้งค่าเครื่อง ทดสอบ และตรวจผลก่อนบันทึกเข้าเวชระเบียน
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
             <Link
               href="/pricing"
               className="rounded-xl bg-cyan-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-cyan-500"
             >
-              ดูแพ็กที่ปลดล็อก Automator
+              ดูแพ็กเกจปัจจุบัน
             </Link>
             <Link
               href="/app/guest?tutorial=1"
@@ -120,6 +120,7 @@ export default function AutomatorPage() {
       </section>
 
       <section className="mx-auto max-w-5xl px-4 py-10">
+        <div className="mb-10 rounded-xl border border-cyan-400/25 bg-cyan-400/5 p-6"><h2 className="text-xl font-semibold">ดาวน์โหลดและเริ่มใช้</h2><p className="mt-3 text-slate-300">Windows 64-bit · แตกไฟล์ทั้งโฟลเดอร์ก่อนเปิด DischargeXPortable.exe · สำรองโปรไฟล์เดิมก่อนเปลี่ยนรุ่น</p><div className="mt-5 flex flex-wrap gap-3"><Link href="/downloads" className="rounded bg-cyan-300 px-5 py-3 font-semibold text-slate-950">เลือกรุ่นและดาวน์โหลด</Link><Link href="/learn" className="rounded border border-slate-600 px-5 py-3">ดูภาพแนะนำการใช้งาน</Link></div></div>
         <h2 className="text-xl font-semibold text-white md:text-2xl">Automator ทำอะไรให้บ้าง</h2>
         <ul className="mt-4 list-disc space-y-2 pl-5 text-slate-200">
           <li>ดึงข้อความ doctor order sheet จากคิวผู้ป่วยใน HOSxP ให้อัตโนมัติ</li>
