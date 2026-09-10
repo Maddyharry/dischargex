@@ -68,7 +68,7 @@ function HomeJsonLd() {
 }
 
 const heroFeatures = [
-  "เริ่มได้ 2 ทาง: สรุปชาร์จทันที หรือคุยกับ Specialist Chat ก่อน",
+  "เริ่มจากข้อมูลตัวอย่าง แล้วเข้าสู่ระบบเพื่อสร้างสรุปชาร์ต",
   "แนะนำ diagnosis แบบมีเกณฑ์หลักฐานและสิ่งที่ควรประเมินเพิ่ม",
   "ช่วยทบทวน ICD และโอกาส capture complexity (AdjRW ประมาณการ)",
   "ปกปิดข้อมูลระบุตัวผู้ป่วยอัตโนมัติก่อนส่งไป AI",
@@ -129,12 +129,12 @@ export default function Home() {
 
             <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
               <Link
-                href="/chat"
+                href="/app/guest"
                 data-telemetry-click="landing_hero_chat_entry"
                 data-google-conversion-label="CHAT_ENTRY"
                 className="inline-flex min-w-[190px] items-center justify-center rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 px-7 py-3.5 text-sm font-semibold text-white shadow-lg shadow-cyan-900/40 transition hover:brightness-110"
               >
-                เริ่มแชทเคสทันที (AI Chat)
+                ทดลองสรุปชาร์ต
               </Link>
               <LandingSignupCta
                 telemetryKey="landing_hero_signup"
@@ -166,7 +166,7 @@ export default function Home() {
               โดยอัตโนมัติ และใช้ข้อมูลเท่าที่จำเป็นต่อการวิเคราะห์เท่านั้น
             </div>
             <p className="mx-auto mt-3 max-w-3xl text-center text-xs leading-relaxed text-slate-400">
-              เริ่มจาก Specialist Chat ได้ทันทีเพื่อถาม fast-track, diagnosis checklist, แนวทางรักษาแบบใช้งานจริง
+              ทดลองขั้นตอนด้วยข้อมูลตัวอย่าง แล้วเข้าสู่ระบบเพื่อสร้างสรุปจากชาร์ตของคุณ
             </p>
 
             <div className="mt-8 flex flex-wrap items-center justify-center gap-2.5 text-xs font-medium">
@@ -248,12 +248,12 @@ export default function Home() {
           </h2>
           <div className="mt-6 grid gap-4 md:grid-cols-2">
             <div className="rounded-2xl border border-cyan-500/25 bg-cyan-950/20 p-5">
-              <h3 className="text-base font-semibold text-cyan-100">AI Chat (เริ่มเร็ว)</h3>
+              <h3 className="text-base font-semibold text-cyan-100">ทดลองสรุปก่อนสมัคร</h3>
               <p className="mt-2 text-sm leading-relaxed text-slate-300">
-                ใช้ถามแนวทาง diagnosis, differential, evidence checklist และประเด็นที่ควรประเมินเพิ่มก่อนลงวินิจฉัย
+                ลองขั้นตอนสรุปด้วยข้อมูลตัวอย่าง โดยไม่ต้องใช้ข้อมูลคนไข้จริง ก่อนสมัครเพื่อประมวลผลด้วย AI
               </p>
-              <Link href="/chat" className="mt-3 inline-block text-sm text-cyan-300 underline underline-offset-2 hover:text-cyan-200">
-                ไป AI Chat
+              <Link href="/app/guest" className="mt-3 inline-block text-sm text-cyan-300 underline underline-offset-2 hover:text-cyan-200">
+                ทดลองด้วยข้อมูลตัวอย่าง
               </Link>
             </div>
             <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
@@ -415,12 +415,12 @@ export default function Home() {
             </p>
             <div className="relative mt-8 flex flex-wrap gap-3">
               <Link
-                href="/chat"
+                href="/app/guest"
                 data-telemetry-click="landing_bottom_chat"
                 data-google-conversion-label="CHAT_ENTRY"
                 className="inline-flex min-w-[190px] items-center justify-center rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 px-7 py-3.5 text-sm font-semibold text-white shadow-lg shadow-cyan-900/40 transition hover:brightness-110"
               >
-                เริ่มแชทเคสทันที
+                ทดลองสรุปชาร์ต
               </Link>
               <LandingSignupCta
                 telemetryKey="landing_bottom_signup"

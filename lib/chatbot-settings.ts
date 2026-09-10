@@ -9,7 +9,7 @@ export async function getChatbotKnowledge(): Promise<string> {
       where: { key: CHATBOT_KNOWLEDGE_KEY },
       select: { value: true },
     });
-    return row?.value?.trim() || FEEDBACK_AI_KNOWLEDGE;
+    return (row?.value?.trim() || FEEDBACK_AI_KNOWLEDGE) + "\n\nข้อมูลผลิตภัณฑ์ล่าสุด (ใช้แทนคำแนะนำเส้นทางเดิม): ยกเลิกหน้า Specialist Chat /chat แล้ว ห้ามแนะนำให้คุยเคสกับ AI Chat ก่อน ให้ทดลองข้อมูลตัวอย่างที่ /app/guest หรือสร้างสรุปที่ /app ดูโปรแกรม Auto ที่ /downloads และคู่มือ /learn แชตช่วยเหลือยังใช้ตอบเรื่องการใช้งานและบัญชี ไม่รับข้อมูลผู้ป่วย";
   } catch {
     return FEEDBACK_AI_KNOWLEDGE;
   }

@@ -160,7 +160,7 @@ export function Header() {
     <header className="sticky top-0 z-50 border-b border-slate-800 bg-[#081120]/95 backdrop-blur">
       <div className="mx-auto flex h-14 max-w-7xl items-center gap-2 px-4 sm:gap-4">
         <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-          <Link href={session?.user ? "/chat" : "/"} className="shrink-0 text-lg font-semibold text-white">
+          <Link href={session?.user ? "/app" : "/"} className="shrink-0 text-lg font-semibold text-white">
             Discharge<span className="text-cyan-400">X</span>
           </Link>
         </div>

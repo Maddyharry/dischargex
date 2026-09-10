@@ -1598,34 +1598,6 @@ function PageContent() {
             โหมดมือถือ: Tutorial จะข้ามขั้นเปิดหน้าต่างตัวอย่างให้อัตโนมัติ เพื่อให้เริ่มวางข้อมูลและกดสร้างสรุปได้ทันที
           </div>
         ) : null}
-        {chatBannerDismissed ? null : (
-          <div className="relative flex flex-wrap items-center justify-between gap-2 rounded-xl border border-cyan-500/25 bg-cyan-950/10 px-3 py-2 pr-10">
-            <p className="text-xs leading-relaxed text-cyan-100 md:text-sm">
-              อยากเริ่มจากคุยเคสก่อน? ใช้{" "}
-              <span className="font-semibold text-cyan-200">AI Chat</span>{" "}
-              เพื่อถามแนวทางและ checklist ได้ทันที
-            </p>
-            <Link
-              href="/chat"
-              className="inline-flex shrink-0 items-center justify-center rounded-lg border border-cyan-400/45 bg-cyan-500/15 px-3 py-1.5 text-xs font-medium text-cyan-100 transition hover:border-cyan-300/70 hover:bg-cyan-500/25 hover:text-white"
-            >
-              ไป AI Chat
-            </Link>
-            <button
-              type="button"
-              onClick={() => {
-                setChatBannerDismissed(true);
-                if (typeof window !== "undefined") {
-                  window.localStorage.setItem(WORKSPACE_CHAT_BANNER_DISMISSED_KEY, "1");
-                }
-              }}
-              className="absolute right-2 top-2 rounded-md border border-cyan-400/35 px-1.5 py-0.5 text-[11px] text-cyan-200 transition hover:border-cyan-300/70 hover:bg-cyan-500/20 hover:text-white"
-              aria-label="ปิดแถบแนะนำ AI Chat"
-            >
-              ปิด
-            </button>
-          </div>
-        )}
 
         <section
           ref={heroSectionRef}

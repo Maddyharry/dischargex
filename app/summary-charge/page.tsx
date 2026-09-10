@@ -116,10 +116,10 @@ export default function SummaryChargePage() {
               ไปหน้าสรุปชาร์จ
             </Link>
             <Link
-              href="/chat"
+              href="/app/guest"
               className="rounded-xl border border-cyan-500/50 bg-cyan-500/10 px-5 py-2.5 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-500/20"
             >
-              เริ่มคุยกับ AI Chat
+              ทดลองสรุปด้วยข้อมูลตัวอย่าง
             </Link>
           </div>
         </div>

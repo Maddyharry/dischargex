@@ -1384,7 +1384,7 @@ export async function POST(req: Request) {
       return json(
         {
           error:
-            "Trial หมดอายุแล้ว: ปิดการใช้งานสรุปชาร์จชั่วคราว เพื่อให้ใช้งานต่อได้เฉพาะ AI Chat แบบค้นหารหัส ICD-10 เท่านั้น หากต้องการใช้สรุปชาร์จ กรุณาอัปเกรดแพ็กเกจที่ /pricing",
+            "ช่วงทดลองใช้หมดอายุแล้ว หากต้องการสรุปชาร์ตต่อ กรุณาดูแพ็กเกจที่ /pricing",
           limitedMode: "trial_expired_icd10_only",
         },
         402

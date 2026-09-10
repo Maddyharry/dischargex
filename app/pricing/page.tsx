@@ -55,7 +55,7 @@ function MobilePlanPicker(props: {
       >
         <optgroup label="ทดลองใช้ (ไม่ชำระผ่าน Stripe)">
           <option value="__trial" disabled>
-            Trial 0฿ — ~20 แชท/วัน · ~2 สรุปชาร์จ/วัน · ทดลอง 14 วัน (สมัครแล้วใช้ได้)
+            Trial 0฿ — ~2 สรุปชาร์จ/วัน · ทดลอง 14 วัน (สมัครแล้วใช้ได้)
           </option>
         </optgroup>
         <optgroup label="รายเดือน">
@@ -394,7 +394,7 @@ function PricingPageContent() {
               <ul className="mt-4 space-y-2 text-sm text-slate-200">
                 <li>- ไม่มีผูกมัด</li>
                 <li>- ใช้ได้ 1 ครั้งต่อบัญชี</li>
-                <li>- จำกัด Fair Use: AI Chat ~20 ครั้ง/วัน · สรุปชาร์จ ~2 เคส/วัน</li>
+                <li>- จำกัด Fair Use: สรุปชาร์จ ~2 เคส/วัน</li>
                 <li>- โควต้าจริงคิดจากต้นทุน AI ตาม model/token usage</li>
               </ul>
             </div>
@@ -425,9 +425,7 @@ function PricingPageContent() {
                   ? "เฉลี่ยประมาณ 249฿/เดือน · ใช้งานได้ต่อเนื่อง 365 วัน"
                   : "ใช้งานแบบรายเดือน 30 วัน"}
               </p>
-              <ul className="mt-4 space-y-2 text-sm text-slate-200">
-                <li>- AI Chat ~40 ครั้ง/วัน (1 ครั้ง = ส่งข้อความแล้วได้คำตอบจาก AI 1 ครั้ง)</li>
-                <li>- สร้างสรุปชาร์จได้ประมาณ 4 เคส/วัน</li>
+              <ul className="mt-4 space-y-2 text-sm text-slate-200">                <li>- สร้างสรุปชาร์จได้ประมาณ 4 เคส/วัน</li>
                 <li>- Principal / Comorbidity / Complication</li>
                 <li>- แนะนำ ICD-10 / ICD-9</li>
                 <li>- เหมาะสำหรับเริ่มใช้งานจริง</li>
@@ -463,9 +461,7 @@ function PricingPageContent() {
                   ? "เฉลี่ยประมาณ 499฿/เดือน · ใช้งานได้ต่อเนื่อง 365 วัน"
                   : "ใช้งานแบบรายเดือน 30 วัน"}
               </p>
-              <ul className="mt-4 space-y-2 text-sm text-slate-100">
-                <li>- AI Chat ~140 ครั้ง/วัน (1 ครั้ง = ส่งข้อความแล้วได้คำตอบจาก AI 1 ครั้ง)</li>
-                <li>- สร้างสรุปชาร์จได้ประมาณ 14 เคส/วัน</li>
+              <ul className="mt-4 space-y-2 text-sm text-slate-100">                <li>- สร้างสรุปชาร์จได้ประมาณ 14 เคส/วัน</li>
                 <li>- Diagnosis ครบ + Admit / Discharge</li>
                 <li>- Investigations, Treatment, Outcome, Home medication</li>
                 <li>- เหมาะสำหรับทำสรุปชาร์จจริง</li>
@@ -498,9 +494,7 @@ function PricingPageContent() {
                   ? "เฉลี่ยประมาณ 916฿/เดือน · ใช้งานได้ต่อเนื่อง 365 วัน"
                   : "ใช้งานแบบรายเดือน 30 วัน"}
               </p>
-              <ul className="mt-4 space-y-2 text-sm text-slate-100">
-                <li>- AI Chat ~420 ครั้ง/วัน (1 ครั้ง = ส่งข้อความแล้วได้คำตอบจาก AI 1 ครั้ง)</li>
-                <li>- สร้างสรุปชาร์จได้ประมาณ 42 เคส/วัน</li>
+              <ul className="mt-4 space-y-2 text-sm text-slate-100">                <li>- สร้างสรุปชาร์จได้ประมาณ 42 เคส/วัน</li>
                 <li>- ทุกอย่างใน Standard</li>
                 <li>- วิเคราะห์เชิงลึกมากขึ้นสำหรับเคสซับซ้อน</li>
                 <li>- แนะนำเติมข้อความใน order sheet (รวมผล lab/รังสีในหน้า) เพื่อรองรับรหัส (AdjRW ประมาณการ ไม่รับประกันการเบิกจ่าย)</li>
@@ -540,12 +534,6 @@ function PricingPageContent() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/10 text-slate-300 [&>tr]:transition [&>tr:hover]:bg-white/[0.03]">
-                <tr>
-                  <td className="px-4 py-3">AI Chat ข้อความ→คำตอบ (โดยประมาณ/วัน)</td>
-                  <td className={`px-4 py-3 ${selectedPlanTier === "basic" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>~40 ครั้ง</td>
-                  <td className={`px-4 py-3 ${selectedPlanTier === "standard" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>~140 ครั้ง</td>
-                  <td className={`px-4 py-3 ${selectedPlanTier === "pro" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>~420 ครั้ง</td>
-                </tr>
                 <tr>
                   <td className="px-4 py-3">สร้างสรุปชาร์จได้ประมาณต่อวัน</td>
                   <td className={`px-4 py-3 ${selectedPlanTier === "basic" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>~4 เคส</td>
@@ -595,8 +583,8 @@ function PricingPageContent() {
             ทดลองใช้ (Trial) รวมฟีเจอร์ &quot;แนะนำเติม chart / AdjRW ประมาณการ&quot; เช่นเดียวกับ Pro ในขอบเขตที่ระบบกำหนด
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
-            <Link href="/chat" className="rounded-xl border border-cyan-500/40 px-3 py-2 text-xs text-cyan-200 hover:bg-cyan-500/10">
-              เริ่มที่ AI Chat
+            <Link href="/app/guest" className="rounded-xl border border-cyan-500/40 px-3 py-2 text-xs text-cyan-200 hover:bg-cyan-500/10">
+              ทดลองสรุปด้วยข้อมูลตัวอย่าง
             </Link>
             <Link href="/app" className="rounded-xl border border-slate-600 px-3 py-2 text-xs text-slate-200 hover:bg-slate-800">
               ไปหน้าสรุปชาร์จ
