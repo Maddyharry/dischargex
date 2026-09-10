@@ -1,4 +1,33 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-export const metadata:Metadata={title:"ดาวน์โหลด DischargeX Auto สำหรับ HOSxP",description:"ดาวน์โหลดโปรแกรม Windows อ่านวิธีติดตั้งและดูความเปลี่ยนแปลงแต่ละรุ่น",alternates:{canonical:"/downloads"}};
-export default function Downloads(){const url=process.env.AUTOMATOR_DOWNLOAD_URL;const valid=url&&/^https:\/\/github\.com\/Maddyharry\/dischargex\/releases\/download\//.test(url);return <main className="mx-auto max-w-4xl px-6 py-14 text-slate-100"><p className="text-sm text-cyan-300">DischargeX Auto / Windows 64-bit</p><h1 className="mt-3 text-4xl font-semibold">ตั้งค่าเครื่องครั้งแรก แล้วเริ่มงานของคุณ</h1><p className="mt-5 text-lg leading-relaxed text-slate-300">ใช้บัญชีเดียวกับเว็บ ตรวจรุ่นและสำรองค่าตั้งเครื่องก่อนเปลี่ยนโปรแกรม</p><div className="my-8 rounded-xl border border-cyan-300/25 p-6">{valid?<a href={url} className="inline-block rounded bg-cyan-300 px-5 py-3 font-semibold text-slate-950">ดาวน์โหลดรุ่นที่เผยแพร่แล้ว</a>:<><h2 className="text-xl font-semibold">ไฟล์ติดตั้งกำลังเตรียมเผยแพร่</h2><p className="mt-3 text-slate-300">เมื่อรุ่นผ่านการตรวจ จะมีปุ่มดาวน์โหลดตรงนี้ ระหว่างนี้ทดลองหน้าสรุปบนเว็บและดูคู่มือได้</p></>}<div className="mt-5 flex flex-wrap gap-5"><Link href="/learn" className="text-cyan-300 underline">ดูวิธีใช้</Link><Link href="/app/guest?tutorial=1" className="text-cyan-300 underline">ลองตัวอย่างบนเว็บ</Link></div></div><ol className="list-decimal space-y-4 pl-5 leading-relaxed text-slate-300"><li>แตกไฟล์ทั้งโฟลเดอร์ แล้วเปิด DischargeXPortable.exe</li><li>ล็อกอินและตั้งค่าหน้าจอ HOSxP ให้ตรงกับเครื่อง</li><li>ทดสอบทีละช่วงก่อนเริ่มเคสจริง อ่านผลและตรวจข้อมูลก่อนบันทึก</li><li>พักด้วย F9 หยุดด้วย F10 เมื่อเกิดปัญหาให้ตรวจสิ่งที่ทำไปแล้วก่อนเริ่มใหม่</li></ol><p className="mt-8 text-sm text-slate-400">ข้อกำหนด: Windows 64-bit, HOSxP และอินเทอร์เน็ตสำหรับสร้างสรุป หากคอมโรงพยาบาลจำกัดสิทธิ์ ให้ผู้ดูแลเครื่องช่วยติดตั้ง</p></main>;}
+
+export const metadata: Metadata = {
+  title: "ดาวน์โหลด DischargeX Auto สำหรับ HOSxP",
+  description: "ดาวน์โหลด DischargeX Desktop สำหรับ Windows พร้อมคู่มือเริ่มต้นและตั้งค่าเครื่อง",
+  alternates: { canonical: "/downloads" },
+};
+const download = "https://github.com/Maddyharry/dischargex/releases/download/v0.12.9/DischargeX_Windows_v0.12.9.zip";
+export default function Downloads() {
+  return <main className="mx-auto max-w-4xl px-6 py-14 text-slate-100">
+    <p className="text-sm text-cyan-300">DischargeX Desktop · Windows 64-bit</p>
+    <h1 className="mt-3 text-4xl font-semibold">ดาวน์โหลด แล้วเริ่มจากการตั้งค่าเครื่อง</h1>
+    <p className="mt-5 text-lg leading-relaxed text-slate-300">ใช้บัญชีเดียวกับ dischargex.net เพื่อสร้างร่างสรุปและช่วยกรอกข้อมูลใน HOSxP</p>
+    <section className="my-8 rounded-xl border border-cyan-300/25 bg-slate-900 p-6">
+      <h2 className="text-2xl font-semibold">รุ่น 0.12.9</h2>
+      <p className="mt-3 text-slate-300">ปรับหน้าล็อกอิน แก้ปัญหาเปิดโปรแกรม และเพิ่มการตรวจรุ่นใหม่</p>
+      <a href={download} className="mt-6 inline-block rounded-lg bg-cyan-300 px-6 py-3 font-semibold text-slate-950">ดาวน์โหลดสำหรับ Windows (.zip)</a>
+      <p className="mt-3 text-sm text-slate-400">ต้องใช้อินเทอร์เน็ตสำหรับสร้างสรุปและเข้าสู่ระบบ</p>
+      <a className="mt-4 inline-block text-cyan-300 underline" href="https://github.com/Maddyharry/dischargex/releases/tag/v0.12.9">ดูรายละเอียดรุ่นและไฟล์ทางการ</a>
+    </section>
+    <h2 className="text-2xl font-semibold">เริ่มใช้งาน 4 ขั้นตอน</h2>
+    <ol className="mt-6 list-decimal space-y-4 pl-6 leading-relaxed text-slate-300">
+      <li>แตก ZIP ทั้งโฟลเดอร์ แล้วเปิด DischargeXPortable.exe</li>
+      <li>เข้าสู่ระบบด้วยบัญชี DischargeX แล้วตั้งค่าหน้าจอและลำดับการกดให้ตรงกับเครื่อง</li>
+      <li>ทดสอบทีละช่วงและทีละเคส ตรวจร่างสรุปและตำแหน่งกรอกข้อมูลก่อนบันทึก</li>
+      <li>พักหรือทำต่อด้วย F9 หยุดด้วย F10 เมื่อต้องตรวจหน้าจอ</li>
+    </ol>
+    <p className="mt-7 rounded-lg bg-slate-900 p-5 leading-relaxed text-slate-300">เปลี่ยนจากรุ่นเดิม: ปิดโปรแกรมและสำรองโฟลเดอร์เดิมก่อน คัดลอกโฟลเดอร์ profiles มาไว้ในรุ่นใหม่บนเครื่องเดิม เพื่อเก็บการตั้งค่าเครื่องและบัญชีของคุณ</p>
+    <p className="mt-6 text-sm text-slate-400">ระบบตรวจรุ่นใหม่แจ้งเมื่อมีไฟล์เผยแพร่ ผู้ใช้เป็นผู้ดาวน์โหลดและเปลี่ยนรุ่น โปรแกรมยังไม่ติดตั้งอัปเดตให้เอง</p>
+    <div className="mt-8 flex flex-wrap gap-6"><Link className="text-cyan-300 underline" href="/learn">ดูคู่มือภาพทีละขั้น</Link><Link className="text-cyan-300 underline" href="/app/guest?tutorial=1">ลองตัวอย่างบนเว็บ</Link></div>
+  </main>;
+}
