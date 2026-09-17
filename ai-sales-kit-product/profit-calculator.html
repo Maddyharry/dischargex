@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ตารางคำนวณกำไรสำหรับแม่ค้าออนไลน์</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 0;
+    }
+
+    :root {
+      --ink: #111827;
+      --muted: #6b7280;
+      --brand: #7c3aed;
+      --accent: #f97316;
+      --soft: #f5f3ff;
+      --line: #ddd6fe;
+      --green: #16a34a;
+      --red: #dc2626;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: #eef2ff;
+      color: var(--ink);
+      font-family: "Noto Sans Thai", "Sarabun", "Tahoma", sans-serif;
+      font-size: 19px;
+      line-height: 1.65;
+    }
+
+    .page {
+      width: 210mm;
+      min-height: 297mm;
+      margin: 18px auto;
+      padding: 20mm;
+      background: #ffffff;
+      box-shadow: 0 18px 45px rgba(17, 24, 39, 0.16);
+      break-after: page;
+    }
+
+    .hero {
+      border-radius: 28px;
+      padding: 28px;
+      color: #ffffff;
+      background:
+        radial-gradient(circle at 92% 20%, rgba(249, 115, 22, 0.95), transparent 25%),
+        linear-gradient(135deg, #111827 0%, #4c1d95 55%, #7c3aed 100%);
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: 42px;
+      line-height: 1.12;
+    }
+
+    h2 {
+      margin: 24px 0 10px;
+      color: var(--brand);
+      font-size: 27px;
+    }
+
+    p {
+      margin: 0 0 12px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      overflow: hidden;
+      border-radius: 18px;
+      font-size: 18px;
+    }
+
+    th,
+    td {
+      border: 1px solid var(--line);
+      padding: 13px 14px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: var(--brand);
+      color: #ffffff;
+    }
+
+    tr:nth-child(even) td {
+      background: var(--soft);
+    }
+
+    .input {
+      min-width: 44mm;
+      border-bottom: 2px dashed #9ca3af;
+      color: var(--muted);
+    }
+
+    .formula {
+      border-left: 7px solid var(--accent);
+      border-radius: 18px;
+      padding: 18px;
+      background: #fff7ed;
+      font-weight: 800;
+    }
+
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      margin-top: 16px;
+    }
+
+    .card {
+      border-radius: 20px;
+      padding: 16px;
+      background: #f8fafc;
+    }
+
+    .card strong {
+      display: block;
+      color: var(--brand);
+      font-size: 25px;
+    }
+
+    .note {
+      color: var(--muted);
+      font-size: 16px;
+    }
+
+    @media print {
+      body {
+        background: #ffffff;
+      }
+
+      .page {
+        margin: 0;
+        box-shadow: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <section class="page">
+    <div class="hero">
+      <h1>ตารางคำนวณกำไร<br>สำหรับแม่ค้าออนไลน์</h1>
+      <p>ใช้เช็กก่อนตั้งราคา โปรโมชัน และยิงแอด จะได้รู้ว่าขายแล้วเหลือเงินจริงเท่าไหร่</p>
+    </div>
+
+    <h2>กรอกตัวเลขต่อ 1 ออเดอร์</h2>
+    <table>
+      <tr><th>รายการ</th><th>จำนวนเงิน</th><th>หมายเหตุ</th></tr>
+      <tr><td>ราคาขาย</td><td class="input">________ บาท</td><td>ยอดที่ลูกค้าจ่ายต่อออเดอร์</td></tr>
+      <tr><td>ต้นทุนสินค้า</td><td class="input">________ บาท</td><td>รวมต้นทุนสินค้าทุกชิ้นในออเดอร์</td></tr>
+      <tr><td>ค่าแพ็ก / กล่อง</td><td class="input">________ บาท</td><td>กล่อง ซอง กันกระแทก สติกเกอร์</td></tr>
+      <tr><td>ค่าส่งที่ร้านออกเอง</td><td class="input">________ บาท</td><td>ถ้าลูกค้าจ่ายค่าส่งเอง ใส่ 0</td></tr>
+      <tr><td>ค่าธรรมเนียมแพลตฟอร์ม</td><td class="input">________ บาท</td><td>Shopee, TikTok, payment fee</td></tr>
+      <tr><td>ค่าแอดต่อออเดอร์</td><td class="input">________ บาท</td><td>งบแอดที่ใช้เพื่อได้ 1 ออเดอร์</td></tr>
+    </table>
+
+    <h2>สูตรคำนวณ</h2>
+    <div class="formula">กำไรต่อออเดอร์ = ราคาขาย - ต้นทุนสินค้า - ค่าแพ็ก - ค่าส่ง - ค่าธรรมเนียม - ค่าแอด</div>
+
+    <div class="summary">
+      <div class="card"><strong>กำไรต่อออเดอร์</strong>____ บาท</div>
+      <div class="card"><strong>ขาย 10 ออเดอร์</strong>____ บาท</div>
+      <div class="card"><strong>ขาย 50 ออเดอร์</strong>____ บาท</div>
+    </div>
+
+    <h2>ตัวอย่าง</h2>
+    <table>
+      <tr><th>รายการ</th><th>ตัวเลข</th></tr>
+      <tr><td>ราคาขาย</td><td>299 บาท</td></tr>
+      <tr><td>ต้นทุนสินค้า</td><td>110 บาท</td></tr>
+      <tr><td>ค่าแพ็ก + ค่าส่ง + fee</td><td>60 บาท</td></tr>
+      <tr><td>ค่าแอดต่อออเดอร์</td><td>60 บาท</td></tr>
+      <tr><td><strong>กำไรต่อออเดอร์</strong></td><td><strong>69 บาท</strong></td></tr>
+    </table>
+
+    <p class="note">คำแนะนำ: ถ้ากำไรต่อออเดอร์ต่ำเกินไป ให้เพิ่มแพ็กคู่ ลดของแถมที่ไม่จำเป็น หรือปรับกลุ่มเป้าหมายแอดก่อนเพิ่มงบ</p>
+  </section>
+</body>
+</html>
