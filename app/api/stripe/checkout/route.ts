@@ -33,12 +33,6 @@ export async function POST(req: NextRequest) {
     const planRequestedRaw = String(body.planRequested || "").trim();
     const addCredits = Number(body.addCredits || 0);
     const isAddCredits = Number.isFinite(addCredits) && addCredits > 0;
-    if (isAddCredits) {
-      return NextResponse.json(
-        { ok: false, error: "การซื้อวงเงินเสริมยังไม่เปิดให้บริการ กรุณาติดต่อทีมงาน" },
-        { status: 400 }
-      );
-    }
     if (!isAddCredits && !planRequestedRaw) {
       return NextResponse.json({ ok: false, error: "Missing planRequested" }, { status: 400 });
     }
@@ -143,7 +137,7 @@ export async function POST(req: NextRequest) {
               price_data: {
                 currency: "thb",
                 product_data: {
-                  name: `DischargeX Boost ${addCredits}`,
+                  name: `DischargeX Boost ${addCredits} case passes`,
                 },
                 unit_amount: Math.round(finalAmount * 100),
               },

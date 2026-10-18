@@ -7,7 +7,6 @@ import { resolveEmailFromBearerToken } from "@/lib/api-token";
 import {
   getDailyApproxLimit,
   getCreditCycleBounds,
-  getCreditsRequiredForCase,
   getPeriodBounds,
   getPlanDefinition,
   normalizePlanId,
@@ -54,6 +53,7 @@ import { getTrialExpiredPolicy } from "@/lib/trial-expired-policy";
 import { callModelJSON, type SummaryModelCallOptions } from "@/lib/summary-model";
 import { estimateActualApiCostThbByModel, isRevenue5xEligible, resolveApiCostModelAlias } from "@/lib/api-cost";
 import { getUsagePolicySnapshot, selectUsagePolicyLedgerRows, type UsagePolicyLedgerRow } from "@/lib/usage-policy";
+import { evaluateBoostGate, getBoostPassesRequired, projectBoostCaseCost } from "@/lib/boost-policy";
 
 export const runtime = "nodejs";
 
@@ -129,6 +129,7 @@ type NormalizedBlock = {
 };
 
 type ReqBody = {
+  useBoost?: boolean;
   mode?: "generate" | "recalc";
   template: { blocks: Block[] };
   currentBlocks?: NormalizedBlock[];
@@ -1277,6 +1278,13 @@ export async function POST(req: Request) {
     }
 
     const mode = body.mode || "generate";
+    const estimatedInputChars = String(body.inputs?.order_sheet || "").length + String(body.inputs?.other || "").length;
+    // Images may add substantial extracted text, so reserve the long-case amount before OCR.
+    const estimatedCreditsForCase = mode === "generate"
+      ? getBoostPassesRequired({ totalInputChars: estimatedInputChars, imageCount: safeImageInputs.length })
+      : 0;
+    let useBoostForCase = false;
+    const enforceCreditLimit = shouldEnforceLegacyCreditLimit();
     const fast = body.settings?.fast ?? false;
     const requestedModel = body.settings?.model || (fast ? "gpt-5-mini" : "gpt-5.4");
     const modelAllowlist = new Set((process.env.SUMMARY_ALLOWED_MODELS || "gpt-5-mini,gpt-5.4").split(",").map((value) => value.trim()).filter(Boolean));
@@ -1290,9 +1298,9 @@ export async function POST(req: Request) {
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const revenue5xMode = planDefinition.isPaid && isRevenue5xEligible(dbUser?.periodStartedAt);
     const tokenBudgetThb = getPlanTokenBudgetThb(plan);
-    if (mode === "generate" && !isAdminUser && todaySummaryCount >= summaryApproxLimit) {
-      return json({ error: `วันนี้คุณสร้างสรุปชาร์จครบโควตาโดยประมาณแล้ว (${summaryApproxLimit} เคส/วัน) ลองใหม่หลัง ${formatBangkokDateTime(nextDailyResetAt)}`, errorCode: "SUMMARY_DAILY_LIMIT_REACHED", resetAt: nextDailyResetAt.toISOString() }, 429);
-    }
+    const dailyLimitReached = mode === "generate" && !isAdminUser && todaySummaryCount >= summaryApproxLimit;
+    const legacyCreditsBlocked = mode === "generate" && !revenue5xMode && enforceCreditLimit &&
+      !isAdminUser && baseRemaining < estimatedCreditsForCase;
 
     const policyRangeStart = new Date(Math.min(monthStart.getTime(), periodStart.getTime()));
     const policyRangeEnd = new Date(Math.max(new Date(now.getFullYear(), now.getMonth() + 1, 1).getTime(), periodEnd.getTime()));
@@ -1322,21 +1330,47 @@ export async function POST(req: Request) {
     };
     if (!isAdminUser) {
       const snapshot = await loadUsagePolicy();
-      if (!snapshot.allowed) {
-        const unavailable = snapshot.costEstimate.status === "unknown";
-        const inactive = snapshot.status === "expired";
+      const gate = evaluateBoostGate({
+        requested: mode === "generate" && body.useBoost === true,
+        passesRequired: estimatedCreditsForCase,
+        passesAvailable: extraCredits,
+        subscriptionActive: snapshot.status === "active" && planDefinition.isPaid,
+        usageKnown: snapshot.costEstimate.status === "known",
+        usageSafe: snapshot.costEstimate.safeForEnforcement,
+        dailyBlocked: dailyLimitReached,
+        periodBlocked: !snapshot.allowed,
+        legacyCreditsBlocked,
+      });
+      if (gate.authorized) useBoostForCase = true;
+      if (gate.blocked && !gate.authorized) {
+        const unavailable = gate.reason === "usage_unknown";
+        const inactive = gate.reason === "inactive";
         return json({
-          error: unavailable ? "ไม่สามารถตรวจสอบโควตาการใช้งาน AI ได้ กรุณาลองใหม่ภายหลัง" : "โควตาหรือรอบสมาชิกปัจจุบันไม่อนุญาตให้เรียก AI",
-          errorCode: unavailable ? "USAGE_POLICY_UNAVAILABLE" : inactive ? "SUBSCRIPTION_NOT_ACTIVE" : snapshot.mode === "revenue_5x" ? "API_COST_TARGET_REACHED" : "USAGE_POLICY_LIMIT_REACHED",
+          error: unavailable ? "ไม่สามารถตรวจสอบโควตาการใช้งานได้ กรุณาลองใหม่ภายหลัง" : inactive ? "แพ็กเกจไม่ active จึงยังใช้งานไม่ได้" : dailyLimitReached ? `วันนี้ครบโควตาแล้ว ลองใหม่หลัง ${formatBangkokDateTime(nextDailyResetAt)}` : legacyCreditsBlocked ? "โควตาเคสของรอบนี้ไม่พอ Boost ใช้ทำเคสต่อได้" : "โควตารอบนี้ครบแล้ว",
+          errorCode: unavailable ? "USAGE_POLICY_UNAVAILABLE" : inactive ? "SUBSCRIPTION_NOT_ACTIVE" : gate.reason === "insufficient_passes" ? "BOOST_CREDITS_INSUFFICIENT" : legacyCreditsBlocked ? "LEGACY_CREDIT_LIMIT_REACHED" : dailyLimitReached ? "SUMMARY_DAILY_LIMIT_REACHED" : snapshot.mode === "revenue_5x" ? "API_COST_TARGET_REACHED" : "USAGE_POLICY_LIMIT_REACHED",
           ...(!inactive && snapshot.resetAt ? { resetAt: snapshot.resetAt } : {}),
+          ...(dailyLimitReached ? { resetAt: nextDailyResetAt.toISOString() } : {}),
+          ...(gate.canOffer ? { canPurchaseBoost: true, boostAvailable: extraCredits >= estimatedCreditsForCase, requiredBoostPasses: estimatedCreditsForCase, boostPassBalance: extraCredits } : {}),
         }, unavailable ? 503 : 402);
       }
     }
 
     const maxOutputTokens = fast ? 2_000 : 4_000;
+    let boostProjectedCostThb = 0;
+    let boostActualCostThb = 0;
+    const boostCostAllowanceThb = estimatedCreditsForCase * 4.36;
     const guardProviderCall = async (input: string | number, outputTokens: number, providerModel: string) => {
       if (isAdminUser) return;
       const snapshot = await loadUsagePolicy();
+      if (useBoostForCase) {
+        if (snapshot.status !== "active" || snapshot.costEstimate.status !== "known" || !snapshot.costEstimate.safeForEnforcement) throw new Error("USAGE_POLICY_UNAVAILABLE");
+        const projectedInputTokens = (typeof input === "number" ? input : new TextEncoder().encode(input).length) + 512;
+        const projected = estimateActualApiCostThbByModel({ inputTokens: projectedInputTokens, outputTokens, totalTokens: projectedInputTokens + outputTokens }, providerModel);
+        const projection = projectBoostCaseCost({ projectedSoFarThb: boostProjectedCostThb, nextCallCostThb: projected.status === "known" ? projected.estimatedCostThb : null, passes: estimatedCreditsForCase, usageSafe: projected.status === "known" });
+        if (!projection.allowed) throw new Error(projection.reason === "unknown" ? "BOOST_USAGE_UNAVAILABLE" : "BOOST_CASE_COST_LIMIT");
+        boostProjectedCostThb = projection.projectedTotalThb!;
+        return;
+      }
       if (!snapshot.allowed || snapshot.remainingThb == null) {
         throw new Error(snapshot.costEstimate.status === "unknown"
           ? "USAGE_POLICY_UNAVAILABLE"
@@ -1346,10 +1380,15 @@ export async function POST(req: Request) {
       const projectedInputTokens = (typeof input === "number" ? input : new TextEncoder().encode(input).length) + 512;
       if (snapshot.mode === "revenue_5x") {
         const projected = estimateActualApiCostThbByModel({ inputTokens: projectedInputTokens, outputTokens, totalTokens: projectedInputTokens + outputTokens }, providerModel);
-        if (projected.status !== "known" || projected.estimatedCostThb > snapshot.remainingThb) throw new Error("API_COST_TARGET_REACHED");
+        if (projected.status !== "known") throw new Error("API_COST_TARGET_REACHED");
+        if (projected.estimatedCostThb > snapshot.remainingThb) {
+          throw new Error("API_COST_TARGET_REACHED");
+        }
       } else {
         const projected = estimateTokenBillingThbByModel({ inputTokens: projectedInputTokens, outputTokens, totalTokens: projectedInputTokens + outputTokens }, providerModel);
-        if (projected.estimatedCostThb > snapshot.remainingThb) throw new Error("USAGE_POLICY_LIMIT_REACHED");
+        if (projected.estimatedCostThb > snapshot.remainingThb) {
+          throw new Error("USAGE_POLICY_LIMIT_REACHED");
+        }
       }
     };
     const summaryCallOptions = {
@@ -1373,6 +1412,13 @@ export async function POST(req: Request) {
             payload: JSON.stringify({ purpose, usageAvailable, actualApiCostThb: apiCost?.status === "known" ? apiCost.estimatedCostThb : null }),
           },
         });
+        if (useBoostForCase && (!usageAvailable || apiCost?.status !== "known")) {
+          throw new Error("BOOST_USAGE_UNAVAILABLE");
+        }
+        if (useBoostForCase && apiCost?.status === "known") {
+          boostActualCostThb += apiCost.estimatedCostThb;
+          if (boostActualCostThb > boostCostAllowanceThb) throw new Error("BOOST_CASE_COST_LIMIT");
+        }
       },
     };
 
@@ -1402,6 +1448,9 @@ export async function POST(req: Request) {
         const imageResult = await extractClinicalTextFromImages(openai, safeImageInputs);
         imageExtractText = imageResult.text;
         const imageUsage = readUsageSummary(imageResult.usage);
+        if (useBoostForCase && (!imageResult.usage || !imageResult.usage.input_tokens || !imageResult.usage.output_tokens)) {
+          throw new Error("BOOST_USAGE_UNAVAILABLE");
+        }
         if (userId) {
           try {
             const usageAvailable = Boolean(imageResult.usage &&
@@ -1409,6 +1458,11 @@ export async function POST(req: Request) {
             const actualCost = usageAvailable
               ? estimateActualApiCostThbByModel(imageResult.usage!, "gpt-4.1-mini")
               : null;
+            if (useBoostForCase) {
+              if (!usageAvailable || actualCost?.status !== "known") throw new Error("BOOST_USAGE_UNAVAILABLE");
+              boostActualCostThb += actualCost.estimatedCostThb;
+              if (boostActualCostThb > boostCostAllowanceThb) throw new Error("BOOST_CASE_COST_LIMIT");
+            }
             await prisma.tokenUsageLedger.create({
               data: {
                 userId,
@@ -1434,6 +1488,8 @@ export async function POST(req: Request) {
           "USAGE_POLICY_LIMIT_REACHED",
           "USAGE_POLICY_UNAVAILABLE",
           "SUBSCRIPTION_NOT_ACTIVE",
+          "BOOST_USAGE_UNAVAILABLE",
+          "BOOST_CASE_COST_LIMIT",
         ].includes(error.message)) throw error;
         imageExtractWarnings.push("สกัดข้อความจากรูปไม่สำเร็จ ระบบจึงใช้เฉพาะข้อความที่พิมพ์ไว้");
       }
@@ -1446,9 +1502,16 @@ export async function POST(req: Request) {
     ]
       .filter(Boolean)
       .join("\n\n");
-    const requiredCreditsForCase = mode === "generate" ? getCreditsRequiredForCase(mergedRaw.length) : 0;
-    const availableCredits = baseRemaining + extraCredits;
-    const enforceCreditLimit = shouldEnforceLegacyCreditLimit();
+    const requiredCreditsForCase = mode === "generate"
+      ? getBoostPassesRequired({ totalInputChars: mergedRaw.length, imageCount: safeImageInputs.length })
+      : 0;
+    if (useBoostForCase && requiredCreditsForCase > estimatedCreditsForCase) {
+      return json({ error: "เคสนี้ต้องใช้ Boost 2 สิทธิ์ กรุณากดยืนยันอีกครั้งหลังตรวจสอบสิทธิ์คงเหลือ", errorCode: "BOOST_PASSES_REQUIRED", requiredBoostPasses: requiredCreditsForCase, canPurchaseBoost: true, boostAvailable: extraCredits >= requiredCreditsForCase }, 402);
+    }
+    if (useBoostForCase && extraCredits < requiredCreditsForCase) {
+      const snapshot = await loadUsagePolicy();
+      return json({ error: "Boost คงเหลือไม่พอสำหรับเคสนี้ กรุณาซื้อ Boost เพิ่มหรือรอรอบแพ็กเกจรีเซ็ต", errorCode: "BOOST_CREDITS_INSUFFICIENT", resetAt: snapshot.resetAt, boostAvailable: true }, 402);
+    }
 
     const trialExpiredPolicy = await getTrialExpiredPolicy();
     if (
@@ -1461,7 +1524,7 @@ export async function POST(req: Request) {
       return json(
         {
           error:
-            "Trial หมดอายุแล้ว: ปิดการใช้งานสรุปชาร์จชั่วคราว เพื่อให้ใช้งานต่อได้เฉพาะ AI Chat แบบค้นหารหัส ICD-10 เท่านั้น หากต้องการใช้สรุปชาร์จ กรุณาอัปเกรดแพ็กเกจที่ /pricing",
+            "Trial หมดอายุแล้ว กรุณาอัปเกรดแพ็กเกจที่ /pricing เพื่อใช้งานสรุปชาร์จต่อ",
           limitedMode: "trial_expired_icd10_only",
         },
         402
@@ -1811,29 +1874,7 @@ export async function POST(req: Request) {
             "If both KNOWLEDGE_UPDATES_JSON and EXTERNAL_REFERENCE_SOURCES_JSON are empty/insufficient, avoid definitive principal diagnosis and explicitly state missing evidence in warnings.",
           ].join("\n\n");
 
-    if (
-      enforceCreditLimit &&
-      mode === "generate" &&
-      !isAdminUser &&
-      (isExpired || availableCredits < requiredCreditsForCase)
-    ) {
-      if (isExpired) {
-        return json(
-          {
-            error: `หมดรอบการใช้งานแล้ว ระบบจะรีเซ็ตอีกครั้งประมาณ ${formatBangkokDateTime(nextDailyResetAt)} หรือคุณสามารถซื้อแพ็กเพิ่มได้ที่หน้า /pricing`,
-            resetAt: nextDailyResetAt.toISOString(),
-          },
-          402
-        );
-      }
-      return json(
-        {
-          error: `โควตารอบนี้ไม่พอสำหรับเคสนี้ ลองใหม่หลัง ${formatBangkokDateTime(nextDailyResetAt)}`,
-          resetAt: nextDailyResetAt.toISOString(),
-        },
-        402
-      );
-    }
+    if (legacyCreditsBlocked && !useBoostForCase) return json({ error: `โควตารอบนี้ไม่พอสำหรับเคสนี้ ลองใหม่หลัง ${formatBangkokDateTime(nextDailyResetAt)}`, errorCode: "LEGACY_CREDIT_LIMIT_REACHED", resetAt: nextDailyResetAt.toISOString() }, 402);
 
     const draftResponse = await callModelJSON<GenerateModelOutput>(openai, model, system, user, summaryCallOptions);
     const draftOut = draftResponse.data;
@@ -2075,8 +2116,8 @@ export async function POST(req: Request) {
     }
 
     if (mode === "generate" && userId) {
-      const baseToUse = Math.min(baseRemaining, requiredCreditsForCase);
-      const addonToUse = requiredCreditsForCase - baseToUse;
+      const baseToUse = useBoostForCase ? 0 : Math.min(baseRemaining, requiredCreditsForCase);
+      const addonToUse = useBoostForCase ? requiredCreditsForCase : 0;
 
       const exportText =
         isProPlan
@@ -2094,7 +2135,7 @@ export async function POST(req: Request) {
             update: { count: { increment: 1 } },
           });
 
-          if (enforceCreditLimit && addonToUse > 0) {
+          if ((enforceCreditLimit || useBoostForCase) && addonToUse > 0) {
             const updatedCount = await tx.user.updateMany({
               where: { id: userId, extraCredits: { gte: addonToUse } },
               data: {
@@ -2116,10 +2157,10 @@ export async function POST(req: Request) {
             data: {
               userId,
               ...(summaryJobId ? { caseId: summaryJobId } : {}),
-              creditsUsed: enforceCreditLimit ? requiredCreditsForCase : 0,
-              baseCreditsUsed: enforceCreditLimit ? baseToUse : 0,
-              addonCreditsUsed: enforceCreditLimit ? addonToUse : 0,
-              reason: enforceCreditLimit
+              creditsUsed: enforceCreditLimit || useBoostForCase ? requiredCreditsForCase : 0,
+              baseCreditsUsed: enforceCreditLimit || useBoostForCase ? baseToUse : 0,
+              addonCreditsUsed: enforceCreditLimit || useBoostForCase ? addonToUse : 0,
+              reason: enforceCreditLimit || useBoostForCase
                 ? requiredCreditsForCase > 1
                   ? "long_case_generate"
                   : "generate"
@@ -2200,7 +2241,7 @@ export async function POST(req: Request) {
       },
     });
   } catch (err: unknown) {
-    const policyErrorCode = err instanceof Error && (err.message === "API_COST_TARGET_REACHED" || err.message === "USAGE_POLICY_LIMIT_REACHED" || err.message === "USAGE_POLICY_UNAVAILABLE" || err.message === "SUBSCRIPTION_NOT_ACTIVE") ? err.message : null;
+    const policyErrorCode = err instanceof Error && (["API_COST_TARGET_REACHED", "USAGE_POLICY_LIMIT_REACHED", "USAGE_POLICY_UNAVAILABLE", "SUBSCRIPTION_NOT_ACTIVE", "BOOST_USAGE_UNAVAILABLE", "BOOST_CASE_COST_LIMIT"].includes(err.message)) ? err.message : null;
     const policyBlocked = policyErrorCode !== null;
     const errorCode = policyErrorCode || "SUMMARY_GENERATION_FAILED";
     console.error("summarize_route_failed", errorCode);
@@ -2222,11 +2263,11 @@ export async function POST(req: Request) {
     }
     return json(
       {
-        error: policyErrorCode === "USAGE_POLICY_UNAVAILABLE" ? "ไม่สามารถตรวจสอบโควตาการใช้งาน AI ได้ กรุณาลองใหม่ภายหลัง" : policyBlocked ? "โควตาหรือวงเงินสำหรับคำขอนี้ไม่เพียงพอ กรุณาลองใหม่ในรอบถัดไป" : "ขออภัย ระบบสรุปชาร์จขัดข้องชั่วคราว กรุณาลองใหม่ภายหลัง",
+        error: policyErrorCode === "USAGE_POLICY_UNAVAILABLE" || policyErrorCode === "BOOST_USAGE_UNAVAILABLE" ? "ไม่สามารถตรวจสอบการใช้งานได้อย่างปลอดภัย กรุณาลองใหม่ภายหลัง" : policyErrorCode === "BOOST_CASE_COST_LIMIT" ? "เคสนี้เกินขอบเขตการใช้งาน Boost กรุณาใช้ข้อมูลสั้นลงหรือสิทธิ์เพิ่ม" : policyBlocked ? "โควตาหรือวงเงินสำหรับคำขอนี้ไม่เพียงพอ กรุณาลองใหม่ในรอบถัดไป" : "ขออภัย ระบบสรุปชาร์จขัดข้องชั่วคราว กรุณาลองใหม่ภายหลัง",
         errorCode,
         ...(policyErrorCode !== "SUBSCRIPTION_NOT_ACTIVE" && policyResetAt ? { resetAt: policyResetAt } : {}),
       },
-      policyErrorCode === "USAGE_POLICY_UNAVAILABLE" ? 503 : policyBlocked ? 402 : 500
+      policyErrorCode === "USAGE_POLICY_UNAVAILABLE" || policyErrorCode === "BOOST_USAGE_UNAVAILABLE" ? 503 : policyBlocked || policyErrorCode === "BOOST_CASE_COST_LIMIT" ? 402 : 500
     );
   } finally {
     if (usageLease) {

@@ -120,18 +120,18 @@ export type AddonCreditOption = {
 };
 
 export const ADDON_OPTIONS: AddonCreditOption[] = [
-  { credits: 40, priceThb: 89 },
-  { credits: 120, priceThb: 199 },
+  { credits: 5, priceThb: 109 },
+  { credits: 15, priceThb: 329 },
 ];
 
 const PLAN_DAILY_APPROX_LIMITS: Record<PlanId, PlanDailyApproxLimit> = {
   trial: { chatPerDay: 20, summaryPerDay: 2 },
-  basic_monthly: { chatPerDay: 40, summaryPerDay: 4 },
-  basic_yearly: { chatPerDay: 40, summaryPerDay: 4 },
-  standard_monthly: { chatPerDay: 140, summaryPerDay: 14 },
-  standard_yearly: { chatPerDay: 140, summaryPerDay: 14 },
-  pro_monthly: { chatPerDay: 420, summaryPerDay: 42 },
-  pro_yearly: { chatPerDay: 420, summaryPerDay: 42 },
+  basic_monthly: { chatPerDay: 40, summaryPerDay: 5 },
+  basic_yearly: { chatPerDay: 40, summaryPerDay: 5 },
+  standard_monthly: { chatPerDay: 140, summaryPerDay: 15 },
+  standard_yearly: { chatPerDay: 140, summaryPerDay: 15 },
+  pro_monthly: { chatPerDay: 420, summaryPerDay: 40 },
+  pro_yearly: { chatPerDay: 420, summaryPerDay: 40 },
 };
 
 const PLAN_ALIAS: Record<string, PlanId> = {

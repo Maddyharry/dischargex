@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import UsagePolicyCard from "@/app/components/UsagePolicyCard";
-import type { UsagePolicySnapshot } from "@/lib/usage-policy";
 import { THAI_PROVINCES, validateBirthDateBE, validateThaiPhone } from "@/lib/thai-input";
 import { LAST_REVIEWED_DATE, REFERENCE_SET_NAME } from "@/lib/reference-info";
 
@@ -25,17 +24,18 @@ type UsageInfo = {
   total: number;
   used: number;
   remaining: number;
-  tokenSpendThb?: number;
-  tokenBudgetThb?: number;
-  tokenRemainingThb?: number;
-  tokenUsagePercent?: number;
+  extraCredits?: number;
+  periodAllowancePercentUsed?: number | null;
+  periodAllowanceReached?: boolean;
+  periodAllowanceResetAt?: string | null;
+  usagePolicyKnown?: boolean;
+  boostPurchaseAvailable?: boolean;
   baseUsagePercent?: number;
   nextCreditRefreshAt?: string | null;
   daysLeftInMonth?: number;
   subscriptionStatus?: string;
   nextPlanId?: string | null;
   nextPlanEffectiveDate?: string | null;
-  usagePolicy?: UsagePolicySnapshot;
   summaryUsedToday?: number;
   summaryDailyLimit?: number;
   nextDailyResetAt?: string;
@@ -195,12 +195,9 @@ export default function ProfilePage() {
             total: usageData.total ?? 0,
             used: usageData.used ?? 0,
             remaining: usageData.remaining ?? 0,
-            tokenSpendThb: typeof usageData.tokenSpendThb === "number" ? usageData.tokenSpendThb : undefined,
-            tokenBudgetThb: typeof usageData.tokenBudgetThb === "number" ? usageData.tokenBudgetThb : undefined,
-            tokenRemainingThb:
-              typeof usageData.tokenRemainingThb === "number" ? usageData.tokenRemainingThb : undefined,
-            tokenUsagePercent:
-              typeof usageData.tokenUsagePercent === "number" ? usageData.tokenUsagePercent : undefined,
+            periodAllowancePercentUsed: typeof usageData.periodAllowancePercentUsed === "number" ? usageData.periodAllowancePercentUsed : null,
+            periodAllowanceReached: usageData.periodAllowanceReached === true,
+            periodAllowanceResetAt: typeof usageData.periodAllowanceResetAt === "string" ? usageData.periodAllowanceResetAt : null,
             baseUsagePercent:
               typeof usageData.baseUsagePercent === "number" ? usageData.baseUsagePercent : undefined,
             daysLeftInMonth:
@@ -210,7 +207,6 @@ export default function ProfilePage() {
             subscriptionStatus: usageData.subscriptionStatus,
             nextPlanId: usageData.nextPlanId ?? null,
             nextPlanEffectiveDate: usageData.nextPlanEffectiveDate ?? null,
-            usagePolicy: usageData.usagePolicy,
             summaryUsedToday: typeof usageData.summaryUsedToday === "number" ? usageData.summaryUsedToday : undefined,
             summaryDailyLimit: typeof usageData.summaryDailyLimit === "number" ? usageData.summaryDailyLimit : undefined,
             nextDailyResetAt: typeof usageData.nextDailyResetAt === "string" ? usageData.nextDailyResetAt : null,
@@ -621,11 +617,17 @@ export default function ProfilePage() {
                   <p className="mb-2 text-xs text-slate-400">แผนปัจจุบัน</p>
                   <p className="mb-4 text-sm font-medium text-slate-100">{formatPlanName(usage?.plan ?? user?.plan)}</p>
                   <UsagePolicyCard
-                    policy={usage?.usagePolicy}
+                    used={usage?.used ?? 0}
+                    remaining={usage?.remaining ?? 0}
+                    total={usage?.total ?? 0}
                     summaryUsedToday={usage?.summaryUsedToday}
                     summaryDailyLimit={usage?.summaryDailyLimit}
                     summaryResetAt={usage?.nextDailyResetAt}
-                    paidPlan={Boolean(usage?.plan && usage.plan !== "trial")}
+                    periodEnd={usage?.periodAllowanceResetAt}
+                    periodPercentUsed={usage?.periodAllowancePercentUsed}
+                    boostCredits={usage?.extraCredits ?? 0}
+                    active={usage?.subscriptionStatus === "active" || usage?.subscriptionStatus === "pending_change"}
+                    canPurchaseBoost={usage?.boostPurchaseAvailable === true}
                   />
                 </div>
                 {usage?.nextPlanId ? (
@@ -770,7 +772,7 @@ export default function ProfilePage() {
                           <td className="px-4 py-3 text-slate-300">{r.type || "-"}</td>
                           <td className="px-4 py-3 font-medium text-slate-200">
                             {r.type === "addon" ? (
-                              <>ซื้อ Boost เพิ่ม {r.addCredits ?? 0} หน่วย</>
+                              <>ซื้อ Boost {r.addCredits ?? 0} สิทธิ์</>
                             ) : (
                               <>
                                 {r.fromPlanId ? `${formatPlanName(r.fromPlanId)} -> ` : ""}

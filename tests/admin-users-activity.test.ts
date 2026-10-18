@@ -45,7 +45,7 @@ describe("admin user usage counters", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("Cache-Control")).toContain("private, no-store");
     expect(body.users[0]).toMatchObject({
-      totalGenerations: 55, usageCount: 0, summariesToday: 0, dailySummaryLimit: 42, summariesThisMonth: 55,
+      totalGenerations: 55, usageCount: 0, summariesToday: 0, dailySummaryLimit: 40, summariesThisMonth: 55,
       lifetimeSummaries: 55, apiCostEstimateStatus: "known", apiCostEstimateThb: 0.63,
       currentApiCostCapKind: "legacy_internal", currentApiCostCapThb: 3600, nextRenewalCapForecastThb: 218,
     });

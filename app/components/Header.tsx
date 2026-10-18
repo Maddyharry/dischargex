@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
 import { useEffect, useMemo, useState, useRef } from "react";
-import { isChatEnabled } from "@/lib/feature-flags";
 
 type UsageInfo = {
   plan: string;
@@ -213,15 +212,6 @@ export function Header() {
               </div>
             ) : null}
           </div>
-          {isChatEnabled() ? (
-            <Link
-              href="/chat"
-              data-google-conversion-label="CHAT_ENTRY"
-              className="shrink-0 rounded-lg border border-cyan-500/45 bg-cyan-500/12 px-3 py-2 text-sm font-medium text-cyan-100 transition hover:border-cyan-400/60 hover:bg-cyan-500/20 hover:text-white"
-            >
-              AI Chat
-            </Link>
-          ) : null}
           <Link
             href="/app"
             className="hidden shrink-0 rounded-lg border border-slate-600/80 bg-slate-800/40 px-3 py-2 text-sm text-slate-200 transition hover:border-slate-500 hover:bg-slate-700/40 hover:text-white sm:inline-flex"

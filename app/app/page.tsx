@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState, forwardRef } from "react";
 import Link from "next/link";
+import BoostPurchaseButton from "@/app/components/BoostPurchaseButton";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import {
@@ -20,6 +21,7 @@ import { type WorkspaceCoachPhase } from "@/app/components/WorkspaceTutorialFloa
 import type { DiagnosisEngineItem, DischargeEnginePayload } from "@/lib/discharge-engine/types";
 import { createDxCoachData } from "@/lib/charge-mentor";
 import { getPlanDefinition, normalizePlanId } from "@/lib/billing-rules";
+import { getBoostPassesRequired } from "@/lib/boost-policy";
 
 type Block = {
   key: string;
@@ -112,9 +114,12 @@ type SummaryQuotaNotice = {
   shortLabel: string;
   resetAtText: string | null;
   resetLabel: string | null;
+  boostAvailable: boolean;
+  canPurchaseBoost?: boolean;
+  requiredBoostPasses?: number;
 };
 class ApiResponseError extends Error {
-  constructor(message: string, readonly errorCode: string | null, readonly resetAt: string | null) {
+  constructor(message: string, readonly errorCode: string | null, readonly resetAt: string | null, readonly boostAvailable = false, readonly requiredBoostPasses?: number, readonly canPurchaseBoost = false) {
     super(message);
     this.name = "ApiResponseError";
   }
@@ -199,7 +204,6 @@ const WORKSPACE_PANEL_DEFAULTS: Record<WorkspacePanelKey, boolean> = {
   preprocessSummary: true,
   warnings: true,
 };
-const WORKSPACE_CHAT_BANNER_DISMISSED_KEY = "dischargex_workspace_chat_banner_dismissed";
 
 function createEmptyBlocks(): NormalizedBlock[] {
   return DEFAULT_BLOCKS.map((b) => ({
@@ -294,7 +298,6 @@ function PageContent() {
   } | null>(null);
   const [mobileSectionIndex, setMobileSectionIndex] = useState(0);
   const [isMobileViewport, setIsMobileViewport] = useState(false);
-  const [chatBannerDismissed, setChatBannerDismissed] = useState(false);
 
   const [tutorialPhase, setTutorialPhase] = useState<TutorialPhase>("off");
   const [tutorialInit, setTutorialInit] = useState(false);
@@ -363,7 +366,6 @@ function PageContent() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    setChatBannerDismissed(window.localStorage.getItem(WORKSPACE_CHAT_BANNER_DISMISSED_KEY) === "1");
   }, []);
 
   useEffect(() => {
@@ -434,10 +436,13 @@ function PageContent() {
           ok?: boolean;
           summaryDailyLimitReached?: boolean;
           tokenBudgetReached?: boolean;
+          extraCredits?: number;
+          boostPurchaseAvailable?: boolean;
+          usagePolicyKnown?: boolean;
           nextDailyResetAt?: string;
           periodEnd?: string;
           subscriptionStatus?: string;
-          usagePolicy?: { mode?: "legacy_internal" | "revenue_5x"; resetAt?: string | null };
+          periodAllowanceResetAt?: string | null;
         };
         if (cancelled || !data?.ok) return;
         const expired = data.subscriptionStatus === "expired";
@@ -448,19 +453,23 @@ function PageContent() {
         }
         const kind: SummaryQuotaNotice["kind"] = expired ? "expired"
           : data.summaryDailyLimitReached ? "daily"
-            : data.usagePolicy?.mode === "revenue_5x" ? "next_renewal" : "monthly";
-        const resetAtRaw = expired ? null : data.summaryDailyLimitReached ? data.nextDailyResetAt : data.usagePolicy?.resetAt || data.periodEnd;
+            : "monthly";
+        const resetAtRaw = expired ? null : data.summaryDailyLimitReached ? data.nextDailyResetAt : data.periodAllowanceResetAt || data.periodEnd;
         const resetAtText = resetAtRaw
           ? new Date(resetAtRaw).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short" })
           : null;
+        const requiredBoostPasses = getBoostPassesRequired({ totalInputChars: orderSheet.length + other.length, imageCount: uploadedImages.length });
+        const boostEligible = (data.subscriptionStatus === "active" || data.subscriptionStatus === "pending_change") && data.usagePolicyKnown === true && (data.extraCredits ?? 0) >= requiredBoostPasses;
         setSummaryQuotaNotice({
           kind,
-          shortLabel: kind === "expired" ? "สถานะสมาชิกไม่ active กรุณาตรวจสอบการชำระเงินหรือแพ็กเกจ (ไม่มีวันรีเซ็ตที่ยืนยันได้)"
-            : kind === "daily" ? "โควตาสรุปรายวันครบแล้ว"
-              : kind === "next_renewal" ? "ถึงเป้าหมายต้นทุน AI ของรอบสมาชิกนี้แล้ว"
-                : "โควตาใช้งานประจำเดือนครบแล้ว",
+          shortLabel: kind === "expired" ? "แพ็กเกจไม่ active กรุณาตรวจสอบสถานะการชำระเงิน"
+            : kind === "daily" ? "โควตารายวันครบแล้ว กรุณารอเวลารีเซ็ต"
+              : "โควตารอบนี้ครบแล้ว",
           resetAtText,
-          resetLabel: kind === "daily" ? "รีเซ็ต" : kind === "monthly" ? "รอบเดือนใหม่" : kind === "next_renewal" ? "รอบชำระเงินสิ้นสุดโดยประมาณ" : null,
+          resetLabel: kind === "daily" ? "รีเซ็ต" : kind === "monthly" ? "รอบแพ็กเกจรีเซ็ต" : null,
+          boostAvailable: boostEligible,
+          canPurchaseBoost: data.boostPurchaseAvailable === true,
+          requiredBoostPasses,
         });
       } catch {
         // ignore quota refresh failures
@@ -473,7 +482,7 @@ function PageContent() {
       cancelled = true;
       window.removeEventListener("usage-updated", onUsageUpdated);
     };
-  }, [session?.user?.email]);
+  }, [session?.user?.email, orderSheet, other, uploadedImages.length]);
 
   useEffect(() => {
     try {
@@ -834,7 +843,7 @@ function PageContent() {
     }
 
     if (!res.ok) {
-      const maybe = data as { error?: unknown; raw?: unknown; errorCode?: unknown; resetAt?: unknown } | null;
+      const maybe = data as { error?: unknown; raw?: unknown; errorCode?: unknown; resetAt?: unknown; boostAvailable?: unknown; requiredBoostPasses?: unknown; canPurchaseBoost?: unknown } | null;
       const msg =
         maybe && typeof maybe === "object"
           ? (typeof maybe.error === "string"
@@ -854,6 +863,9 @@ function PageContent() {
           : base,
         errorCode,
         resetAt,
+        Boolean(maybe?.boostAvailable),
+        typeof maybe?.requiredBoostPasses === "number" ? maybe.requiredBoostPasses : undefined,
+        Boolean(maybe?.canPurchaseBoost),
       );
     }
 
@@ -862,7 +874,7 @@ function PageContent() {
 
   function isUsageLimitMessage(message: string, errorCode?: string | null) {
     return (
-      ["API_COST_TARGET_REACHED", "USAGE_POLICY_LIMIT_REACHED", "SUMMARY_DAILY_LIMIT_REACHED", "SUBSCRIPTION_NOT_ACTIVE"].includes(errorCode || "") ||
+      ["API_COST_TARGET_REACHED", "USAGE_POLICY_LIMIT_REACHED", "SUMMARY_DAILY_LIMIT_REACHED", "SUBSCRIPTION_NOT_ACTIVE", "BOOST_CREDITS_INSUFFICIENT", "BOOST_PASSES_REQUIRED"].includes(errorCode || "") ||
       /Credit limit reached/i.test(message) ||
       message.includes("ครบโควตาโดยประมาณแล้ว") ||
       message.includes("โควตาการใช้งานเดือนนี้ครบแล้ว") ||
@@ -872,11 +884,12 @@ function PageContent() {
     );
   }
 
-  function parseSummaryQuotaNotice(message: string, errorCode?: string | null, resetAt?: string | null): SummaryQuotaNotice | null {
+  function parseSummaryQuotaNotice(message: string, errorCode?: string | null, resetAt?: string | null, boostAvailable = false, requiredBoostPasses?: number, canPurchaseBoost = false): SummaryQuotaNotice | null {
     if (!isUsageLimitMessage(message, errorCode)) return null;
     const kind: SummaryQuotaNotice["kind"] = errorCode === "SUBSCRIPTION_NOT_ACTIVE" ? "expired"
       : errorCode === "SUMMARY_DAILY_LIMIT_REACHED" ? "daily"
-        : errorCode === "API_COST_TARGET_REACHED" ? "next_renewal"
+      : errorCode === "API_COST_TARGET_REACHED" ? "next_renewal"
+      : errorCode === "BOOST_CREDITS_INSUFFICIENT" || errorCode === "BOOST_PASSES_REQUIRED" ? "monthly"
           : errorCode === "USAGE_POLICY_LIMIT_REACHED" ? "monthly" : "other";
     const resetMatch = message.match(/รีเซ็ตอีกครั้งประมาณ\s*(.+?)(?:\s+หรือ|$)/);
     let resetAtText = resetMatch?.[1]?.trim() || null;
@@ -887,18 +900,19 @@ function PageContent() {
     return {
       kind,
       shortLabel: kind === "expired"
-        ? "สถานะสมาชิกไม่ active กรุณาตรวจสอบการชำระเงินหรือแพ็กเกจ (ไม่มีวันรีเซ็ตที่ยืนยันได้)"
-        : kind === "next_renewal"
-          ? "ถึงเป้าหมายต้นทุน AI ของรอบสมาชิกนี้แล้ว"
-          : kind === "daily"
-            ? "โควตาสรุปรายวันครบแล้ว"
-            : kind === "monthly"
-              ? "โควตาใช้งานประจำเดือนครบแล้ว"
+        ? "แพ็กเกจไม่ active กรุณาตรวจสอบสถานะการชำระเงิน"
+        : kind === "daily"
+            ? "โควตารายวันครบแล้ว กรุณารอเวลารีเซ็ต"
+            : kind === "monthly" || kind === "next_renewal"
+              ? "โควตารอบนี้ครบแล้ว"
               : message.includes("ถูกใช้งานพร้อมกันเกินจำนวนอุปกรณ์ที่อนุญาต")
         ? "บัญชีถูกใช้งานเกินจำนวนอุปกรณ์ที่อนุญาต"
         : "โควตาสรุปชาร์จเต็มชั่วคราว",
       resetAtText,
-      resetLabel: kind === "daily" ? "รีเซ็ต" : kind === "monthly" ? "รอบเดือนใหม่" : kind === "next_renewal" ? "รอบชำระเงินสิ้นสุดโดยประมาณ" : resetAtText ? "รีเซ็ต" : null,
+      resetLabel: kind === "daily" ? "รีเซ็ต" : kind === "monthly" || kind === "next_renewal" ? "รอบแพ็กเกจรีเซ็ต" : resetAtText ? "รีเซ็ต" : null,
+      boostAvailable,
+      requiredBoostPasses,
+      canPurchaseBoost,
     };
   }
 
@@ -967,7 +981,7 @@ function PageContent() {
       if (!isUsageLimitMessage(message, apiError?.errorCode)) {
         console.error(err);
       }
-      const quota = parseSummaryQuotaNotice(message, apiError?.errorCode, apiError?.resetAt);
+      const quota = parseSummaryQuotaNotice(message, apiError?.errorCode, apiError?.resetAt, apiError?.boostAvailable);
       if (quota) setSummaryQuotaNotice(quota);
       if (!silent) {
         setError(quota ? quota.shortLabel : message);
@@ -1185,7 +1199,7 @@ function PageContent() {
     }
   }
 
-  async function handleGenerate() {
+  async function handleGenerate(useBoost = false) {
     if (uploadedImages.length > 0 && !imagesRedactedConfirmed) {
       setError("ก่อนสร้างสรุป กรุณาตรวจทานและปกปิดข้อมูลในรูป แล้วทำเครื่องหมายยืนยันด้านล่าง");
       return;
@@ -1220,6 +1234,7 @@ function PageContent() {
         },
         body: JSON.stringify({
           mode: "generate",
+          ...(useBoost ? { useBoost: true } : {}),
           template: { blocks: DEFAULT_BLOCKS },
           inputs: {
             order_sheet: orderSheet,
@@ -1254,7 +1269,7 @@ function PageContent() {
         console.error(err);
       }
       if (isLimitReached) {
-        const quota = parseSummaryQuotaNotice(message, apiError?.errorCode, apiError?.resetAt);
+        const quota = parseSummaryQuotaNotice(message, apiError?.errorCode, apiError?.resetAt, apiError?.boostAvailable, apiError?.requiredBoostPasses, apiError?.canPurchaseBoost);
         if (quota) setSummaryQuotaNotice(quota);
         setError(quota?.shortLabel || "โควตาสรุปชาร์จเต็มชั่วคราว");
       } else {
@@ -1743,35 +1758,6 @@ function PageContent() {
             โหมดมือถือ: Tutorial จะข้ามขั้นเปิดหน้าต่างตัวอย่างให้อัตโนมัติ เพื่อให้เริ่มวางข้อมูลและกดสร้างสรุปได้ทันที
           </div>
         ) : null}
-        {chatBannerDismissed ? null : (
-          <div className="relative flex flex-wrap items-center justify-between gap-2 rounded-xl border border-cyan-500/25 bg-cyan-950/10 px-3 py-2 pr-10">
-            <p className="text-xs leading-relaxed text-cyan-100 md:text-sm">
-              อยากเริ่มจากคุยเคสก่อน? ใช้{" "}
-              <span className="font-semibold text-cyan-200">AI Chat</span>{" "}
-              เพื่อถามแนวทางและ checklist ได้ทันที
-            </p>
-            <Link
-              href="/chat"
-              className="inline-flex shrink-0 items-center justify-center rounded-lg border border-cyan-400/45 bg-cyan-500/15 px-3 py-1.5 text-xs font-medium text-cyan-100 transition hover:border-cyan-300/70 hover:bg-cyan-500/25 hover:text-white"
-            >
-              ไป AI Chat
-            </Link>
-            <button
-              type="button"
-              onClick={() => {
-                setChatBannerDismissed(true);
-                if (typeof window !== "undefined") {
-                  window.localStorage.setItem(WORKSPACE_CHAT_BANNER_DISMISSED_KEY, "1");
-                }
-              }}
-              className="absolute right-2 top-2 rounded-md border border-cyan-400/35 px-1.5 py-0.5 text-[11px] text-cyan-200 transition hover:border-cyan-300/70 hover:bg-cyan-500/20 hover:text-white"
-              aria-label="ปิดแถบแนะนำ AI Chat"
-            >
-              ปิด
-            </button>
-          </div>
-        )}
-
         <section
           ref={heroSectionRef}
           className="overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-slate-950 via-[#0c1728] to-[#111c32] shadow-2xl shadow-black/30"
@@ -2130,7 +2116,7 @@ function PageContent() {
               </div>
               <button
                 type="button"
-                onClick={handleGenerate}
+                onClick={() => void handleGenerate(false)}
                 disabled={loading || !hasClinicalInput || Boolean(summaryQuotaNotice)}
                 title={
                   !hasClinicalInput
@@ -2176,10 +2162,11 @@ function PageContent() {
               <div className="rounded-xl border border-amber-600/50 bg-amber-950/30 px-3 py-2 text-xs text-amber-100">
                 <span>{summaryQuotaNotice.shortLabel}</span>
                 {summaryQuotaNotice.resetAtText ? <span>{` · ${summaryQuotaNotice.resetLabel} ${summaryQuotaNotice.resetAtText}`}</span> : null}
-                <span>{` · `}</span>
-                <a href="/pricing" className="font-medium underline hover:text-amber-200">
-                  อัปเกรดแพ็กเกจ
-                </a>
+                {summaryQuotaNotice.boostAvailable ? <>
+                  <button type="button" onClick={() => void handleGenerate(true)} disabled={loading} className="ml-2 rounded-lg bg-cyan-700 px-2 py-1 font-semibold text-white disabled:opacity-50">ใช้ Boost {summaryQuotaNotice.requiredBoostPasses ?? 1} สิทธิ์กับเคสนี้</button>
+                </> : null}
+                {summaryQuotaNotice.canPurchaseBoost ? <span className="ml-2 inline-flex gap-1 align-middle"><BoostPurchaseButton credits={5} compact /><BoostPurchaseButton credits={15} compact /></span> : null}
+                {!summaryQuotaNotice.canPurchaseBoost && !summaryQuotaNotice.boostAvailable ? <a href="/pricing" className="ml-2 font-medium underline hover:text-amber-200">ดูแพ็กเกจ</a> : null}
               </div>
             ) : null}
             </div>

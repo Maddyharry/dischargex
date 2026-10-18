@@ -293,7 +293,7 @@ export async function POST(req: Request) {
         title: "ชำระเงินสำเร็จ",
         message:
           payment.type === "addon"
-            ? `เติมวงเงินเสริม ${payment.addCredits || 0} สำเร็จแล้ว`
+            ? `เพิ่มสิทธิ์ Boost ${payment.addCredits || 0} สิทธิ์เรียบร้อยแล้ว`
             : `เปิดใช้งานแพ็กเกจ ${targetPlanId} สำเร็จแล้ว`,
         meta: { paymentRequestId: payment.id, stripeSessionId },
       });

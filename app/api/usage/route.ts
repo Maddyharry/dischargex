@@ -109,7 +109,7 @@ async function getUsage(req: Request) {
       : { _sum: { baseCreditsUsed: 0 } };
   const baseUsed = usedBaseInCycle._sum.baseCreditsUsed ?? 0;
   const baseRemaining = Math.max(0, plan.creditsPerCycle - baseUsed);
-  const remaining = isActive ? baseRemaining + extraCredits : 0;
+  const remaining = isActive ? baseRemaining : 0;
 
   const dailyApprox = getDailyApproxLimit(normalizedPlanId);
   const cycleSpanMs = Math.max(86_400_000, cycleWindowEnd.getTime() - cycleStart.getTime());
@@ -230,15 +230,15 @@ async function getUsage(req: Request) {
     ok: true,
     email,
     plan: normalizedPlanId,
-    total: plan.creditsPerCycle + extraCredits,
+    total: plan.creditsPerCycle,
     used: baseUsed,
     remaining,
     extraCredits,
-    tokenSpendThb: tokenSpendThb === null ? null : Number(tokenSpendThb.toFixed(2)),
-    tokenBudgetThb,
-    tokenRemainingThb: usagePolicy.remainingThb === null ? null : Number(usagePolicy.remainingThb.toFixed(2)),
-    tokenUsagePercent,
-    usagePolicy,
+    periodAllowancePercentUsed: tokenUsagePercent,
+    periodAllowanceReached: tokenBudgetReached,
+    periodAllowanceResetAt: usagePolicy.resetAt,
+    usagePolicyKnown: usagePolicy.costEstimate.status === "known" && usagePolicy.costEstimate.safeForEnforcement,
+    boostPurchaseAvailable: isActive && plan.isPaid && usagePolicy.costEstimate.status === "known" && usagePolicy.costEstimate.safeForEnforcement,
     baseUsagePercent,
     chatUsedToday,
     chatDailyLimit: dailyApprox.chatPerDay,

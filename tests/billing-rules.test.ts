@@ -6,6 +6,8 @@ import {
   getCreditsRequiredForCase,
   getPeriodBounds,
   normalizePlanId,
+  getAddonPrice,
+  getDailyApproxLimit,
 } from "../lib/billing-rules";
 
 describe("billing rules", () => {
@@ -60,5 +62,18 @@ describe("billing rules", () => {
   it("charges 2 credits for very long case", () => {
     expect(getCreditsRequiredForCase(5000)).toBe(1);
     expect(getCreditsRequiredForCase(20000)).toBe(2);
+  });
+
+  it("uses the clarified paid daily case caps for monthly and yearly plans", () => {
+    expect(["basic_monthly", "basic_yearly"].map((p) => getDailyApproxLimit(p).summaryPerDay)).toEqual([5, 5]);
+    expect(["standard_monthly", "standard_yearly"].map((p) => getDailyApproxLimit(p).summaryPerDay)).toEqual([15, 15]);
+    expect(["pro_monthly", "pro_yearly"].map((p) => getDailyApproxLimit(p).summaryPerDay)).toEqual([40, 40]);
+    expect(getDailyApproxLimit("trial").summaryPerDay).toBe(2);
+  });
+
+  it("prices new Boost pass packs", () => {
+    expect(getAddonPrice(5)).toBe(109);
+    expect(getAddonPrice(15)).toBe(329);
+    expect(getAddonPrice(40)).toBeNull();
   });
 });

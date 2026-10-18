@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { BillingManageButton } from "@/app/components/BillingManageButton";
+import BoostPurchaseButton from "@/app/components/BoostPurchaseButton";
 
 const PLAN_SELECT_OPTIONS = {
   monthly: [
@@ -50,9 +51,7 @@ function MobilePlanPicker(props: {
         className="w-full rounded-2xl border border-slate-600 bg-slate-950 px-3 py-3 text-sm text-slate-100 outline-none focus:border-cyan-500"
       >
         <optgroup label="ทดลองใช้ (ไม่ชำระผ่าน Stripe)">
-          <option value="__trial" disabled>
-            Trial 0฿ — ทดลอง 14 วัน · AI Chat ปิดให้บริการชั่วคราว
-          </option>
+          <option value="__trial" disabled>Trial 0฿ — ทดลอง 14 วัน</option>
         </optgroup>
         <optgroup label="รายเดือน">
           {PLAN_SELECT_OPTIONS.monthly.map((option) => (
@@ -313,8 +312,7 @@ function PricingPageContent() {
             เลือกแพ็กเกจตามปริมาณงาน
           </h1>
           <p className="mt-3 max-w-2xl text-sm text-slate-400 md:text-base">
-            เลือกรายเดือนหรือรายปีตามรอบบิล Stripe — ตัวเลขการใช้งานเป็นงบรวมต่อรอบและเพดานรายวัน
-            ไม่ใช่จำนวนเคสที่รับประกัน ยอดใช้จริงเปลี่ยนตามความยาวข้อความและการใช้ภาพ
+            ทุกแพ็กมีโควตารายวันและโควตารวมตามรอบแพ็กเกจ ข้อความยาวหรือรูปอาจใช้โควตารวมมากขึ้น
           </p>
           <p className="mt-2 text-xs text-slate-500">
             ราคาอัปเดตล่าสุดในหน้านี้เสมอ — หากมีแคมเปญใหม่ ระบบจะแสดงที่หน้านี้ก่อนช่องทางอื่น
@@ -379,9 +377,7 @@ function PricingPageContent() {
               <ul className="mt-4 space-y-2 text-sm text-slate-200">
                 <li>- ไม่มีผูกมัด</li>
                 <li>- ใช้ได้ 1 ครั้งต่อบัญชี</li>
-                <li>- AI Chat ปิดให้บริการชั่วคราว</li>
-                <li>- สรุปชาร์จมีเพดานระบบสูงสุด 2 เคส/วัน แต่จำนวนที่ทำได้จริงขึ้นกับงบ AI และไม่รับประกัน</li>
-                <li>- หน่วยการใช้งานอ้างอิง token ที่ระบบบันทึก ไม่ใช่ยอดค่าใช้จ่ายจริงจาก invoice</li>
+                <li>- โควตารายวัน 2 เคส และมีโควตารวมในรอบทดลอง</li>
               </ul>
             </div>
 
@@ -410,8 +406,7 @@ function PricingPageContent() {
                 {billingView === "yearly" ? "เฉลี่ยประมาณ 249฿/เดือน · ชำระเต็มรอบรายปี" : "ชำระตามรอบรายเดือน Stripe"}
               </p>
               <ul className="mt-4 space-y-2 text-sm text-slate-200">
-                <li>- งบ AI รวม 59.8 หน่วยต่อเดือน หรือ 598 หน่วยต่อรอบรายปี</li>
-                <li>- สรุปได้สูงสุด 4 เคสต่อวัน แยกจากงบ AI; ไม่ใช่จำนวนที่รับประกัน</li>
+                <li>- โควตารายวัน 5 เคส</li>
                 <li>- Principal / Comorbidity / Complication</li>
                 <li>- แนะนำ ICD-10 / ICD-9</li>
                 <li>- เหมาะสำหรับเริ่มใช้งานจริง</li>
@@ -446,8 +441,7 @@ function PricingPageContent() {
                 {billingView === "yearly" ? "เฉลี่ยประมาณ 499฿/เดือน · ชำระเต็มรอบรายปี" : "ชำระตามรอบรายเดือน Stripe"}
               </p>
               <ul className="mt-4 space-y-2 text-sm text-slate-100">
-                <li>- งบ AI รวม 118 หน่วยต่อเดือน หรือ 1,198 หน่วยต่อรอบรายปี</li>
-                <li>- สรุปได้สูงสุด 14 เคสต่อวัน แยกจากงบ AI; ไม่ใช่จำนวนที่รับประกัน</li>
+                <li>- โควตารายวัน 15 เคส</li>
                 <li>- Diagnosis ครบ + Admit / Discharge</li>
                 <li>- Investigations, Treatment, Outcome, Home medication</li>
                 <li>- เหมาะสำหรับทำสรุปชาร์จจริง</li>
@@ -481,8 +475,7 @@ function PricingPageContent() {
                   : "ชำระตามรอบรายเดือน Stripe"}
               </p>
               <ul className="mt-4 space-y-2 text-sm text-slate-100">
-                <li>- งบ AI รวม 218 หน่วยต่อเดือน หรือ 2,198 หน่วยต่อรอบรายปี</li>
-                <li>- สรุปได้สูงสุด 42 เคสต่อวัน แยกจากงบ AI; ไม่ใช่จำนวนที่รับประกัน</li>
+                <li>- โควตารายวัน 40 เคส</li>
                 <li>- ทุกอย่างใน Standard</li>
                 <li>- วิเคราะห์เชิงลึกมากขึ้นสำหรับเคสซับซ้อน</li>
                 <li>- แนะนำเติมข้อความใน order sheet (รวมผล lab/รังสีในหน้า) เพื่อรองรับรหัส (AdjRW ประมาณการ ไม่รับประกันการเบิกจ่าย)</li>
@@ -523,16 +516,10 @@ function PricingPageContent() {
               </thead>
               <tbody className="divide-y divide-white/10 text-slate-300 [&>tr]:transition [&>tr:hover]:bg-white/[0.03]">
                 <tr>
-                  <td className="px-4 py-3">งบ AI รวมต่อรอบรายเดือน / รายปี</td>
-                  <td className={`px-4 py-3 ${selectedPlanTier === "basic" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>59.8 / 598 หน่วย</td>
-                  <td className={`px-4 py-3 ${selectedPlanTier === "standard" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>118 / 1,198 หน่วย</td>
-                  <td className={`px-4 py-3 ${selectedPlanTier === "pro" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>218 / 2,198 หน่วย</td>
-                </tr>
-                <tr>
-                  <td className="px-4 py-3">เพดานสรุปสูงสุดต่อวัน (แยกจากงบ AI)</td>
-                  <td className={`px-4 py-3 ${selectedPlanTier === "basic" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>4 เคส</td>
-                  <td className={`px-4 py-3 ${selectedPlanTier === "standard" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>14 เคส</td>
-                  <td className={`px-4 py-3 ${selectedPlanTier === "pro" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>42 เคส</td>
+                  <td className="px-4 py-3">โควตารายวัน</td>
+                  <td className={`px-4 py-3 ${selectedPlanTier === "basic" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>5 เคส</td>
+                  <td className={`px-4 py-3 ${selectedPlanTier === "standard" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>15 เคส</td>
+                  <td className={`px-4 py-3 ${selectedPlanTier === "pro" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>40 เคส</td>
                 </tr>
                 <tr>
                   <td className="px-4 py-3">ช่วยคิด Principal / Comorbidity / Complication</td>
@@ -570,15 +557,9 @@ function PricingPageContent() {
             </table>
           </div>
           <p className="mt-2 text-xs leading-relaxed text-slate-500">
-            เพดาน 4 / 14 / 42 เคสต่อวันเป็นขีดจำกัดจริง แยกจากงบ AI และไม่ใช่จำนวนเคสที่รับประกันว่าจะทำได้
-            <br />
-            ปริมาณข้อความและภาพทำให้หน่วยที่ใช้ต่อครั้งต่างกัน ตรวจยอดและเวลารีเซ็ตได้ที่ ข้อมูลของฉัน (/app/profile)
-            <br />
-            ราคาเฉลี่ยรายปีปัดเป็นรายเดือนเพื่อเปรียบเทียบ: Basic 249฿, Standard 499฿, Pro 916฿; งบ AI เฉลี่ยต่อเดือนประมาณ 50 / 100 / 183 หน่วย
+            โควตารายวันและโควตารวมเป็นคนละส่วน ข้อความยาวหรือรูปอาจใช้โควตารวมมากขึ้น ตรวจยอดและวันรีเซ็ตได้ที่ข้อมูลของฉัน (/app/profile)
             <br />
             แพ็กที่ชำระก่อน 19 ต.ค. 2569 เวลาไทย ใช้เงื่อนไขเดิมจนถึงการต่ออายุครั้งถัดไป
-            <br />
-            Boost หยุดรับซื้อใหม่ชั่วคราว; เครดิต Boost ที่ซื้อไว้ก่อนหน้านี้ไม่ถูกลบ ติดต่อทีมงานเพื่อให้ช่วยตรวจสอบได้ และไม่มีการคืนเงินอัตโนมัติ
             <br />
             ทดลองใช้ (Trial) รวมฟีเจอร์ &quot;แนะนำเติม chart / AdjRW ประมาณการ&quot; เช่นเดียวกับ Pro ในขอบเขตที่ระบบกำหนด
           </p>
@@ -590,6 +571,13 @@ function PricingPageContent() {
               ดูแนวทางใช้งาน
             </Link>
           </div>
+        </section>
+
+        <section className="rounded-2xl border border-cyan-500/20 bg-cyan-950/20 p-5">
+          <h2 className="text-lg font-semibold text-white">Boost ใช้ทำเคสต่อได้ทันที</h2>
+          <p className="mt-1 text-sm text-slate-300">ใช้ทำเคสต่อได้ทันทีเมื่อถึงขีดจำกัดรายวันหรือรอบแพ็กเกจ โดยไม่รีเซ็ตโควตารายวัน เคสยาวหรือมีรูปใช้ 2 สิทธิ์</p>
+          <p className="mt-2 text-sm text-slate-300">ใช้ได้เมื่อถึงขีดจำกัดรายวันหรือรอบแพ็กเกจ โดยไม่รีเซ็ตโควตารายวัน; เคสยาวหรือมีรูปใช้ 2 สิทธิ์</p>
+          <div className="mt-3 flex gap-3"><BoostPurchaseButton credits={5} /><BoostPurchaseButton credits={15} /></div>
         </section>
 
         <section className="rounded-3xl border border-white/10 bg-gradient-to-b from-white/[0.04] to-transparent p-6 md:p-8 backdrop-blur">

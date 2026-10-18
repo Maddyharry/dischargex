@@ -77,6 +77,46 @@ beforeEach(() => {
 });
 
 describe("AI privacy request boundaries", () => {
+  it("does not auto-activate a stored pass at the daily cap, but returns the explicit offer", async () => {
+    process.env.OPENAI_API_KEY = "test-key";
+    configureSummaryUser({ extraCredits: 1 });
+    mocks.usageCount.mockResolvedValue(40);
+    const response = await summarizePost(request("https://app.test/api/summarize", {
+      mode: "generate", inputs: { order_sheet: "short synthetic case" },
+    }));
+    expect(response.status).toBe(402);
+    expect(await response.json()).toMatchObject({ errorCode: "SUMMARY_DAILY_LIMIT_REACHED", boostAvailable: true, canPurchaseBoost: true, requiredBoostPasses: 1 });
+    expect(mocks.openaiCreate).not.toHaveBeenCalled();
+  });
+
+  it("only passes the daily gate after an explicit useBoost request", async () => {
+    process.env.OPENAI_API_KEY = "test-key";
+    configureSummaryUser({ extraCredits: 1 });
+    mocks.usageCount.mockResolvedValue(40);
+    await summarizePost(request("https://app.test/api/summarize", {
+      mode: "generate", useBoost: true, inputs: { order_sheet: "short synthetic case" }, settings: { fast: true, model: "gpt-5-mini" },
+    }));
+    expect(mocks.openaiCreate).toHaveBeenCalled();
+  });
+
+  it("rejects legacy base-credit exhaustion before OCR or any provider call", async () => {
+    process.env.OPENAI_API_KEY = "test-key";
+    process.env.ENFORCE_CREDIT_LIMIT = "true";
+    configureSummaryUser({ extraCredits: 1 });
+    mocks.usageAggregate.mockResolvedValue({ _sum: { baseCreditsUsed: 1260 } });
+    try {
+      const response = await summarizePost(request("https://app.test/api/summarize", {
+        mode: "generate", inputs: { order_sheet: "short synthetic case" }, imageInputs: [image], imagesRedactedConfirmed: true,
+        settings: { fast: true, model: "gpt-5-mini" },
+      }));
+      expect(response.status).toBe(402);
+      expect(await response.json()).toMatchObject({ errorCode: "LEGACY_CREDIT_LIMIT_REACHED", boostAvailable: false, canPurchaseBoost: true, requiredBoostPasses: 2 });
+      expect(mocks.openaiCreate).not.toHaveBeenCalled();
+    } finally {
+      delete process.env.ENFORCE_CREDIT_LIMIT;
+    }
+  });
+
   it("rejects unconfirmed summary images before constructing OpenAI", async () => {
     const response = await summarizePost(request("https://app.test/api/summarize", { imageInputs: [image] }));
     expect(response.status).toBe(422);
