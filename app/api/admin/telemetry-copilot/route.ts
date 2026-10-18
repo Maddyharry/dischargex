@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { openai } from "@/lib/openai";
+import { deidentify } from "@/lib/deidentify";
+import { sanitizeTelemetryDigest } from "@/lib/admin-telemetry-privacy";
 import { z } from "zod";
 
 export const runtime = "nodejs";
@@ -15,8 +17,6 @@ const bodySchema = z.object({
   /** Snapshot จาก GET /api/admin/telemetry-digest — ส่งจากแดชบอร์ดเพื่อให้ AI ตีความตรงกับตัวเลขบนหน้า */
   digest: z.record(z.string(), z.unknown()).optional(),
 });
-
-const MAX_DIGEST_CHARS = 48_000;
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -40,10 +40,8 @@ export async function POST(req: NextRequest) {
   }
 
   const { question, digest } = parsed.data;
-  const digestBlock =
-    digest && Object.keys(digest).length > 0
-      ? JSON.stringify(digest).slice(0, MAX_DIGEST_CHARS)
-      : null;
+  const safeDigest = digest ? sanitizeTelemetryDigest(digest) : null;
+  const digestBlock = safeDigest && Object.keys(safeDigest as object).length > 0 ? JSON.stringify(safeDigest) : null;
 
   const system = [
     "You are a senior product + growth analyst for DischargeX: a Thai hospital IPD tool for charge summaries (สรุปชาร์จ), AI chat, and Stripe subscriptions.",
@@ -62,8 +60,9 @@ export async function POST(req: NextRequest) {
     digestBlock || "(empty)",
     "",
     "QUESTION:",
-    question,
+    deidentify(question),
   ].join("\n");
+  const safeUserContent = deidentify(userContent);
 
   const model = process.env.OPENAI_ADMIN_TELEMETRY_MODEL || process.env.OPENAI_CHAT_MODEL || "gpt-4o-mini";
 
@@ -72,12 +71,13 @@ export async function POST(req: NextRequest) {
       model,
       input: [
         { role: "system", content: system },
-        { role: "user", content: userContent },
+        { role: "user", content: safeUserContent },
       ],
       max_output_tokens: 1600,
+      store: false,
     });
     const text = "output_text" in resp ? String(resp.output_text || "").trim() : "";
-    const reply = text || "ยังสรุปผลไม่ได้ กรุณาลองใหม่หรือย่อคำถาม";
+    const reply = deidentify(text || "ยังสรุปผลไม่ได้ กรุณาลองใหม่หรือย่อคำถาม");
     return NextResponse.json({ ok: true, reply, model });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "model_error";

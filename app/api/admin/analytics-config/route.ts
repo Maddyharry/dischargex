@@ -77,7 +77,7 @@ export async function POST() {
   }
 
   const actorEmail = (session as { user?: { email?: string } } | null)?.user?.email || "unknown";
-  await sendAdminAlertEmail({
+  const delivery = await sendAdminAlertEmail({
     subject: "DischargeX: Test admin alert",
     lines: [
       "This is a test alert from /admin/analytics-config.",
@@ -87,5 +87,17 @@ export async function POST() {
     ],
   });
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json(
+    {
+      ok: delivery.accepted,
+      delivery: {
+        configured: delivery.configured,
+        accepted: delivery.accepted,
+        providerStatus: delivery.providerStatus,
+        failure: delivery.failure,
+      },
+      ...(!delivery.accepted ? { error: "Admin alert email was not accepted" } : {}),
+    },
+    { status: delivery.accepted ? 200 : 503 }
+  );
 }

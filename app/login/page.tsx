@@ -153,7 +153,7 @@ function LoginForm() {
       <div className="w-full max-w-md rounded-3xl border border-white/10 bg-slate-900/80 p-6 shadow-2xl">
         <h1 className="text-2xl font-semibold">เข้าสู่ระบบ DischargeX</h1>
         <p className="mt-2 text-sm text-slate-400">
-          ทดลองใช้งานฟรี 14 วันแบบใช้งานเต็ม หลังจากนั้นสามารถอัปเกรดแพ็กเกจได้ตลอดเวลา
+          ทดลองใช้งานฟรี 14 วันสำหรับฟีเจอร์ที่เปิดให้บริการ (AI Chat ปิดชั่วคราว) หลังจากนั้นสามารถอัปเกรดแพ็กเกจได้
         </p>
         <p className="mt-2 rounded-xl border border-cyan-500/25 bg-cyan-500/10 px-3 py-2 text-xs text-cyan-100">
           นี่คือหน้าล็อกอินอย่างเป็นทางการของ DischargeX (secure login)

@@ -13,11 +13,15 @@ export async function applyScheduledPlanChangeIfDue(userId: string, now: Date) {
       subscriptionStatus: true,
       subscriptionExpiresAt: true,
       periodStartedAt: true,
+      stripeSubscriptionId: true,
       nextPlanId: true,
       nextPlanEffectiveDate: true,
     },
   });
   if (!user) return { applied: false as const };
+  // Stripe schedules are authoritative for subscriptions linked to Stripe.
+  // A local date check must never grant the scheduled plan or reset credits.
+  if (user.stripeSubscriptionId) return { applied: false as const };
   if (user.subscriptionStatus !== "pending_change") return { applied: false as const };
   if (!user.nextPlanId || !user.nextPlanEffectiveDate) return { applied: false as const };
   if (now.getTime() < user.nextPlanEffectiveDate.getTime()) return { applied: false as const };

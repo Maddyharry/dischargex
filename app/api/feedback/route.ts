@@ -158,6 +158,21 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    if (type === "chat") {
+      try {
+        await sendAdminAlertEmail({
+          subject: "DischargeX: New chat feedback",
+          lines: [
+            `Feedback ID: ${feedback.id}`,
+            `User ID: ${userId ?? "-"}`,
+            "Review the submitted message in the authenticated admin feedback dashboard.",
+            "Admin path: /admin/feedback",
+          ],
+        });
+      } catch (error) {
+        console.error("Chat feedback admin alert failed:", error);
+      }
+    }
     if (type === "error_report") {
       await sendAdminAlertEmail({
         subject: "DischargeX: New error report",
@@ -167,7 +182,8 @@ export async function POST(req: NextRequest) {
           `Score: ${score}/10`,
           `Suggested bonus quota: ${suggestedCredit}`,
           `Status: ${status}`,
-          `Message: ${message.trim().slice(0, 500)}`,
+          "Review the submitted report in the authenticated admin feedback dashboard.",
+          "Admin path: /admin/feedback",
         ],
       });
     }

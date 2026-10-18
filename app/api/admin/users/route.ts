@@ -4,14 +4,23 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import {
   daysLeftUntil,
+  getDailyApproxLimit,
   getCreditCycleBounds,
   getPeriodBounds,
   getPlanDefinition,
   isPaidPlan,
   normalizePlanId,
 } from "@/lib/billing-rules";
+import { getPlanTokenBudgetThb } from "@/lib/token-billing";
+import { getUsagePolicySnapshot, selectUsagePolicyLedgerRows, type UsagePolicyLedgerRow } from "@/lib/usage-policy";
+import {
+  EFFECTIVE_FROM,
+  forecastRevenue5xPeriodCostCapThb,
+  isRevenue5xEligible,
+} from "@/lib/api-cost";
 
 export const runtime = "nodejs";
+const PRIVATE_NO_STORE = { "Cache-Control": "private, no-store, max-age=0" };
 
 function isAdmin(session: unknown) {
   return (session as { user?: { role?: string } } | null)?.user?.role === "admin";
@@ -21,10 +30,15 @@ export async function GET() {
   try {
     const session = await getServerSession(authOptions);
     if (!isAdmin(session)) {
-      return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
+      return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403, headers: PRIVATE_NO_STORE });
     }
 
     const now = new Date();
+    const dayStart = new Date(now);
+    dayStart.setHours(0, 0, 0, 0);
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    const summaryReasons = ["generate", "long_case_generate", "token_generate"];
     const users = await prisma.user.findMany({
       orderBy: { createdAt: "desc" },
       select: {
@@ -33,6 +47,7 @@ export async function GET() {
         name: true,
         plan: true,
         role: true,
+        subscriptionStatus: true,
         totalGenerations: true,
         createdAt: true,
         periodStartedAt: true,
@@ -45,8 +60,14 @@ export async function GET() {
     const list = await Promise.all(
       users.map(async (u: UserRow) => {
         const normalizedPlanId = normalizePlanId(u.plan);
-        const planTotal = getPlanDefinition(normalizedPlanId).creditsPerCycle;
+        const planDefinition = getPlanDefinition(normalizedPlanId);
+        const planTotal = planDefinition.creditsPerCycle;
         const periodStartDate = u.periodStartedAt ?? u.createdAt;
+        const paidPlan = isPaidPlan(normalizedPlanId);
+        const paidSubscriptionActive = u.subscriptionStatus === "active" || u.subscriptionStatus === "pending_change";
+        const revenue5xEligible = paidPlan && paidSubscriptionActive && isRevenue5xEligible(u.periodStartedAt);
+        const revenue5xPolicyMode = paidPlan && isRevenue5xEligible(u.periodStartedAt);
+        const nextRenewalCapForecastThb = paidPlan ? forecastRevenue5xPeriodCostCapThb(planDefinition.priceThb) : null;
         const { start: periodStart, end: fallbackPeriodEnd } = getPeriodBounds(periodStartDate, normalizedPlanId);
         const periodEnd = u.subscriptionExpiresAt ?? fallbackPeriodEnd;
         const isExpired = now.getTime() > periodEnd.getTime();
@@ -61,7 +82,40 @@ export async function GET() {
                 createdAt: { gte: cycleStart, lte: cycleWindowEnd },
               },
             }))._sum.baseCreditsUsed ?? 0;
+        const costWindowStart = revenue5xPolicyMode ? periodStartDate : monthStart;
+        const [summariesToday, summariesThisMonth, lifetimeSummaries] = await Promise.all([
+          prisma.usageLog.count({
+            where: { userId: u.id, reason: { in: summaryReasons }, createdAt: { gte: dayStart, lt: new Date(dayStart.getTime() + 24 * 60 * 60 * 1000) } },
+          }),
+          prisma.usageLog.count({ where: { userId: u.id, reason: { in: summaryReasons }, createdAt: { gte: monthStart, lt: monthEnd } } }),
+          prisma.usageLog.count({ where: { userId: u.id, reason: { in: summaryReasons } } }),
+        ]);
+        let tokenLedgerRows: UsagePolicyLedgerRow[] | null = null;
+        try {
+          const queriedLedgerRows = await prisma.tokenUsageLedger.findMany({
+            where: { userId: u.id, createdAt: { gte: costWindowStart, lte: now } },
+            select: { createdAt: true, model: true, inputTokens: true, outputTokens: true, totalTokens: true, estimatedCostThb: true, source: true, referenceId: true },
+          });
+          tokenLedgerRows = queriedLedgerRows.map((row) => ({
+            createdAt: row.createdAt, model: row.model, inputTokens: row.inputTokens,
+            outputTokens: row.outputTokens, totalTokens: row.totalTokens,
+            estimatedCostThb: row.estimatedCostThb === null ? null : Number(row.estimatedCostThb),
+            source: row.source, referenceId: row.referenceId,
+          }));
+        } catch {
+          // The snapshot receives null and reports unknown rather than treating a failed read as zero usage.
+        }
         const daysLeft = isExpired ? 0 : daysLeftUntil(periodEnd, now);
+        const policy = getUsagePolicySnapshot({
+          planId: normalizedPlanId,
+          subscriptionStatus: u.subscriptionStatus,
+          periodStartedAt: u.periodStartedAt,
+          expiresAt: periodEnd,
+          legacyCalendarMonthCapThb: getPlanTokenBudgetThb(normalizedPlanId),
+          ledgerRows: tokenLedgerRows,
+        }, now);
+        const apiCostEstimate = policy.actualApiCostEstimate;
+        const apiCostRowCount = tokenLedgerRows === null ? null : selectUsagePolicyLedgerRows(tokenLedgerRows, policy.mode).length;
         return {
           id: u.id,
           email: u.email,
@@ -71,6 +125,33 @@ export async function GET() {
           totalGenerations: u.totalGenerations,
           usageCount: usedInPeriod,
           planTotal,
+          summariesToday,
+          dailySummaryLimit: getDailyApproxLimit(normalizedPlanId).summaryPerDay,
+          summariesThisMonth,
+          lifetimeSummaries,
+          apiCostEstimateStatus: apiCostEstimate.status,
+          apiCostEstimateThb: apiCostEstimate.estimatedCostThb,
+          apiCostKnownSubtotalThb: apiCostEstimate.knownSubtotalThb,
+          apiCostUnknownModelCount: apiCostEstimate.unknownModelCount,
+          apiCostInvalidRowCount: apiCostEstimate.invalidRowCount,
+          apiCostRowCount,
+          apiCostUncertainty: apiCostEstimate.uncertainty,
+          revenue5xEligible,
+          revenue5xEffectiveFrom: EFFECTIVE_FROM,
+          currentApiCostCapThb: policy.capThb,
+          currentApiCostCapKind: policy.mode,
+          currentApiCostWindow: revenue5xPolicyMode ? "billing_period_to_date" : paidPlan ? "legacy_calendar_month_to_date" : "calendar_month_to_date",
+          apiCostSafeForEnforcement: apiCostEstimate.safeForEnforcement,
+          policySpendThb: policy.spendThb,
+          policyRemainingThb: policy.remainingThb,
+          policyStatus: policy.status,
+          policyAllowed: policy.allowed,
+          policyResetAt: policy.resetAt,
+          usagePolicySpendBasis: policy.costEstimate.basis,
+          currentPeriodEndsAt: periodEnd.toISOString(),
+          dailyUsageResetsAt: new Date(dayStart.getTime() + 24 * 60 * 60 * 1000).toISOString(),
+          monthlyUsageResetsAt: monthEnd.toISOString(),
+          nextRenewalCapForecastThb,
           daysLeftInMonth: daysLeft,
           deviceCount: u._count.deviceSessions,
           createdAt: u.createdAt.toISOString(),
@@ -78,10 +159,10 @@ export async function GET() {
       })
     );
 
-    return NextResponse.json({ ok: true, users: list });
+    return NextResponse.json({ ok: true, users: list }, { headers: PRIVATE_NO_STORE });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "โหลดรายการไม่สำเร็จ";
-    return NextResponse.json({ ok: false, error: String(message) }, { status: 500 });
+    return NextResponse.json({ ok: false, error: String(message) }, { status: 500, headers: PRIVATE_NO_STORE });
   }
 }
 

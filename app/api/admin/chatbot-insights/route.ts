@@ -60,10 +60,10 @@ export async function GET() {
         return false;
       }
     })
-    .map((r) => r.message);
-  const chatMessages = chatRows.map((r) => r.message);
-  const errorMessages = rows.filter((r) => r.type === "error_report").map((r) => r.message);
-  const telemetryEvents = rows.filter((r) => r.type === "telemetry").map((r) => r.message);
+    .map((r) => deidentify(r.message));
+  const chatMessages = chatRows.map((r) => deidentify(r.message));
+  const errorMessages = rows.filter((r) => r.type === "error_report").map((r) => deidentify(r.message));
+  const telemetryEvents = rows.filter((r) => r.type === "telemetry").map((r) => deidentify(r.message));
   const chatTopics = topReadableTopics(chatMessages);
   const specialistTopics = topReadableTopics(specialistMessages);
   const errorTopics = topReadableTopics(errorMessages);
@@ -82,8 +82,10 @@ export async function GET() {
           "สรุปจากข้อมูลต่อไปนี้เป็นภาษาไทยอ่านง่าย โดยให้มี 2 หัวข้อ: (1) คำถามที่ผู้ใช้ถามบ่อย (2) ข้อผิดพลาดที่เจอบ่อย พร้อมข้อเสนอแนะปรับปรุง chatbot แบบสั้นๆ 3 ข้อ จัดรูปแบบเป็น bullet:\n\n" +
           sample,
         max_output_tokens: 600,
+        store: false,
       });
-      aiSummary = (resp as { output_text?: string }).output_text?.trim() || null;
+      const summary = (resp as { output_text?: string }).output_text?.trim() || "";
+      aiSummary = summary ? deidentify(summary) : null;
     } catch {
       aiSummary = null;
     }

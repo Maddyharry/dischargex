@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
+import { isSensitiveAnalyticsPath, sanitizeAnalyticsLocation, sanitizeAnalyticsPath } from "./GoogleTag";
 
 declare global {
   interface Window {
@@ -64,11 +65,22 @@ function trackClickTelemetry(
       : target.closest("a") instanceof HTMLAnchorElement
       ? (target.closest("a") as HTMLAnchorElement).href
       : null;
+  let sanitizedHref: string | null = null;
+  if (href) {
+    try {
+      const url = new URL(href, window.location.origin);
+      if (url.protocol === "http:" || url.protocol === "https:") {
+        sanitizedHref = sanitizeAnalyticsLocation(url.pathname, url.origin);
+      }
+    } catch {
+      sanitizedHref = null;
+    }
+  }
   sendTelemetry({
     event: "cta_click",
-    path: context.path,
+    path: sanitizeAnalyticsPath(context.path),
     ctaKey: key,
-    href: href || null,
+    href: sanitizedHref,
     abTest: abTest || null,
     abVariant: abVariant || null,
     visitorId: context.visitorId,
@@ -77,24 +89,27 @@ function trackClickTelemetry(
 
   const conversionLabel = target.dataset.googleConversionLabel?.trim();
   if (conversionLabel && ADS_ID && typeof window !== "undefined" && typeof window.gtag === "function") {
+    const pageLocation = sanitizeAnalyticsLocation(context.path, window.location.origin);
     window.gtag("event", "conversion", {
       send_to: `${ADS_ID}/${conversionLabel}`,
       value: 1,
       currency: "THB",
+      page_location: pageLocation,
     });
   }
 }
 
 export function WebAnalyticsTracker() {
-  const pathname = usePathname();
+  const pathname = usePathname() || "/";
   const startedAtRef = useRef<number>(0);
-  const pathRef = useRef<string>("/");
+  const pathRef = useRef<string>(sanitizeAnalyticsPath(pathname));
   const visitorIdRef = useRef<string>("");
   const sessionIdRef = useRef<string>("");
   const landingVariantRef = useRef<string>("");
 
   useEffect(() => {
     try {
+      if (isSensitiveAnalyticsPath(pathname)) return;
       visitorIdRef.current = getOrCreateStorageId(VISITOR_KEY, "v", window.localStorage);
       sessionIdRef.current = getOrCreateStorageId(SESSION_KEY, "s", window.sessionStorage);
       landingVariantRef.current = getOrCreateAbVariant();
@@ -114,16 +129,19 @@ export function WebAnalyticsTracker() {
       sessionIdRef.current = "";
       landingVariantRef.current = "";
     }
-  }, []);
+  }, [pathname]);
 
   useEffect(() => {
     function handleClick(event: MouseEvent) {
       const node = event.target as HTMLElement | null;
       if (!node) return;
+      const currentPath = sanitizeAnalyticsPath(window.location.pathname);
+      if (isSensitiveAnalyticsPath(currentPath)) return;
+      pathRef.current = currentPath;
       const clickable = node.closest<HTMLElement>("[data-telemetry-click]");
       if (!clickable) return;
       trackClickTelemetry(clickable, {
-        path: pathRef.current,
+        path: currentPath,
         visitorId: visitorIdRef.current,
         sessionId: sessionIdRef.current,
         landingVariant: landingVariantRef.current,
@@ -134,7 +152,7 @@ export function WebAnalyticsTracker() {
   }, []);
 
   useEffect(() => {
-    const nextPath = pathname || "/";
+    const nextPath = sanitizeAnalyticsPath(pathname);
     const now = Date.now();
 
     const prevPath = pathRef.current;
@@ -153,6 +171,10 @@ export function WebAnalyticsTracker() {
     }
 
     pathRef.current = nextPath;
+    if (isSensitiveAnalyticsPath(nextPath)) {
+      startedAtRef.current = 0;
+      return;
+    }
     startedAtRef.current = now;
     sendTelemetry({
       event: "page_view",
@@ -166,15 +188,17 @@ export function WebAnalyticsTracker() {
 
   useEffect(() => {
     function handleBeforeUnload() {
+      const currentPath = sanitizeAnalyticsPath(window.location.pathname);
+      if (isSensitiveAnalyticsPath(currentPath)) return;
       const now = Date.now();
       sendTelemetry({
         event: "page_leave",
-        path: pathRef.current,
+        path: currentPath,
         durationMs: Math.max(0, now - startedAtRef.current),
         visitorId: visitorIdRef.current,
         sessionId: sessionIdRef.current,
-        abTest: pathRef.current === "/" ? "landing_primary_cta_v1" : null,
-        abVariant: pathRef.current === "/" ? landingVariantRef.current || null : null,
+        abTest: currentPath === "/" ? "landing_primary_cta_v1" : null,
+        abVariant: currentPath === "/" ? landingVariantRef.current || null : null,
       });
     }
     window.addEventListener("beforeunload", handleBeforeUnload);

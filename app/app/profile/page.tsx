@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
+import UsagePolicyCard from "@/app/components/UsagePolicyCard";
+import type { UsagePolicySnapshot } from "@/lib/usage-policy";
 import { THAI_PROVINCES, validateBirthDateBE, validateThaiPhone } from "@/lib/thai-input";
 import { LAST_REVIEWED_DATE, REFERENCE_SET_NAME } from "@/lib/reference-info";
 
@@ -33,7 +35,34 @@ type UsageInfo = {
   subscriptionStatus?: string;
   nextPlanId?: string | null;
   nextPlanEffectiveDate?: string | null;
+  usagePolicy?: UsagePolicySnapshot;
+  summaryUsedToday?: number;
+  summaryDailyLimit?: number;
+  nextDailyResetAt?: string;
 };
+
+type BillingState = {
+  currentPlanId: string;
+  pendingPlanId: string | null;
+  pendingPlanEffectiveAt: string | null;
+  cancelAtPeriodEnd: boolean;
+  cancelAt: string | null;
+  periodStartedAt: string | null;
+  paidThroughAt: string | null;
+  subscriptionStatus: string;
+  hasSchedule: boolean;
+  hasAppManagedSchedule: boolean;
+  hasExternalSchedule: boolean;
+};
+
+const BILLING_PLAN_OPTIONS = [
+  "basic_monthly",
+  "standard_monthly",
+  "pro_monthly",
+  "basic_yearly",
+  "standard_yearly",
+  "pro_yearly",
+];
 
 type RequestRow = {
   id: string;
@@ -118,29 +147,12 @@ export default function ProfilePage() {
   const [error, setError] = useState<string | null>(null);
   const [stripeSuccess, setStripeSuccess] = useState(false);
   const [portalReturned, setPortalReturned] = useState(false);
-  const usagePercent = useMemo(() => {
-    if (!usage) return 0;
-    if (typeof usage.baseUsagePercent === "number" && typeof usage.tokenUsagePercent === "number") {
-      return Math.max(0, Math.min(100, Math.max(usage.baseUsagePercent, usage.tokenUsagePercent)));
-    }
-    if (typeof usage.baseUsagePercent === "number") {
-      return Math.max(0, Math.min(100, usage.baseUsagePercent));
-    }
-    if (typeof usage.tokenUsagePercent === "number") {
-      return Math.max(0, Math.min(100, usage.tokenUsagePercent));
-    }
-    if (usage.total <= 0) return 0;
-    return Math.max(0, Math.min(100, Math.round((usage.used / usage.total) * 100)));
-  }, [usage]);
-  const displayDaysLeft = useMemo(() => {
-    if (!usage) return 0;
-    if (typeof usage.daysLeftInMonth === "number" && usage.daysLeftInMonth > 0) return usage.daysLeftInMonth;
-    if (!usage.nextCreditRefreshAt) return usage.daysLeftInMonth ?? 0;
-    const target = new Date(usage.nextCreditRefreshAt);
-    const diffMs = target.getTime() - Date.now();
-    if (!Number.isFinite(diffMs) || diffMs <= 0) return usage.daysLeftInMonth ?? 0;
-    return Math.max(1, Math.ceil(diffMs / (24 * 60 * 60 * 1000)));
-  }, [usage]);
+  const [billingState, setBillingState] = useState<BillingState | null>(null);
+  const [billingLoading, setBillingLoading] = useState(true);
+  const [billingActionLoading, setBillingActionLoading] = useState(false);
+  const [billingError, setBillingError] = useState<string | null>(null);
+  const [billingNotice, setBillingNotice] = useState<string | null>(null);
+  const [selectedPlanId, setSelectedPlanId] = useState("");
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
@@ -198,6 +210,10 @@ export default function ProfilePage() {
             subscriptionStatus: usageData.subscriptionStatus,
             nextPlanId: usageData.nextPlanId ?? null,
             nextPlanEffectiveDate: usageData.nextPlanEffectiveDate ?? null,
+            usagePolicy: usageData.usagePolicy,
+            summaryUsedToday: typeof usageData.summaryUsedToday === "number" ? usageData.summaryUsedToday : undefined,
+            summaryDailyLimit: typeof usageData.summaryDailyLimit === "number" ? usageData.summaryDailyLimit : undefined,
+            nextDailyResetAt: typeof usageData.nextDailyResetAt === "string" ? usageData.nextDailyResetAt : null,
           });
         }
 
@@ -215,6 +231,57 @@ export default function ProfilePage() {
     }
     void load();
   }, [sessionStatus]);
+
+  useEffect(() => {
+    if (sessionStatus !== "authenticated") return;
+    let cancelled = false;
+    setBillingLoading(true);
+    fetch("/api/stripe/portal", { cache: "no-store" })
+      .then(async (response) => {
+        const data = (await response.json().catch(() => ({}))) as {
+          ok?: boolean;
+          error?: string;
+          currentPlanId?: string;
+          pendingPlanId?: string | null;
+          pendingPlanEffectiveAt?: string | null;
+          cancelAtPeriodEnd?: boolean;
+          cancelAt?: string | null;
+          periodStartedAt?: string | null;
+          paidThroughAt?: string | null;
+          subscriptionStatus?: string;
+          hasSchedule?: boolean;
+          hasAppManagedSchedule?: boolean;
+          hasExternalSchedule?: boolean;
+        };
+        if (!response.ok || !data.ok) throw new Error(data.error || "โหลดสถานะ Billing ไม่สำเร็จ");
+        if (cancelled) return;
+        const nextState: BillingState = {
+          currentPlanId: data.currentPlanId || user?.plan || "trial",
+          pendingPlanId: data.pendingPlanId ?? null,
+          pendingPlanEffectiveAt: data.pendingPlanEffectiveAt ?? null,
+          cancelAtPeriodEnd: data.cancelAtPeriodEnd === true,
+          cancelAt: data.cancelAt ?? null,
+          periodStartedAt: data.periodStartedAt ?? null,
+          paidThroughAt: data.paidThroughAt ?? null,
+          subscriptionStatus: data.subscriptionStatus || "unknown",
+          hasSchedule: data.hasSchedule === true,
+          hasAppManagedSchedule: data.hasAppManagedSchedule === true,
+          hasExternalSchedule: data.hasExternalSchedule === true,
+        };
+        setBillingState(nextState);
+        setSelectedPlanId(nextState.currentPlanId);
+        setBillingError(null);
+      })
+      .catch((err) => {
+        if (!cancelled) setBillingError(err instanceof Error ? err.message : "โหลดสถานะ Billing ไม่สำเร็จ");
+      })
+      .finally(() => {
+        if (!cancelled) setBillingLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionStatus, user?.plan]);
 
   async function markAllNotificationsRead() {
     try {
@@ -277,6 +344,90 @@ export default function ProfilePage() {
       setError(err instanceof Error ? err.message : "บันทึกไม่สำเร็จ");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function refreshBillingState() {
+    const response = await fetch("/api/stripe/portal", { cache: "no-store" });
+    const data = (await response.json().catch(() => ({}))) as BillingState & { ok?: boolean; error?: string };
+    if (!response.ok || !data.ok) throw new Error(data.error || "โหลดสถานะ Billing ไม่สำเร็จ");
+    setBillingState(data);
+    setSelectedPlanId(data.currentPlanId || "trial");
+  }
+
+  async function handleSchedulePlanChange() {
+    if (!billingState || !selectedPlanId || billingActionLoading) return;
+    setBillingActionLoading(true);
+    setBillingError(null);
+    setBillingNotice(null);
+    try {
+      const response = await fetch("/api/stripe/plan-change", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planId: selectedPlanId }),
+      });
+      const data = (await response.json().catch(() => ({}))) as { ok?: boolean; error?: string; message?: string };
+      if (!response.ok || !data.ok) throw new Error(data.error || "ตั้งเวลาการเปลี่ยนแพ็กเกจไม่สำเร็จ");
+      setBillingNotice(data.message || "กำหนดการเปลี่ยนแพ็กเกจในรอบถัดไปแล้ว");
+      await refreshBillingState();
+    } catch (err) {
+      setBillingError(err instanceof Error ? err.message : "ตั้งเวลาการเปลี่ยนแพ็กเกจไม่สำเร็จ");
+    } finally {
+      setBillingActionLoading(false);
+    }
+  }
+
+  async function handleManageRenewal() {
+    if (!billingState || billingActionLoading) return;
+    if (billingState.hasExternalSchedule) {
+      setBillingError("มีตาราง subscription จากแหล่งอื่น กรุณาติดต่อทีมงานก่อนเปลี่ยนการต่ออายุ");
+      return;
+    }
+    if (billingState.hasAppManagedSchedule) {
+      const paidThrough = billingState.paidThroughAt
+        ? new Date(billingState.paidThroughAt).toLocaleDateString("th-TH", { dateStyle: "long" })
+        : "วันสิ้นสุดรอบที่แสดงในบัญชี";
+      const confirmed = window.confirm(
+        `ยืนยันยกเลิกการต่ออายุและยกเลิกแผนที่กำหนดไว้หรือไม่? คุณยังใช้แพ็กเกจปัจจุบันได้ถึง ${paidThrough}`
+      );
+      if (!confirmed) return;
+      setBillingActionLoading(true);
+      setBillingError(null);
+      setBillingNotice(null);
+      try {
+        const response = await fetch("/api/stripe/cancel-renewal", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ confirm: true }),
+        });
+        const data = (await response.json().catch(() => ({}))) as { ok?: boolean; error?: string; paidThroughAt?: string };
+        if (!response.ok || !data.ok) throw new Error(data.error || "ยกเลิกการต่ออายุไม่สำเร็จ");
+        setBillingNotice(
+          `ยกเลิกการต่ออายุแล้ว คุณยังใช้แพ็กเกจปัจจุบันได้ถึง ${data.paidThroughAt ? new Date(data.paidThroughAt).toLocaleDateString("th-TH", { dateStyle: "long" }) : paidThrough}`
+        );
+        await refreshBillingState();
+      } catch (err) {
+        setBillingError(err instanceof Error ? err.message : "ยกเลิกการต่ออายุไม่สำเร็จ");
+      } finally {
+        setBillingActionLoading(false);
+      }
+      return;
+    }
+
+    setBillingActionLoading(true);
+    setBillingError(null);
+    try {
+      const response = await fetch("/api/stripe/portal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const data = (await response.json().catch(() => ({}))) as { ok?: boolean; error?: string; url?: string };
+      if (!response.ok || !data.ok || !data.url) throw new Error(data.error || "เปิด Stripe Billing Portal ไม่สำเร็จ");
+      window.location.assign(data.url);
+    } catch (err) {
+      setBillingError(err instanceof Error ? err.message : "เปิด Stripe Billing Portal ไม่สำเร็จ");
+      setBillingActionLoading(false);
     }
   }
 
@@ -466,50 +617,16 @@ export default function ProfilePage() {
                     {saving ? "กำลังบันทึก..." : "บันทึกข้อมูล"}
                   </button>
                 </div>
-                <div className="flex gap-6">
-                  <div>
-                    <label className="text-xs text-slate-400">แผนปัจจุบัน</label>
-                    <p className="mt-1 text-sm font-medium text-slate-100">
-                      {formatPlanName(usage?.plan ?? user?.plan)}
-                    </p>
-                  </div>
-                  <div>
-                    <label className="text-xs text-slate-400">สถานะการใช้งาน (รอบปัจจุบัน)</label>
-                    {usage ? (
-                      <div className="mt-1">
-                        <div className="flex items-center justify-between text-sm">
-                          <p className="font-medium text-emerald-300">การใช้งานโควต้า</p>
-                          <p className="font-semibold text-cyan-200">{usagePercent}%</p>
-                        </div>
-                        <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-800">
-                          <div
-                            className="h-full bg-cyan-400 transition-all"
-                            style={{ width: `${usagePercent}%` }}
-                          />
-                        </div>
-                        <div className="mt-3 flex items-center justify-between text-sm">
-                          <p className="font-medium text-slate-300">เวลาในรอบ</p>
-                          <p className="font-semibold text-violet-200">เหลือ {displayDaysLeft} วัน</p>
-                        </div>
-                      </div>
-                    ) : (
-                      <p className="mt-1 text-sm font-medium text-slate-400">-</p>
-                    )}
-                    {usage?.nextCreditRefreshAt ? (
-                      <p className="mt-0.5 text-xs text-slate-500">
-                        ระบบจะรีเซ็ตโควตาประมาณ{" "}
-                        {new Date(usage.nextCreditRefreshAt).toLocaleString("th-TH", {
-                          dateStyle: "short",
-                          timeStyle: "short",
-                        })}
-                      </p>
-                    ) : null}
-                    {usage?.daysLeftInMonth !== undefined && (
-                      <p className="mt-0.5 text-xs text-slate-500">
-                        ระบบรีเซ็ตโควต้าตามรอบแพ็กเกจอัตโนมัติ
-                      </p>
-                    )}
-                  </div>
+                <div className="mb-5 max-w-xl">
+                  <p className="mb-2 text-xs text-slate-400">แผนปัจจุบัน</p>
+                  <p className="mb-4 text-sm font-medium text-slate-100">{formatPlanName(usage?.plan ?? user?.plan)}</p>
+                  <UsagePolicyCard
+                    policy={usage?.usagePolicy}
+                    summaryUsedToday={usage?.summaryUsedToday}
+                    summaryDailyLimit={usage?.summaryDailyLimit}
+                    summaryResetAt={usage?.nextDailyResetAt}
+                    paidPlan={Boolean(usage?.plan && usage.plan !== "trial")}
+                  />
                 </div>
                 {usage?.nextPlanId ? (
                   <div className="rounded-2xl border border-amber-600/40 bg-amber-950/20 px-4 py-3 text-sm text-amber-100">
@@ -524,6 +641,59 @@ export default function ProfilePage() {
                   </div>
                 ) : null}
               </div>
+            </section>
+
+            <section className="rounded-3xl border border-cyan-500/20 bg-slate-900/60 p-6">
+              <h2 className="text-lg font-semibold text-white">Billing / จัดการแพ็กเกจ</h2>
+              {billingLoading ? (
+                <p className="mt-3 text-sm text-slate-400">กำลังโหลดสถานะจาก Stripe…</p>
+              ) : billingState ? (
+                <div className="mt-4 space-y-4">
+                  <div className="flex flex-wrap gap-x-8 gap-y-2 text-sm">
+                    <p className="text-slate-300">แพ็กเกจปัจจุบัน: <span className="font-semibold text-white">{formatPlanName(billingState.currentPlanId)}</span></p>
+                    <p className="text-slate-300">ใช้ได้ถึง: <span className="font-semibold text-white">{billingState.paidThroughAt ? new Date(billingState.paidThroughAt).toLocaleDateString("th-TH", { dateStyle: "long" }) : "ยังไม่พบข้อมูลรอบชำระ"}</span></p>
+                  </div>
+                  {billingState.pendingPlanId ? (
+                    <p className="rounded-xl border border-amber-500/30 bg-amber-950/20 p-3 text-sm text-amber-100">
+                      เปลี่ยนเป็น {formatPlanName(billingState.pendingPlanId)} ในรอบถัดไป วันที่ {billingState.pendingPlanEffectiveAt ? new Date(billingState.pendingPlanEffectiveAt).toLocaleDateString("th-TH", { dateStyle: "long" }) : "ตามรอบถัดไป"} — แพ็กเกจปัจจุบันยังคงใช้ได้จนถึงวันดังกล่าว
+                    </p>
+                  ) : null}
+                  {billingState.cancelAtPeriodEnd ? (
+                    <p className="rounded-xl border border-amber-500/30 bg-amber-950/20 p-3 text-sm text-amber-100">
+                      ปิดการต่ออายุแล้ว คุณยังใช้แพ็กเกจได้จนถึง {billingState.paidThroughAt ? new Date(billingState.paidThroughAt).toLocaleDateString("th-TH", { dateStyle: "long" }) : "วันสิ้นสุดรอบที่ชำระแล้ว"}
+                    </p>
+                  ) : null}
+                  <div className="flex flex-wrap items-end gap-3">
+                    {!billingState.cancelAtPeriodEnd && !billingState.hasExternalSchedule ? (
+                      <>
+                        <label className="text-sm text-slate-300">
+                          เปลี่ยนแพ็กเกจรอบถัดไป
+                          <select value={selectedPlanId || billingState.currentPlanId} onChange={(event) => setSelectedPlanId(event.target.value)} disabled={billingActionLoading || billingState.hasSchedule || billingState.hasExternalSchedule} className="mt-1 block rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-white">
+                            {BILLING_PLAN_OPTIONS.map((planId) => <option key={planId} value={planId}>{formatPlanName(planId)}</option>)}
+                          </select>
+                        </label>
+                        <button type="button" onClick={handleSchedulePlanChange} disabled={billingActionLoading || billingState.hasSchedule || !selectedPlanId || selectedPlanId === billingState.currentPlanId} className="rounded-xl bg-cyan-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
+                          {billingActionLoading ? "กำลังดำเนินการ…" : "เปลี่ยนแผนรอบถัดไป"}
+                        </button>
+                      </>
+                    ) : null}
+                    {!billingState.cancelAtPeriodEnd ? (
+                      <button type="button" onClick={handleManageRenewal} disabled={billingActionLoading || billingState.hasExternalSchedule} className="rounded-xl border border-slate-600 px-4 py-2 text-sm font-medium text-slate-100 disabled:opacity-50">
+                        {billingState.hasAppManagedSchedule ? "ยกเลิกการต่ออายุและแผนที่ตั้งไว้" : "จัดการการต่ออายุ / วิธีชำระเงิน"}
+                      </button>
+                    ) : null}
+                    {billingState.cancelAtPeriodEnd && !billingState.hasSchedule ? (
+                      <button type="button" onClick={handleManageRenewal} disabled={billingActionLoading} className="rounded-xl border border-slate-600 px-4 py-2 text-sm text-slate-100 disabled:opacity-50">จัดการการชำระเงินใน Stripe</button>
+                    ) : null}
+                  </div>
+                  {billingState.hasExternalSchedule ? <p className="text-sm text-amber-200">มีการเปลี่ยน subscription ที่ตั้งไว้นอก DischargeX จึงปิดการแก้ไขอัตโนมัติเพื่อป้องกันการเปลี่ยนแปลงทับกัน กรุณาติดต่อทีมงาน</p> : null}
+                  <p className="text-xs text-slate-500">การเปลี่ยนแผนมีผลเมื่อเริ่มรอบที่ชำระเงินถัดไป ไม่มีการคิดเงินหรือเปลี่ยนสิทธิ์ทันที</p>
+                  {billingNotice ? <p role="status" className="text-sm text-emerald-300">{billingNotice}</p> : null}
+                  {billingError ? <p role="alert" className="text-sm text-rose-300">{billingError}</p> : null}
+                </div>
+              ) : (
+                <div className="mt-3 space-y-2 text-sm text-slate-400"><p>ยังโหลดสถานะ Billing ไม่ได้</p><button type="button" onClick={() => void refreshBillingState().catch((err) => setBillingError(err instanceof Error ? err.message : "โหลดไม่สำเร็จ"))} className="text-cyan-300 underline">ลองโหลดอีกครั้ง</button></div>
+              )}
             </section>
 
             <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">

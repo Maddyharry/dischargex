@@ -3,6 +3,15 @@ type AdminAlertPayload = {
   lines: string[];
 };
 
+export type AdminAlertEmailResult = {
+  configured: boolean;
+  accepted: boolean;
+  providerStatus: number | null;
+  failure: "not_configured" | "timeout" | "network_error" | "provider_rejected" | null;
+};
+
+const ADMIN_ALERT_TIMEOUT_MS = 8_000;
+
 function buildTextBody(payload: AdminAlertPayload) {
   return `${payload.subject}\n\n${payload.lines.join("\n")}`.trim();
 }
@@ -22,11 +31,21 @@ export async function sendAdminAlertEmail(payload: AdminAlertPayload) {
   const to = process.env.ADMIN_ALERT_EMAIL?.trim() || process.env.ADMIN_EMAIL?.trim();
   const apiKey = process.env.RESEND_API_KEY?.trim();
   const from = process.env.EMAIL_FROM?.trim();
-  if (!to || !apiKey || !from) return;
+  if (!to || !apiKey || !from) {
+    return {
+      configured: false,
+      accepted: false,
+      providerStatus: null,
+      failure: "not_configured",
+    } satisfies AdminAlertEmailResult;
+  }
 
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), ADMIN_ALERT_TIMEOUT_MS);
   try {
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
+      signal: controller.signal,
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
@@ -40,11 +59,26 @@ export async function sendAdminAlertEmail(payload: AdminAlertPayload) {
       }),
     });
     if (!res.ok) {
-      const body = await res.text();
-      console.error("sendAdminAlertEmail non-200:", res.status, body);
+      console.error("sendAdminAlertEmail provider rejected:", res.status);
+      return {
+        configured: true,
+        accepted: false,
+        providerStatus: res.status,
+        failure: "provider_rejected",
+      } satisfies AdminAlertEmailResult;
     }
-  } catch (err) {
-    console.error("sendAdminAlertEmail failed:", err);
+    return { configured: true, accepted: true, providerStatus: res.status, failure: null } satisfies AdminAlertEmailResult;
+  } catch {
+    const failure = controller.signal.aborted ? "timeout" : "network_error";
+    console.error("sendAdminAlertEmail failed:", failure);
+    return {
+      configured: true,
+      accepted: false,
+      providerStatus: null,
+      failure,
+    } satisfies AdminAlertEmailResult;
+  } finally {
+    clearTimeout(timeout);
   }
 }
 

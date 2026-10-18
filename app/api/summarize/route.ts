@@ -40,6 +40,7 @@ import type {
 import { trackTelemetry } from "@/lib/telemetry";
 import {
   estimateTokenBillingThb,
+  estimateTokenBillingThbByModel,
   getPlanTokenBudgetThb,
   readUsageSummary,
   type TokenUsageSummary,
@@ -50,6 +51,9 @@ import { deidentify } from "@/lib/deidentify";
 import { getMergedKnowledge, queuePendingKnowledgeEntry } from "@/lib/knowledge-store";
 import { retrieveExternalEvidence } from "@/lib/reference-retriever";
 import { getTrialExpiredPolicy } from "@/lib/trial-expired-policy";
+import { callModelJSON, type SummaryModelCallOptions } from "@/lib/summary-model";
+import { estimateActualApiCostThbByModel, isRevenue5xEligible, resolveApiCostModelAlias } from "@/lib/api-cost";
+import { getUsagePolicySnapshot, selectUsagePolicyLedgerRows, type UsagePolicyLedgerRow } from "@/lib/usage-policy";
 
 export const runtime = "nodejs";
 
@@ -131,6 +135,7 @@ type ReqBody = {
   /** lab/radiology in body are ignored — evidence comes from order_sheet paste only */
   inputs: { order_sheet?: string; lab?: string; radiology?: string; other?: string };
   imageInputs?: Array<{ name?: string; dataUrl: string }>;
+  imagesRedactedConfirmed?: boolean;
   extraNote?: string;
   templateRules?: string;
   settings?: {
@@ -142,8 +147,6 @@ type ReqBody = {
   };
 };
 
-type UploadedImageInput = { name?: string; dataUrl: string };
-
 type PreprocessSummary = {
   originalChars: number;
   cleanedChars: number;
@@ -151,6 +154,8 @@ type PreprocessSummary = {
   removedSummary: string[];
   cleanedPreview: string;
 };
+
+type UploadedImageInput = { name?: string; dataUrl: string };
 
 type GenerateModelOutput = {
   analysis?: {
@@ -226,123 +231,39 @@ function splitIcd9LinesKeepProceduresOnly(text: string) {
   return { keep, removed };
 }
 
-function stripCodeFences(s: string) {
-  return (s || "").replace(/```json|```/g, "").trim();
-}
-
-function tryParseJson<T>(s: string): T | null {
-  try {
-    return JSON.parse(s) as T;
-  } catch {
-    return null;
-  }
-}
-
-function extractJsonObject<T>(text: string) {
-  const s = stripCodeFences(text);
-  const start = s.indexOf("{");
-  const end = s.lastIndexOf("}");
-  if (start < 0 || end < 0 || end <= start) return null;
-  return tryParseJson<T>(s.slice(start, end + 1));
-}
-
 function sanitizeImageInputs(raw: unknown): UploadedImageInput[] {
   if (!Array.isArray(raw)) return [];
-  const out: UploadedImageInput[] = [];
+  const images: UploadedImageInput[] = [];
   for (const item of raw) {
     if (!item || typeof item !== "object") continue;
     const o = item as Record<string, unknown>;
     const dataUrl = String(o.dataUrl || "").trim();
-    if (!/^data:image\/[a-zA-Z0-9.+-]+;base64,/.test(dataUrl)) continue;
-    if (dataUrl.length > 7_000_000) continue;
+    if (!/^data:image\/[a-zA-Z0-9.+-]+;base64,/.test(dataUrl) || dataUrl.length > 7_000_000) continue;
     const name = String(o.name || "").trim();
-    out.push({ dataUrl, ...(name ? { name: name.slice(0, 120) } : {}) });
-    if (out.length >= 4) break;
+    images.push({ dataUrl, ...(name ? { name: name.slice(0, 120) } : {}) });
+    if (images.length >= 4) break;
   }
-  return out;
+  return images;
 }
 
 async function extractClinicalTextFromImages(openai: OpenAI, images: UploadedImageInput[]) {
-  if (!images.length) return "";
   const response = await openai.responses.create({
     model: "gpt-4.1-mini",
+    store: false,
+    stream: false,
     max_output_tokens: 1400,
     input: [
-      {
-        role: "system",
-        content:
-          "Extract visible clinical text from uploaded medical images/screenshots. Output plain text only. Preserve line breaks for key sections like diagnosis, orders, labs, medications, dates. If unreadable, say briefly which parts are unclear.",
-      },
-      {
-        role: "user",
-        content: [
-          {
-            type: "input_text" as const,
-            text: "อ่านข้อความทางการแพทย์จากรูปให้มากที่สุด (ไทย/อังกฤษ) แล้วสรุปเป็น plain text สำหรับนำไปทำสรุปชาร์จ",
-          },
-          ...images.map((img) => ({
-            type: "input_image" as const,
-            image_url: img.dataUrl,
-            detail: "auto" as const,
-          })),
-        ],
-      },
+      { role: "system", content: "Extract visible clinical text from user-confirmed redacted medical images. Output plain text only. Preserve clinical values and line breaks." },
+      { role: "user", content: [
+        { type: "input_text" as const, text: "อ่านข้อความทางการแพทย์จากรูปที่ผู้ใช้ยืนยันว่าตรวจทานและปกปิดข้อมูลแล้ว (ไทย/อังกฤษ)" },
+        ...images.map((img) => ({ type: "input_image" as const, image_url: img.dataUrl, detail: "auto" as const })),
+      ] },
     ],
   });
-  return ("output_text" in response ? String(response.output_text || "") : "").trim();
-}
-
-async function callModelJSON<T>(
-  openai: OpenAI,
-  model: string,
-  system: string,
-  user: string,
-  options?: { max_output_tokens?: number }
-) {
-  const usageTotal: TokenUsageSummary = { inputTokens: 0, outputTokens: 0, totalTokens: 0 };
-  const addUsage = (next: TokenUsageSummary) => {
-    usageTotal.inputTokens += next.inputTokens;
-    usageTotal.outputTokens += next.outputTokens;
-    usageTotal.totalTokens += next.totalTokens;
+  return {
+    text: ("output_text" in response ? String(response.output_text || "") : "").trim(),
+    usage: "usage" in response ? response.usage : undefined,
   };
-  const createParams = {
-    model,
-    ...(options?.max_output_tokens != null && { max_output_tokens: options.max_output_tokens }),
-    input: [
-      { role: "system", content: system },
-      { role: "user", content: user },
-    ],
-  };
-
-  const resp = await openai.responses.create(
-    createParams as unknown as Parameters<typeof openai.responses.create>[0]
-  );
-  const respUsage = "usage" in resp ? resp.usage : undefined;
-  addUsage(readUsageSummary(respUsage));
-
-  const text = "output_text" in resp ? resp.output_text || "" : "";
-  const obj = extractJsonObject<T>(text);
-  if (obj) return { data: obj, usage: usageTotal };
-
-  const repair = await openai.responses.create({
-    ...createParams,
-    input: [
-      { role: "system", content: system },
-      {
-        role: "user",
-        content:
-          "Rewrite your previous answer as STRICT JSON only. No markdown.\n\nPREVIOUS:\n" +
-          text,
-      },
-    ],
-  });
-  const repairUsage = "usage" in repair ? repair.usage : undefined;
-  addUsage(readUsageSummary(repairUsage));
-
-  const repairText = "output_text" in repair ? repair.output_text || "" : "";
-  const obj2 = extractJsonObject<T>(repairText);
-  if (!obj2) throw new Error("Model returned non-JSON");
-  return { data: obj2, usage: usageTotal };
 }
 
 function normalizeIcd10List(s: string) {
@@ -1105,8 +1026,9 @@ async function runRecalcPass(params: {
   admit: string | null;
   discharge: string | null;
   losDays: number | null;
+  callOptions: SummaryModelCallOptions;
 }) {
-  const { openai, model, clinical, blocks, admit, discharge, losDays } = params;
+  const { openai, model, clinical, blocks, admit, discharge, losDays, callOptions } = params;
 
   const system = [
     "You are DischargeX (Thai coding-first, LLM-assisted).",
@@ -1161,7 +1083,7 @@ async function runRecalcPass(params: {
 }`,
   ].join("\n\n");
 
-  return callModelJSON<GenerateModelOutput>(openai, model, system, user);
+  return callModelJSON<GenerateModelOutput>(openai, model, system, user, callOptions);
 }
 
 function getMaxDevices(rawPlan: string | null | undefined): number {
@@ -1174,7 +1096,20 @@ function getMaxDevices(rawPlan: string | null | undefined): number {
 
 export async function POST(req: Request) {
   const requestStarted = performance.now();
+  let summaryJobId: string | null = null;
+  let summaryJobUserId: string | null = null;
+  let usageLease: { key: string; value: string } | null = null;
+  let policyResetAt: string | null = null;
   try {
+    const body = (await req.json()) as ReqBody;
+    const safeImageInputs = sanitizeImageInputs(body.imageInputs);
+    if (safeImageInputs.length > 0 && body.imagesRedactedConfirmed !== true) {
+      return json({
+        error: "กรุณายืนยันก่อนว่าตรวจทานและปกปิดข้อมูลระบุตัวบุคคลในรูปแล้ว รูปจะถูกส่งไปยังผู้ให้บริการ AI และระบบตรวจสอบการปกปิดในภาพไม่ได้",
+        errorCode: "PRIVACY_IMAGE_CONFIRMATION_REQUIRED",
+      }, 422);
+    }
+    summaryJobId = crypto.randomUUID();
     const bearerEmail = await resolveEmailFromBearerToken(req);
     const session = bearerEmail ? null : await getServerSession(authOptions);
     const email = bearerEmail || session?.user?.email;
@@ -1235,6 +1170,31 @@ export async function POST(req: Request) {
     const { start: periodStart, end: fallbackPeriodEnd } = getPeriodBounds(periodStartDate, plan);
     const periodEnd = dbUser?.subscriptionExpiresAt ?? fallbackPeriodEnd;
     const now = new Date();
+    if (userId && !isAdminUser) {
+      const key = `summary_usage_lease:${userId}`;
+      const value = JSON.stringify({ token: crypto.randomUUID(), expiresAt: Date.now() + 12 * 60 * 1000 });
+      try {
+        await prisma.appSetting.create({ data: { key, value } });
+        usageLease = { key, value };
+      } catch {
+        let existing: { value: string } | null = null;
+        try { existing = await prisma.appSetting.findUnique({ where: { key }, select: { value: true } }); } catch { /* fail closed below */ }
+        let expired = false;
+        try { expired = Boolean(existing && JSON.parse(existing.value).expiresAt <= Date.now()); } catch { expired = false; }
+        if (existing && expired) {
+          await prisma.appSetting.deleteMany({ where: { key, value: existing.value } });
+          try {
+            await prisma.appSetting.create({ data: { key, value } });
+            usageLease = { key, value };
+          } catch { /* another request acquired it */ }
+        }
+        if (!usageLease) {
+          return json({ error: "มีคำขอสรุปของบัญชีนี้กำลังทำงาน หรือไม่สามารถตรวจสอบสถานะได้ กรุณารอสักครู่แล้วลองใหม่", errorCode: "SUMMARY_USAGE_BUSY" }, 429);
+        }
+      }
+    } else if (!userId && !isAdminUser) {
+      return json({ error: "ไม่สามารถตรวจสอบบัญชีและโควตาได้ กรุณาเข้าสู่ระบบใหม่", errorCode: "USAGE_POLICY_UNAVAILABLE" }, 503);
+    }
     const { cycleStart, cycleEnd } = getCreditCycleBounds(periodStart, plan, now);
     const cycleWindowEnd = cycleEnd.getTime() > periodEnd.getTime() ? periodEnd : cycleEnd;
     const usageInCycle =
@@ -1316,11 +1276,107 @@ export async function POST(req: Request) {
       }
     }
 
-    const body = (await req.json()) as ReqBody;
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
     const mode = body.mode || "generate";
     const fast = body.settings?.fast ?? false;
-    const model = body.settings?.model || (fast ? "gpt-5-mini" : "gpt-5.4");
+    const requestedModel = body.settings?.model || (fast ? "gpt-5-mini" : "gpt-5.4");
+    const modelAllowlist = new Set((process.env.SUMMARY_ALLOWED_MODELS || "gpt-5-mini,gpt-5.4").split(",").map((value) => value.trim()).filter(Boolean));
+    if (!modelAllowlist.has(requestedModel) || !resolveApiCostModelAlias(requestedModel)) {
+      return json({ error: "ไม่รองรับโมเดลที่เลือก กรุณาเลือกโมเดลที่ระบบอนุญาต", errorCode: "SUMMARY_MODEL_NOT_ALLOWED" }, 400);
+    }
+    const model = requestedModel;
+    summaryJobUserId = userId ?? null;
+
+    // Shared canonical policy snapshot: check every plan before OCR/provider work.
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const revenue5xMode = planDefinition.isPaid && isRevenue5xEligible(dbUser?.periodStartedAt);
+    const tokenBudgetThb = getPlanTokenBudgetThb(plan);
+    if (mode === "generate" && !isAdminUser && todaySummaryCount >= summaryApproxLimit) {
+      return json({ error: `วันนี้คุณสร้างสรุปชาร์จครบโควตาโดยประมาณแล้ว (${summaryApproxLimit} เคส/วัน) ลองใหม่หลัง ${formatBangkokDateTime(nextDailyResetAt)}`, errorCode: "SUMMARY_DAILY_LIMIT_REACHED", resetAt: nextDailyResetAt.toISOString() }, 429);
+    }
+
+    const policyRangeStart = new Date(Math.min(monthStart.getTime(), periodStart.getTime()));
+    const policyRangeEnd = new Date(Math.max(new Date(now.getFullYear(), now.getMonth() + 1, 1).getTime(), periodEnd.getTime()));
+    const loadUsagePolicy = async () => {
+      let ledgerRows: UsagePolicyLedgerRow[] | null = [];
+      if (userId) {
+        try {
+          const fetchedRows = await prisma.tokenUsageLedger.findMany({
+            where: { userId, createdAt: { gte: policyRangeStart, lt: policyRangeEnd } },
+            select: { createdAt: true, model: true, inputTokens: true, outputTokens: true, totalTokens: true, estimatedCostThb: true, source: true, referenceId: true },
+          });
+          ledgerRows = selectUsagePolicyLedgerRows(fetchedRows, revenue5xMode ? "revenue_5x" : "legacy_internal") as UsagePolicyLedgerRow[];
+        } catch {
+          ledgerRows = null;
+        }
+      }
+      const snapshot = getUsagePolicySnapshot({
+        planId: plan,
+        subscriptionStatus: dbUser?.subscriptionStatus ?? null,
+        periodStartedAt: dbUser?.periodStartedAt ?? null,
+        expiresAt: periodEnd,
+        legacyCalendarMonthCapThb: tokenBudgetThb,
+        ledgerRows,
+      }, new Date());
+      policyResetAt = snapshot.resetAt;
+      return snapshot;
+    };
+    if (!isAdminUser) {
+      const snapshot = await loadUsagePolicy();
+      if (!snapshot.allowed) {
+        const unavailable = snapshot.costEstimate.status === "unknown";
+        const inactive = snapshot.status === "expired";
+        return json({
+          error: unavailable ? "ไม่สามารถตรวจสอบโควตาการใช้งาน AI ได้ กรุณาลองใหม่ภายหลัง" : "โควตาหรือรอบสมาชิกปัจจุบันไม่อนุญาตให้เรียก AI",
+          errorCode: unavailable ? "USAGE_POLICY_UNAVAILABLE" : inactive ? "SUBSCRIPTION_NOT_ACTIVE" : snapshot.mode === "revenue_5x" ? "API_COST_TARGET_REACHED" : "USAGE_POLICY_LIMIT_REACHED",
+          ...(!inactive && snapshot.resetAt ? { resetAt: snapshot.resetAt } : {}),
+        }, unavailable ? 503 : 402);
+      }
+    }
+
+    const maxOutputTokens = fast ? 2_000 : 4_000;
+    const guardProviderCall = async (input: string | number, outputTokens: number, providerModel: string) => {
+      if (isAdminUser) return;
+      const snapshot = await loadUsagePolicy();
+      if (!snapshot.allowed || snapshot.remainingThb == null) {
+        throw new Error(snapshot.costEstimate.status === "unknown"
+          ? "USAGE_POLICY_UNAVAILABLE"
+          : snapshot.status === "expired" ? "SUBSCRIPTION_NOT_ACTIVE"
+            : snapshot.mode === "revenue_5x" ? "API_COST_TARGET_REACHED" : "USAGE_POLICY_LIMIT_REACHED");
+      }
+      const projectedInputTokens = (typeof input === "number" ? input : new TextEncoder().encode(input).length) + 512;
+      if (snapshot.mode === "revenue_5x") {
+        const projected = estimateActualApiCostThbByModel({ inputTokens: projectedInputTokens, outputTokens, totalTokens: projectedInputTokens + outputTokens }, providerModel);
+        if (projected.status !== "known" || projected.estimatedCostThb > snapshot.remainingThb) throw new Error("API_COST_TARGET_REACHED");
+      } else {
+        const projected = estimateTokenBillingThbByModel({ inputTokens: projectedInputTokens, outputTokens, totalTokens: projectedInputTokens + outputTokens }, providerModel);
+        if (projected.estimatedCostThb > snapshot.remainingThb) throw new Error("USAGE_POLICY_LIMIT_REACHED");
+      }
+    };
+    const summaryCallOptions = {
+      max_output_tokens: maxOutputTokens,
+      beforeCall: async ({ input, maxOutputTokens: outputLimit }: { input: string; maxOutputTokens: number }) => {
+        await guardProviderCall(input, outputLimit, model);
+      },
+      onCompletedCall: async (usage: TokenUsageSummary, purpose: "initial" | "json_repair", usageAvailable: boolean) => {
+        if (!userId) return;
+        const apiCost = usageAvailable ? estimateActualApiCostThbByModel(usage, model) : null;
+        await prisma.tokenUsageLedger.create({
+          data: {
+            userId,
+            source: "summary_provider_call",
+            model: usageAvailable ? model : null,
+            inputTokens: usage.inputTokens,
+            outputTokens: usage.outputTokens,
+            totalTokens: usage.totalTokens,
+            estimatedCostThb: usageAvailable ? estimateTokenBillingThbByModel(usage, model).estimatedCostThb : 0,
+            ...(summaryJobId ? { referenceId: summaryJobId } : {}),
+            payload: JSON.stringify({ purpose, usageAvailable, actualApiCostThb: apiCost?.status === "known" ? apiCost.estimatedCostThb : null }),
+          },
+        });
+      },
+    };
+
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY!, maxRetries: 0, timeout: 90_000 });
     const strategy = body.settings?.strategy === "what_if_optimize" ? "what_if_optimize" : "strict_audit_safe";
     const alternativeSearch = body.settings?.alternativeSearch === true;
 
@@ -1338,16 +1394,47 @@ export async function POST(req: Request) {
             icd10: "",
           }));
 
-    const safeImageInputs = sanitizeImageInputs(body.imageInputs);
     const imageExtractWarnings: string[] = [];
     let imageExtractText = "";
     if (safeImageInputs.length > 0) {
       try {
-        imageExtractText = await extractClinicalTextFromImages(openai, safeImageInputs);
-        if (!imageExtractText) {
-          imageExtractWarnings.push("แนบรูปแล้ว แต่ยังสกัดข้อความจากรูปไม่สำเร็จ");
+        await guardProviderCall(100_000 * safeImageInputs.length, 1_400, "gpt-4.1-mini");
+        const imageResult = await extractClinicalTextFromImages(openai, safeImageInputs);
+        imageExtractText = imageResult.text;
+        const imageUsage = readUsageSummary(imageResult.usage);
+        if (userId) {
+          try {
+            const usageAvailable = Boolean(imageResult.usage &&
+              typeof imageResult.usage.input_tokens === "number" && typeof imageResult.usage.output_tokens === "number");
+            const actualCost = usageAvailable
+              ? estimateActualApiCostThbByModel(imageResult.usage!, "gpt-4.1-mini")
+              : null;
+            await prisma.tokenUsageLedger.create({
+              data: {
+                userId,
+                source: "summary_image_ocr",
+                model: usageAvailable ? "gpt-4.1-mini" : null,
+                inputTokens: imageUsage.inputTokens,
+                outputTokens: imageUsage.outputTokens,
+                totalTokens: imageUsage.totalTokens,
+                estimatedCostThb: usageAvailable ? estimateTokenBillingThbByModel(imageUsage, "gpt-4.1-mini").estimatedCostThb : 0,
+                ...(summaryJobId ? { referenceId: summaryJobId } : {}),
+                payload: JSON.stringify({ imageCount: safeImageInputs.length, purpose: "user_confirmed_image_ocr", usageAvailable, actualApiCostThb: actualCost?.status === "known" ? actualCost.estimatedCostThb : null, imageRedactionConfirmed: true, imageContentVerified: false }),
+              },
+            });
+          } catch {
+            throw new Error("SUMMARY_USAGE_LEDGER_WRITE_FAILED");
+          }
         }
-      } catch {
+        if (!imageExtractText) imageExtractWarnings.push("แนบรูปแล้ว แต่ยังสกัดข้อความจากรูปไม่สำเร็จ");
+      } catch (error) {
+        if (error instanceof Error && [
+          "SUMMARY_USAGE_LEDGER_WRITE_FAILED",
+          "API_COST_TARGET_REACHED",
+          "USAGE_POLICY_LIMIT_REACHED",
+          "USAGE_POLICY_UNAVAILABLE",
+          "SUBSCRIPTION_NOT_ACTIVE",
+        ].includes(error.message)) throw error;
         imageExtractWarnings.push("สกัดข้อความจากรูปไม่สำเร็จ ระบบจึงใช้เฉพาะข้อความที่พิมพ์ไว้");
       }
     }
@@ -1362,16 +1449,6 @@ export async function POST(req: Request) {
     const requiredCreditsForCase = mode === "generate" ? getCreditsRequiredForCase(mergedRaw.length) : 0;
     const availableCredits = baseRemaining + extraCredits;
     const enforceCreditLimit = shouldEnforceLegacyCreditLimit();
-
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const tokenSpendMonth = userId
-      ? await prisma.tokenUsageLedger.aggregate({
-          _sum: { estimatedCostThb: true },
-          where: { userId, createdAt: { gte: monthStart } },
-        })
-      : { _sum: { estimatedCostThb: 0 } };
-    const tokenSpendThb = Number(tokenSpendMonth._sum.estimatedCostThb || 0);
-    const tokenBudgetThb = getPlanTokenBudgetThb(plan);
 
     const trialExpiredPolicy = await getTrialExpiredPolicy();
     if (
@@ -1734,28 +1811,6 @@ export async function POST(req: Request) {
             "If both KNOWLEDGE_UPDATES_JSON and EXTERNAL_REFERENCE_SOURCES_JSON are empty/insufficient, avoid definitive principal diagnosis and explicitly state missing evidence in warnings.",
           ].join("\n\n");
 
-    if (mode === "generate" && !isAdminUser && tokenSpendThb >= tokenBudgetThb) {
-      const monthResetAt = new Date(monthStart);
-      monthResetAt.setMonth(monthResetAt.getMonth() + 1);
-      return json(
-        {
-          error: `โควตาการใช้งานเดือนนี้ครบแล้ว (${tokenSpendThb.toFixed(2)} / ${tokenBudgetThb.toFixed(
-            2
-          )} บาท) ระบบจะรีเซ็ตอีกครั้งประมาณ ${formatBangkokDateTime(monthResetAt)} หรือคุณสามารถซื้อแพ็กเพิ่มได้ที่หน้า /pricing`,
-        },
-        402
-      );
-    }
-
-    if (mode === "generate" && !isAdminUser && todaySummaryCount >= summaryApproxLimit) {
-      return json(
-        {
-          error: `วันนี้คุณสร้างสรุปชาร์จครบโควตาโดยประมาณแล้ว (${summaryApproxLimit} เคส/วัน) ระบบจะรีเซ็ตอีกครั้งประมาณ ${formatBangkokDateTime(nextDailyResetAt)} หรือคุณสามารถซื้อแพ็กเพิ่มได้ที่หน้า /pricing`,
-        },
-        429
-      );
-    }
-
     if (
       enforceCreditLimit &&
       mode === "generate" &&
@@ -1766,19 +1821,21 @@ export async function POST(req: Request) {
         return json(
           {
             error: `หมดรอบการใช้งานแล้ว ระบบจะรีเซ็ตอีกครั้งประมาณ ${formatBangkokDateTime(nextDailyResetAt)} หรือคุณสามารถซื้อแพ็กเพิ่มได้ที่หน้า /pricing`,
+            resetAt: nextDailyResetAt.toISOString(),
           },
           402
         );
       }
       return json(
         {
-          error: `โควตารอบนี้ไม่พอสำหรับเคสนี้ ระบบจะรีเซ็ตอีกครั้งประมาณ ${formatBangkokDateTime(nextDailyResetAt)} หรือคุณสามารถซื้อแพ็กเพิ่มได้ที่หน้า /pricing`,
+          error: `โควตารอบนี้ไม่พอสำหรับเคสนี้ ลองใหม่หลัง ${formatBangkokDateTime(nextDailyResetAt)}`,
+          resetAt: nextDailyResetAt.toISOString(),
         },
         402
       );
     }
 
-    const draftResponse = await callModelJSON<GenerateModelOutput>(openai, model, system, user);
+    const draftResponse = await callModelJSON<GenerateModelOutput>(openai, model, system, user, summaryCallOptions);
     const draftOut = draftResponse.data;
     const aggregateUsage: TokenUsageSummary = {
       inputTokens: draftResponse.usage.inputTokens,
@@ -1827,6 +1884,7 @@ export async function POST(req: Request) {
         admit,
         discharge,
         losDays,
+        callOptions: summaryCallOptions,
       });
       const recalcOut = recalcResponse.data;
       aggregateUsage.inputTokens += recalcResponse.usage.inputTokens;
@@ -2057,6 +2115,7 @@ export async function POST(req: Request) {
           await tx.usageLog.create({
             data: {
               userId,
+              ...(summaryJobId ? { caseId: summaryJobId } : {}),
               creditsUsed: enforceCreditLimit ? requiredCreditsForCase : 0,
               baseCreditsUsed: enforceCreditLimit ? baseToUse : 0,
               addonCreditsUsed: enforceCreditLimit ? addonToUse : 0,
@@ -2065,7 +2124,7 @@ export async function POST(req: Request) {
                   ? "long_case_generate"
                   : "generate"
                 : "token_generate",
-              ...(exportText != null && exportText !== "" ? { summarySnapshot: exportText } : {}),
+              ...(exportText != null && exportText !== "" ? { summarySnapshot: deidentify(exportText) } : {}),
             },
           });
         },
@@ -2075,20 +2134,21 @@ export async function POST(req: Request) {
     }
 
     const tokenBilling = estimateTokenBillingThb(aggregateUsage);
-
-    await prisma.tokenUsageLedger.create({
-      data: {
-        userId,
-        source: mode === "generate" ? "summary_generate" : "summary_recalc",
-        model,
-        inputTokens: aggregateUsage.inputTokens,
-        outputTokens: aggregateUsage.outputTokens,
-        totalTokens: aggregateUsage.totalTokens,
-        estimatedCostThb: tokenBilling.estimatedCostThb,
-        payload: JSON.stringify({ plan, diagnosisConfidence: diagnosis_confidence }),
-      },
-    });
-
+    if (userId && !revenue5xMode) {
+      await prisma.tokenUsageLedger.create({
+        data: {
+          userId,
+          source: mode === "generate" ? "summary_generate" : "summary_recalc",
+          model,
+          inputTokens: aggregateUsage.inputTokens,
+          outputTokens: aggregateUsage.outputTokens,
+          totalTokens: aggregateUsage.totalTokens,
+          estimatedCostThb: tokenBilling.estimatedCostThb,
+          referenceId: summaryJobId,
+          payload: JSON.stringify({ plan, diagnosisConfidence: diagnosis_confidence, diagnosisConfidenceSource: "heuristic_not_clinical_source" }),
+        },
+      });
+    }
     await trackTelemetry({
       userId,
       source: "summary",
@@ -2104,12 +2164,19 @@ export async function POST(req: Request) {
       },
     });
 
-    const summaryJobId = mode === "generate" ? crypto.randomUUID() : null;
     const generationDurationMs = Math.round(performance.now() - requestStarted);
     if (summaryJobId && userId && !isAdminUser) {
       try {
         await prisma.feedback.create({ data: { id: `summary_${summaryJobId}`, userId, type: "summary_job", message: "Summary generated", status: "completed",
-          payload: JSON.stringify({ durationMs: generationDurationMs, production: process.env.VERCEL_ENV === "production" }) } });
+          payload: JSON.stringify({
+            durationMs: generationDurationMs,
+            production: process.env.VERCEL_ENV === "production",
+            warningCount: finalWarnings.length,
+            warnings: finalWarnings.slice(0, 10).map((warning) => deidentify(String(warning)).slice(0, 240)),
+            diagnosisConfidence: diagnosis_confidence,
+            diagnosisConfidenceSource: "heuristic_not_clinical_source",
+            privacy: { deidentifiedBeforeModel: safeImageInputs.length === 0, textRedactionApplied: true, imageRedactionConfirmed: safeImageInputs.length > 0 ? body.imagesRedactedConfirmed === true : null, imageContentVerified: false },
+          }) } });
       } catch { /* Statistics are supplementary; a completed summary remains available. */ }
     }
     return json({
@@ -2124,7 +2191,7 @@ export async function POST(req: Request) {
           token_usage: aggregateUsage,
           token_billing_estimate: tokenBilling,
           dates: { admit: isBasicPlan ? "restricted" : dateEvidence.admit.status, discharge: isBasicPlan ? "restricted" : dateEvidence.discharge.status },
-          privacy: { deidentifiedBeforeModel: true },
+          privacy: { deidentifiedBeforeModel: safeImageInputs.length === 0, textRedactionApplied: true, imageRedactionConfirmed: safeImageInputs.length > 0 ? body.imagesRedactedConfirmed === true : null, imageContentVerified: false, anonymizationCertified: false },
           job_id: summaryJobId,
           generation_duration_ms: generationDurationMs,
         },
@@ -2133,12 +2200,37 @@ export async function POST(req: Request) {
       },
     });
   } catch (err: unknown) {
-    console.error("summarize_route_failed", err);
+    const policyErrorCode = err instanceof Error && (err.message === "API_COST_TARGET_REACHED" || err.message === "USAGE_POLICY_LIMIT_REACHED" || err.message === "USAGE_POLICY_UNAVAILABLE" || err.message === "SUBSCRIPTION_NOT_ACTIVE") ? err.message : null;
+    const policyBlocked = policyErrorCode !== null;
+    const errorCode = policyErrorCode || "SUMMARY_GENERATION_FAILED";
+    console.error("summarize_route_failed", errorCode);
+    if (summaryJobId && summaryJobUserId) {
+      try {
+        await prisma.feedback.create({
+          data: {
+            id: `summary_${summaryJobId}`,
+            userId: summaryJobUserId,
+            type: "summary_job",
+            message: "Summary generation failed",
+            status: "failed",
+            payload: JSON.stringify({ errorCode, privacy: { textRedactionApplied: true, imageContentVerified: false } }),
+          },
+        });
+      } catch {
+        // Failure metadata is supplementary and deliberately excludes raw errors.
+      }
+    }
     return json(
       {
-        error: err instanceof Error ? err.message : "Internal Server Error",
+        error: policyErrorCode === "USAGE_POLICY_UNAVAILABLE" ? "ไม่สามารถตรวจสอบโควตาการใช้งาน AI ได้ กรุณาลองใหม่ภายหลัง" : policyBlocked ? "โควตาหรือวงเงินสำหรับคำขอนี้ไม่เพียงพอ กรุณาลองใหม่ในรอบถัดไป" : "ขออภัย ระบบสรุปชาร์จขัดข้องชั่วคราว กรุณาลองใหม่ภายหลัง",
+        errorCode,
+        ...(policyErrorCode !== "SUBSCRIPTION_NOT_ACTIVE" && policyResetAt ? { resetAt: policyResetAt } : {}),
       },
-      500
+      policyErrorCode === "USAGE_POLICY_UNAVAILABLE" ? 503 : policyBlocked ? 402 : 500
     );
+  } finally {
+    if (usageLease) {
+      try { await prisma.appSetting.deleteMany({ where: usageLease }); } catch { console.warn("summary_usage_lease_release_failed"); }
+    }
   }
 }

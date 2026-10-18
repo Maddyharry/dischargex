@@ -146,22 +146,44 @@ function buildPrioritizedWhitelist(question: string, whitelist: string[]) {
   return [...uniquePicks, ...remainingThai, ...remainingGlobal];
 }
 
-function buildSearchQuery(question: string) {
-  const base = question.trim().slice(0, 220);
-  if (!base) return "";
-  if (isStrokeFastTrackQuery(base)) {
-    return `${base} แนวทางล่าสุด ประเทศไทย stroke fast track guideline`;
-  }
-  if (isMiFastTrackQuery(base)) {
-    return `${base} แนวทางล่าสุด ประเทศไทย STEMI NSTEMI fast track guideline`;
-  }
-  if (isTraumaQuery(base)) {
-    return `${base} แนวทางล่าสุด ประเทศไทย trauma fast track guideline`;
-  }
-  if (isToxicologyQuery(base)) {
-    return `${base} แนวทางล่าสุด ประเทศไทย พิษวิทยา poison center guideline`;
-  }
-  return base;
+const SAFE_MEDICAL_TERMS: ReadonlyArray<{ canonical: string; aliases: readonly string[] }> = [
+  { canonical: "stroke", aliases: ["stroke", "cva", "สมองขาดเลือด", "อัมพาตเฉียบพลัน", "พูดไม่ชัด"] },
+  { canonical: "acute myocardial infarction", aliases: ["mi", "stemi", "nstemi", "acs", "กล้ามเนื้อหัวใจขาดเลือด", "เจ็บหน้าอกเฉียบพลัน"] },
+  { canonical: "trauma", aliases: ["trauma", "polytrauma", "บาดเจ็บ", "อุบัติเหตุ", "head injury", "tbi", "เลือดออกภายใน"] },
+  { canonical: "poisoning", aliases: ["พิษ", "สารพิษ", "ได้รับพิษ", "poison", "poisoning", "toxic", "toxicity", "overdose", "antidote", "พิษวิทยา"] },
+  { canonical: "diabetes mellitus", aliases: ["diabetes", "diabetes mellitus", "เบาหวาน"] },
+  { canonical: "hypertension", aliases: ["hypertension", "ความดันโลหิตสูง"] },
+  { canonical: "pneumonia", aliases: ["pneumonia", "ปอดอักเสบ"] },
+  { canonical: "sepsis", aliases: ["sepsis", "ติดเชื้อในกระแสเลือด"] },
+  { canonical: "asthma", aliases: ["asthma", "หืด"] },
+  { canonical: "chronic kidney disease", aliases: ["chronic kidney disease", "ckd", "ไตเรื้อรัง"] },
+  { canonical: "heart failure", aliases: ["heart failure", "หัวใจล้มเหลว"] },
+  { canonical: "urinary tract infection", aliases: ["urinary tract infection", "uti", "ทางเดินปัสสาวะอักเสบ"] },
+  { canonical: "pregnancy", aliases: ["pregnancy", "ตั้งครรภ์", "ครรภ์เป็นพิษ", "ectopic pregnancy"] },
+  { canonical: "appendicitis", aliases: ["appendicitis", "ไส้ติ่งอักเสบ"] },
+];
+
+function escapeRegex(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** Produces a query only from a finite clinical vocabulary and syntactically valid ICD-10 codes. */
+export function buildSearchQuery(question: string) {
+  const source = question.trim().slice(0, 4000);
+  if (!source) return "";
+  const lower = source.toLowerCase();
+  const terms = SAFE_MEDICAL_TERMS
+    .filter(({ aliases }) => aliases.some((alias) => {
+      const pattern = /^[a-z0-9 ]+$/i.test(alias)
+        ? new RegExp(`(?:^|\\b)${escapeRegex(alias.toLowerCase())}(?:\\b|$)`, "i")
+        : new RegExp(escapeRegex(alias), "i");
+      return pattern.test(lower);
+    }))
+    .map(({ canonical }) => canonical);
+  const codes = source.match(/\b[A-TV-Z][0-9]{2}(?:\.[0-9A-Z]{1,2})?\b/gi) || [];
+  const safe = Array.from(new Set([...terms, ...codes.map((code) => code.toUpperCase())])).slice(0, 8);
+  if (safe.length === 0) return "";
+  return `${safe.join(" ")} clinical guideline Thailand`;
 }
 
 function cleanText(input: string) {
@@ -224,10 +246,12 @@ export async function retrieveExternalEvidence(question: string, options?: Retri
     prioritizedWhitelist = [...seeds, ...prioritizedWhitelist.filter((d) => !seeds.includes(d))];
   }
   if (!trimmed) return { evidences: [], whitelist };
+  const safeQuery = buildSearchQuery(trimmed);
+  if (!safeQuery) return { evidences: [], whitelist };
   const maxEvidence = Math.max(1, Math.min(8, Number(options?.maxEvidence || 4)));
   const maxDomains = Math.max(1, Math.min(10, Number(options?.maxDomains || 5)));
 
-  const query = encodeURIComponent(buildSearchQuery(trimmed));
+  const query = encodeURIComponent(safeQuery);
   const evidences: ExternalEvidence[] = [];
 
   for (const domain of prioritizedWhitelist.slice(0, maxDomains)) {
@@ -240,7 +264,7 @@ export async function retrieveExternalEvidence(question: string, options?: Retri
       if (evidences.length >= maxEvidence) break;
       const page = await fetchText(`https://r.jina.ai/http://${sourceUrl.replace(/^https?:\/\//, "")}`, 12000);
       if (!page) continue;
-      const matchedTerms = getMatchedTerms(trimmed, page);
+      const matchedTerms = getMatchedTerms(safeQuery, page);
       if (matchedTerms.length === 0) continue;
       evidences.push({
         sourceName: domain,

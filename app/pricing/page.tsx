@@ -4,22 +4,18 @@ import React from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
-
-const ADD_CREDIT_OPTIONS = [
-  { credits: 40, price: 89, label: "Boost Chat/Summary S: ประมาณ 40 หน่วยเสริม (89฿ / 7 วัน)" },
-  { credits: 120, price: 199, label: "Boost Chat/Summary M: ประมาณ 120 หน่วยเสริม (199฿ / 7 วัน)" },
-] as const;
+import { BillingManageButton } from "@/app/components/BillingManageButton";
 
 const PLAN_SELECT_OPTIONS = {
   monthly: [
-    { value: "basic_monthly", label: "Basic Monthly (299฿ / 30 วัน) — โปรโมชั่นช่วงแรก" },
-    { value: "standard_monthly", label: "Standard Monthly (590฿ / 30 วัน) — แนะนำ" },
-    { value: "pro_monthly", label: "Pro Monthly (1,090฿ / 30 วัน)" },
+    { value: "basic_monthly", label: "Basic Monthly (299฿ / รอบรายเดือน)" },
+    { value: "standard_monthly", label: "Standard Monthly (590฿ / รอบรายเดือน) — แนะนำ" },
+    { value: "pro_monthly", label: "Pro Monthly (1,090฿ / รอบรายเดือน)" },
   ],
   yearly: [
-    { value: "basic_yearly", label: "Basic Yearly (2,990฿ / ปี) — เฉลี่ยประมาณ 249฿/เดือน" },
-    { value: "standard_yearly", label: "Standard Yearly (5,990฿ / ปี) — เฉลี่ยประมาณ 499฿/เดือน" },
-    { value: "pro_yearly", label: "Pro Yearly (10,990฿ / ปี) — เฉลี่ยประมาณ 916฿/เดือน" },
+    { value: "basic_yearly", label: "Basic Yearly (2,990฿ / รอบรายปี) — เฉลี่ยประมาณ 249฿/เดือน" },
+    { value: "standard_yearly", label: "Standard Yearly (5,990฿ / รอบรายปี) — เฉลี่ยประมาณ 499฿/เดือน" },
+    { value: "pro_yearly", label: "Pro Yearly (10,990฿ / รอบรายปี) — เฉลี่ยประมาณ 916฿/เดือน" },
   ],
 } as const;
 
@@ -55,7 +51,7 @@ function MobilePlanPicker(props: {
       >
         <optgroup label="ทดลองใช้ (ไม่ชำระผ่าน Stripe)">
           <option value="__trial" disabled>
-            Trial 0฿ — ~20 แชท/วัน · ~2 สรุปชาร์จ/วัน · ทดลอง 14 วัน (สมัครแล้วใช้ได้)
+            Trial 0฿ — ทดลอง 14 วัน · AI Chat ปิดให้บริการชั่วคราว
           </option>
         </optgroup>
         <optgroup label="รายเดือน">
@@ -85,7 +81,6 @@ function PricingPageContent() {
   const [billingView, setBillingView] = React.useState<"monthly" | "yearly">("monthly");
   const [submitError, setSubmitError] = React.useState<string | null>(null);
   const [stripeLoading, setStripeLoading] = React.useState(false);
-  const [requestType, setRequestType] = React.useState<"plan" | "add_credits">("plan");
   const [selectedPlanRequested, setSelectedPlanRequested] = React.useState<string>("standard_monthly");
   const [quote, setQuote] = React.useState<{
     paymentType: string;
@@ -102,7 +97,6 @@ function PricingPageContent() {
     message: string | null;
   }>({ state: "idle", message: null });
 
-  const [addCreditsOption, setAddCreditsOption] = React.useState(0);
   const submitSuccess =
     searchParams.get("stripe") === "success" || searchParams.get("status") === "success";
   const submitCancelled = searchParams.get("stripe") === "cancel";
@@ -204,16 +198,12 @@ function PricingPageContent() {
   }, [submitSuccess, isLoggedIn]);
 
   React.useEffect(() => {
-    if (!isLoggedIn) return;
+    if (!isLoggedIn || isExistingPlan) return;
     setQuoteError(null);
     setQuote(null);
     const controller = new AbortController();
     const sp = new URLSearchParams();
-    if (requestType === "add_credits") {
-      sp.set("addCredits", String(ADD_CREDIT_OPTIONS[addCreditsOption].credits));
-    } else {
-      sp.set("planRequested", selectedPlanRequested);
-    }
+    sp.set("planRequested", selectedPlanRequested);
     fetch(`/api/billing/quote?${sp.toString()}`, { signal: controller.signal })
       .then(async (r) => {
         const text = await r.text();
@@ -238,20 +228,16 @@ function PricingPageContent() {
         setQuoteError(e instanceof Error ? e.message : "คำนวณราคาไม่สำเร็จ");
       });
     return () => controller.abort();
-  }, [isLoggedIn, requestType, addCreditsOption, selectedPlanRequested]);
+  }, [isLoggedIn, isExistingPlan, selectedPlanRequested]);
 
   async function startStripeCheckout() {
     setSubmitError(null);
     setStripeLoading(true);
     try {
-      const payload =
-        requestType === "add_credits"
-          ? { addCredits: ADD_CREDIT_OPTIONS[addCreditsOption].credits }
-          : { planRequested: selectedPlanRequested };
       const res = await fetch("/api/stripe/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ planRequested: selectedPlanRequested }),
       });
       const data = (await res.json()) as { ok?: boolean; error?: string; checkoutUrl?: string };
       if (!res.ok || !data.ok || !data.checkoutUrl) {
@@ -327,9 +313,8 @@ function PricingPageContent() {
             เลือกแพ็กเกจตามปริมาณงาน
           </h1>
           <p className="mt-3 max-w-2xl text-sm text-slate-400 md:text-base">
-            โปรโมชั่นช่วงเปิดตัว: จ่ายแบบรายเดือนหรือรายปี — ตัวเลขต่อวันด้านล่างเป็น{" "}
-            <span className="text-slate-300">เพดาน Fair Use โดยประมาณ</span> (ไม่ได้รับประกันจำนวนข้อความต่อเดือน)
-            โดยระบบจะคิดโควต้าแบบ weighted ตามความหนักของโมเดลที่ใช้ (Fast ใช้น้อยกว่า Precise)
+            เลือกรายเดือนหรือรายปีตามรอบบิล Stripe — ตัวเลขการใช้งานเป็นงบรวมต่อรอบและเพดานรายวัน
+            ไม่ใช่จำนวนเคสที่รับประกัน ยอดใช้จริงเปลี่ยนตามความยาวข้อความและการใช้ภาพ
           </p>
           <p className="mt-2 text-xs text-slate-500">
             ราคาอัปเดตล่าสุดในหน้านี้เสมอ — หากมีแคมเปญใหม่ ระบบจะแสดงที่หน้านี้ก่อนช่องทางอื่น
@@ -370,7 +355,7 @@ function PricingPageContent() {
               </button>
             </div>
             <span className="text-[11px] text-slate-500">
-              รายปี = จ่ายล่วงหน้า 365 วัน และประหยัดกว่ารายเดือนโดยเฉลี่ย
+              ราคาเฉลี่ยรายปีปัดเป็นรายเดือนเพื่อเปรียบเทียบ; เรียกเก็บเต็มรอบรายปีตามวันที่ Stripe กำหนด
             </span>
           </div>
 
@@ -390,12 +375,13 @@ function PricingPageContent() {
               <h2 className="text-lg font-semibold text-white">Trial</h2>
               <p className="mt-1 text-sm text-slate-400">ลองก่อน ตัดสินใจทีหลัง</p>
               <p className="mt-4 text-3xl font-bold text-white">0฿</p>
-              <p className="text-xs text-slate-400">ทดลองใช้ฟรี 14 วัน (ใช้งานเต็มช่วงทดลอง)</p>
+              <p className="text-xs text-slate-400">ทดลองใช้ฟรี 14 วัน สำหรับฟีเจอร์ที่เปิดให้บริการ</p>
               <ul className="mt-4 space-y-2 text-sm text-slate-200">
                 <li>- ไม่มีผูกมัด</li>
                 <li>- ใช้ได้ 1 ครั้งต่อบัญชี</li>
-                <li>- จำกัด Fair Use: AI Chat ~20 ครั้ง/วัน · สรุปชาร์จ ~2 เคส/วัน</li>
-                <li>- โควต้าจริงคิดจากต้นทุน AI ตาม model/token usage</li>
+                <li>- AI Chat ปิดให้บริการชั่วคราว</li>
+                <li>- สรุปชาร์จมีเพดานระบบสูงสุด 2 เคส/วัน แต่จำนวนที่ทำได้จริงขึ้นกับงบ AI และไม่รับประกัน</li>
+                <li>- หน่วยการใช้งานอ้างอิง token ที่ระบบบันทึก ไม่ใช่ยอดค่าใช้จ่ายจริงจาก invoice</li>
               </ul>
             </div>
 
@@ -421,13 +407,11 @@ function PricingPageContent() {
                 {billingView === "yearly" ? "2,990฿" : "299฿"}
               </p>
               <p className="text-xs text-slate-400">
-                {billingView === "yearly"
-                  ? "เฉลี่ยประมาณ 249฿/เดือน · ใช้งานได้ต่อเนื่อง 365 วัน"
-                  : "ใช้งานแบบรายเดือน 30 วัน"}
+                {billingView === "yearly" ? "เฉลี่ยประมาณ 249฿/เดือน · ชำระเต็มรอบรายปี" : "ชำระตามรอบรายเดือน Stripe"}
               </p>
               <ul className="mt-4 space-y-2 text-sm text-slate-200">
-                <li>- AI Chat ~40 ครั้ง/วัน (1 ครั้ง = ส่งข้อความแล้วได้คำตอบจาก AI 1 ครั้ง)</li>
-                <li>- สร้างสรุปชาร์จได้ประมาณ 4 เคส/วัน</li>
+                <li>- งบ AI รวม 59.8 หน่วยต่อเดือน หรือ 598 หน่วยต่อรอบรายปี</li>
+                <li>- สรุปได้สูงสุด 4 เคสต่อวัน แยกจากงบ AI; ไม่ใช่จำนวนที่รับประกัน</li>
                 <li>- Principal / Comorbidity / Complication</li>
                 <li>- แนะนำ ICD-10 / ICD-9</li>
                 <li>- เหมาะสำหรับเริ่มใช้งานจริง</li>
@@ -459,13 +443,11 @@ function PricingPageContent() {
                 {billingView === "yearly" ? "5,990฿" : "590฿"}
               </p>
               <p className="text-xs text-cyan-200/90">
-                {billingView === "yearly"
-                  ? "เฉลี่ยประมาณ 499฿/เดือน · ใช้งานได้ต่อเนื่อง 365 วัน"
-                  : "ใช้งานแบบรายเดือน 30 วัน"}
+                {billingView === "yearly" ? "เฉลี่ยประมาณ 499฿/เดือน · ชำระเต็มรอบรายปี" : "ชำระตามรอบรายเดือน Stripe"}
               </p>
               <ul className="mt-4 space-y-2 text-sm text-slate-100">
-                <li>- AI Chat ~140 ครั้ง/วัน (1 ครั้ง = ส่งข้อความแล้วได้คำตอบจาก AI 1 ครั้ง)</li>
-                <li>- สร้างสรุปชาร์จได้ประมาณ 14 เคส/วัน</li>
+                <li>- งบ AI รวม 118 หน่วยต่อเดือน หรือ 1,198 หน่วยต่อรอบรายปี</li>
+                <li>- สรุปได้สูงสุด 14 เคสต่อวัน แยกจากงบ AI; ไม่ใช่จำนวนที่รับประกัน</li>
                 <li>- Diagnosis ครบ + Admit / Discharge</li>
                 <li>- Investigations, Treatment, Outcome, Home medication</li>
                 <li>- เหมาะสำหรับทำสรุปชาร์จจริง</li>
@@ -495,12 +477,12 @@ function PricingPageContent() {
               </p>
               <p className="text-xs text-slate-200">
                 {billingView === "yearly"
-                  ? "เฉลี่ยประมาณ 916฿/เดือน · ใช้งานได้ต่อเนื่อง 365 วัน"
-                  : "ใช้งานแบบรายเดือน 30 วัน"}
+                  ? "เฉลี่ยประมาณ 916฿/เดือน · ชำระเต็มรอบรายปี"
+                  : "ชำระตามรอบรายเดือน Stripe"}
               </p>
               <ul className="mt-4 space-y-2 text-sm text-slate-100">
-                <li>- AI Chat ~420 ครั้ง/วัน (1 ครั้ง = ส่งข้อความแล้วได้คำตอบจาก AI 1 ครั้ง)</li>
-                <li>- สร้างสรุปชาร์จได้ประมาณ 42 เคส/วัน</li>
+                <li>- งบ AI รวม 218 หน่วยต่อเดือน หรือ 2,198 หน่วยต่อรอบรายปี</li>
+                <li>- สรุปได้สูงสุด 42 เคสต่อวัน แยกจากงบ AI; ไม่ใช่จำนวนที่รับประกัน</li>
                 <li>- ทุกอย่างใน Standard</li>
                 <li>- วิเคราะห์เชิงลึกมากขึ้นสำหรับเคสซับซ้อน</li>
                 <li>- แนะนำเติมข้อความใน order sheet (รวมผล lab/รังสีในหน้า) เพื่อรองรับรหัส (AdjRW ประมาณการ ไม่รับประกันการเบิกจ่าย)</li>
@@ -541,16 +523,16 @@ function PricingPageContent() {
               </thead>
               <tbody className="divide-y divide-white/10 text-slate-300 [&>tr]:transition [&>tr:hover]:bg-white/[0.03]">
                 <tr>
-                  <td className="px-4 py-3">AI Chat ข้อความ→คำตอบ (โดยประมาณ/วัน)</td>
-                  <td className={`px-4 py-3 ${selectedPlanTier === "basic" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>~40 ครั้ง</td>
-                  <td className={`px-4 py-3 ${selectedPlanTier === "standard" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>~140 ครั้ง</td>
-                  <td className={`px-4 py-3 ${selectedPlanTier === "pro" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>~420 ครั้ง</td>
+                  <td className="px-4 py-3">งบ AI รวมต่อรอบรายเดือน / รายปี</td>
+                  <td className={`px-4 py-3 ${selectedPlanTier === "basic" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>59.8 / 598 หน่วย</td>
+                  <td className={`px-4 py-3 ${selectedPlanTier === "standard" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>118 / 1,198 หน่วย</td>
+                  <td className={`px-4 py-3 ${selectedPlanTier === "pro" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>218 / 2,198 หน่วย</td>
                 </tr>
                 <tr>
-                  <td className="px-4 py-3">สร้างสรุปชาร์จได้ประมาณต่อวัน</td>
-                  <td className={`px-4 py-3 ${selectedPlanTier === "basic" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>~4 เคส</td>
-                  <td className={`px-4 py-3 ${selectedPlanTier === "standard" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>~14 เคส</td>
-                  <td className={`px-4 py-3 ${selectedPlanTier === "pro" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>~42 เคส</td>
+                  <td className="px-4 py-3">เพดานสรุปสูงสุดต่อวัน (แยกจากงบ AI)</td>
+                  <td className={`px-4 py-3 ${selectedPlanTier === "basic" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>4 เคส</td>
+                  <td className={`px-4 py-3 ${selectedPlanTier === "standard" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>14 เคส</td>
+                  <td className={`px-4 py-3 ${selectedPlanTier === "pro" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>42 เคส</td>
                 </tr>
                 <tr>
                   <td className="px-4 py-3">ช่วยคิด Principal / Comorbidity / Complication</td>
@@ -588,9 +570,15 @@ function PricingPageContent() {
             </table>
           </div>
           <p className="mt-2 text-xs leading-relaxed text-slate-500">
-            ตัวเลขต่อวันเป็นเพดาน Fair Use ที่ระบบใช้จริง และมีเพดาน monthly AI budget แยกอีกชั้น
+            เพดาน 4 / 14 / 42 เคสต่อวันเป็นขีดจำกัดจริง แยกจากงบ AI และไม่ใช่จำนวนเคสที่รับประกันว่าจะทำได้
             <br />
-            Fast mode ใช้โควต้าน้อยกว่า Precise mode (เพราะใช้โมเดลหนักต่างกัน) จึงใช้งานได้ถี่กว่าในงบเดียวกัน
+            ปริมาณข้อความและภาพทำให้หน่วยที่ใช้ต่อครั้งต่างกัน ตรวจยอดและเวลารีเซ็ตได้ที่ ข้อมูลของฉัน (/app/profile)
+            <br />
+            ราคาเฉลี่ยรายปีปัดเป็นรายเดือนเพื่อเปรียบเทียบ: Basic 249฿, Standard 499฿, Pro 916฿; งบ AI เฉลี่ยต่อเดือนประมาณ 50 / 100 / 183 หน่วย
+            <br />
+            แพ็กที่ชำระก่อน 19 ต.ค. 2569 เวลาไทย ใช้เงื่อนไขเดิมจนถึงการต่ออายุครั้งถัดไป
+            <br />
+            Boost หยุดรับซื้อใหม่ชั่วคราว; เครดิต Boost ที่ซื้อไว้ก่อนหน้านี้ไม่ถูกลบ ติดต่อทีมงานเพื่อให้ช่วยตรวจสอบได้ และไม่มีการคืนเงินอัตโนมัติ
             <br />
             ทดลองใช้ (Trial) รวมฟีเจอร์ &quot;แนะนำเติม chart / AdjRW ประมาณการ&quot; เช่นเดียวกับ Pro ในขอบเขตที่ระบบกำหนด
           </p>
@@ -607,10 +595,10 @@ function PricingPageContent() {
         <section className="rounded-3xl border border-white/10 bg-gradient-to-b from-white/[0.04] to-transparent p-6 md:p-8 backdrop-blur">
           <h2 className="text-xl font-semibold text-white tracking-tight">ชำระเงิน (Stripe)</h2>
           <p className="mt-2 text-sm text-slate-400">
-            เลือกแพ็กเกจหรือ Boost เสริมช่วงพีค แล้วไปหน้า Stripe เพื่อชำระ—สิทธิ์และโควตาอัปเดตอัตโนมัติหลังชำระสำเร็จ
+            เลือกแพ็กเกจแล้วชำระผ่าน Stripe; ระบบจะอัปเดตสิทธิ์หลังยืนยันการชำระ
           </p>
           <p className="mt-3 rounded-xl border border-cyan-500/25 bg-cyan-500/10 px-3 py-2 text-xs text-cyan-100">
-            นี่คือหน้าสั่งเปิดแพ็กหรือเติมโควตาเสริมอย่างเป็นทางการของ DischargeX เท่านั้น
+            แพ็กเกจและการจัดการการสมัครทำผ่านเว็บไซต์ DischargeX
           </p>
 
           {!isLoggedIn ? (
@@ -628,13 +616,14 @@ function PricingPageContent() {
           ) : (
           <>
           <div className="mt-4 rounded-2xl border border-cyan-500/30 bg-cyan-950/20 p-4 text-sm text-cyan-100">
-            ระบบใช้ Stripe ทั้งหมดแบบอัตโนมัติแล้ว (ไม่มีการโอนสลิป/รอแอดมินอนุมัติ)
+            เมื่อเมนูเปลี่ยนแพ็กเกจพร้อมใช้ในบัญชี ให้ทำรายการในหน้าข้อมูลของฉันเพื่อกำหนดผลในรอบชำระถัดไป
+            หากต้องการยกเลิก ให้เข้าสู่ Stripe Billing Portal จากเว็บไซต์; ไม่ต้องมีบัญชี Stripe แยก
           </div>
 
           {isExistingPlan && (
             <div className="mt-4 rounded-2xl border border-cyan-500/30 bg-cyan-950/20 px-4 py-3 text-sm text-cyan-200">
               บัญชีนี้มีแผน <span className="font-semibold">{hasPlan}</span> อยู่แล้ว
-              เมื่อกดดำเนินการ ระบบจะพาไป Stripe เพื่อจัดการแพ็กเกจ/ต่ออายุอัตโนมัติ
+              ใช้หน้าข้อมูลของฉันเพื่อเปลี่ยนแพ็กเกจให้เริ่มรอบถัดไป หรือยกเลิกการต่ออายุผ่าน Stripe Billing Portal
             </div>
           )}
 
@@ -644,84 +633,40 @@ function PricingPageContent() {
             </div>
           )}
 
-          {requestType === "plan" ? (
-            <div className="mt-4 md:hidden">
-              <MobilePlanPicker
-                id="pricing-plan-mobile-stripe"
-                value={selectedPlanRequested}
-                onChange={applyPlanFromPicker}
-              />
-            </div>
-          ) : null}
+          <div className="mt-4 md:hidden">
+            <MobilePlanPicker
+              id="pricing-plan-mobile-stripe"
+              value={selectedPlanRequested}
+              onChange={applyPlanFromPicker}
+            />
+          </div>
 
+          {isExistingPlan ? (
+            <div className="mt-6">
+              <BillingManageButton />
+            </div>
+          ) : (
           <div className="mt-6 grid gap-4 md:grid-cols-2">
             <div className="space-y-3 md:col-span-2">
-              <label className="text-xs text-slate-300">ประเภทคำขอ</label>
-              <div className="flex gap-4">
-                <label className="flex cursor-pointer items-center gap-2">
-                  <input
-                    type="radio"
-                    name="requestType"
-                    checked={requestType === "plan"}
-                    onChange={() => setRequestType("plan")}
-                    className="h-4 w-4 border-slate-600 bg-slate-900 text-cyan-500"
-                  />
-                  <span className="text-sm text-slate-200">เปลี่ยน/อัปเกรดแผน</span>
-                </label>
-                <label className="flex cursor-pointer items-center gap-2">
-                  <input
-                    type="radio"
-                    checked={requestType === "add_credits"}
-                    onChange={() => setRequestType("add_credits")}
-                    className="h-4 w-4 border-slate-600 bg-slate-900 text-cyan-500"
-                  />
-                  <span className="text-sm text-slate-200">ซื้อ Boost เพิ่ม</span>
-                </label>
+              <div className="hidden space-y-1 md:block">
+                <label className="text-xs text-slate-400">เลือกแพ็กเกจ (ตามมุมมองรายเดือน/รายปีด้านบน)</label>
+                <select
+                  name="planRequested"
+                  value={selectedPlanRequested}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setBillingView(billingViewFromPlanId(v));
+                    setSelectedPlanRequested(v);
+                  }}
+                  className="w-full rounded-2xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-cyan-500"
+                >
+                  {PLAN_SELECT_OPTIONS[billingView].map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
               </div>
-
-              {requestType === "plan" ? (
-                <div className="hidden space-y-1 md:block">
-                  <label className="text-xs text-slate-400">เลือกแพ็กเกจ (ตามมุมมองรายเดือน/รายปีด้านบน)</label>
-                  <select
-                    name="planRequested"
-                    required={requestType === "plan"}
-                    value={selectedPlanRequested}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      setBillingView(billingViewFromPlanId(v));
-                      setSelectedPlanRequested(v);
-                    }}
-                    className="w-full rounded-2xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-cyan-500"
-                  >
-                    {PLAN_SELECT_OPTIONS[billingView].map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              ) : (
-                <div className="space-y-1">
-                  <label className="text-xs text-slate-400">เลือกแพ็ก Boost เสริม</label>
-                  <select
-                    value={addCreditsOption}
-                    onChange={(e) => setAddCreditsOption(Number(e.target.value))}
-                    className="w-full rounded-2xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-cyan-500"
-                  >
-                    {ADD_CREDIT_OPTIONS.map((opt, i) => (
-                      <option key={opt.credits} value={i}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
-                  <input
-                    type="hidden"
-                    name="addCredits"
-                    value={ADD_CREDIT_OPTIONS[addCreditsOption].credits}
-                  />
-                  <input type="hidden" name="planRequested" value="add_credits" />
-                </div>
-              )}
             </div>
 
             <div className="md:col-span-2 rounded-2xl border border-emerald-500/25 bg-emerald-950/10 p-4 text-sm text-emerald-100">
@@ -751,6 +696,7 @@ function PricingPageContent() {
               </div>
             </div>
           </div>
+          )}
           </>
           )}
         </section>

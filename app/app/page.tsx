@@ -108,9 +108,17 @@ type RecalcCompareResult = {
   after: RecalcCompareSnapshot;
 };
 type SummaryQuotaNotice = {
+  kind: "daily" | "monthly" | "next_renewal" | "expired" | "other";
   shortLabel: string;
   resetAtText: string | null;
+  resetLabel: string | null;
 };
+class ApiResponseError extends Error {
+  constructor(message: string, readonly errorCode: string | null, readonly resetAt: string | null) {
+    super(message);
+    this.name = "ApiResponseError";
+  }
+}
 type UploadedImageInput = {
   id: string;
   name: string;
@@ -238,6 +246,7 @@ function PageContent() {
   const [orderSheet, setOrderSheet] = useState("");
   const [other, setOther] = useState("");
   const [uploadedImages, setUploadedImages] = useState<UploadedImageInput[]>([]);
+  const [imagesRedactedConfirmed, setImagesRedactedConfirmed] = useState(false);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
 
   const [blocks, setBlocks] = useState<NormalizedBlock[]>(createEmptyBlocks());
@@ -427,20 +436,31 @@ function PageContent() {
           tokenBudgetReached?: boolean;
           nextDailyResetAt?: string;
           periodEnd?: string;
+          subscriptionStatus?: string;
+          usagePolicy?: { mode?: "legacy_internal" | "revenue_5x"; resetAt?: string | null };
         };
         if (cancelled || !data?.ok) return;
-        const locked = Boolean(data.summaryDailyLimitReached || data.tokenBudgetReached);
+        const expired = data.subscriptionStatus === "expired";
+        const locked = Boolean(expired || data.summaryDailyLimitReached || data.tokenBudgetReached);
         if (!locked) {
           setSummaryQuotaNotice(null);
           return;
         }
-        const resetAtRaw = data.summaryDailyLimitReached ? data.nextDailyResetAt : data.periodEnd;
+        const kind: SummaryQuotaNotice["kind"] = expired ? "expired"
+          : data.summaryDailyLimitReached ? "daily"
+            : data.usagePolicy?.mode === "revenue_5x" ? "next_renewal" : "monthly";
+        const resetAtRaw = expired ? null : data.summaryDailyLimitReached ? data.nextDailyResetAt : data.usagePolicy?.resetAt || data.periodEnd;
         const resetAtText = resetAtRaw
           ? new Date(resetAtRaw).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short" })
           : null;
         setSummaryQuotaNotice({
-          shortLabel: "โควตาสรุปชาร์จเต็มชั่วคราว",
+          kind,
+          shortLabel: kind === "expired" ? "สถานะสมาชิกไม่ active กรุณาตรวจสอบการชำระเงินหรือแพ็กเกจ (ไม่มีวันรีเซ็ตที่ยืนยันได้)"
+            : kind === "daily" ? "โควตาสรุปรายวันครบแล้ว"
+              : kind === "next_renewal" ? "ถึงเป้าหมายต้นทุน AI ของรอบสมาชิกนี้แล้ว"
+                : "โควตาใช้งานประจำเดือนครบแล้ว",
           resetAtText,
+          resetLabel: kind === "daily" ? "รีเซ็ต" : kind === "monthly" ? "รอบเดือนใหม่" : kind === "next_renewal" ? "รอบชำระเงินสิ้นสุดโดยประมาณ" : null,
         });
       } catch {
         // ignore quota refresh failures
@@ -814,7 +834,7 @@ function PageContent() {
     }
 
     if (!res.ok) {
-      const maybe = data as { error?: unknown; raw?: unknown } | null;
+      const maybe = data as { error?: unknown; raw?: unknown; errorCode?: unknown; resetAt?: unknown } | null;
       const msg =
         maybe && typeof maybe === "object"
           ? (typeof maybe.error === "string"
@@ -824,20 +844,25 @@ function PageContent() {
               : null)
           : null;
       const base = msg || "Request failed";
+      const errorCode = maybe && typeof maybe.errorCode === "string" ? maybe.errorCode : null;
+      const resetAt = maybe && typeof maybe.resetAt === "string" ? maybe.resetAt : null;
       const isTxnLock =
         /transaction|Unable to start a transaction|maxWait/i.test(base);
-      throw new Error(
+      throw new ApiResponseError(
         isTxnLock
           ? `${base} ลองกดสร้างใหม่อีกครั้งในไม่กี่วินาที (เซิร์ฟเวอร์ยุ่งชั่วคราว)`
-          : base
+          : base,
+        errorCode,
+        resetAt,
       );
     }
 
     return data as ApiResponse;
   }
 
-  function isUsageLimitMessage(message: string) {
+  function isUsageLimitMessage(message: string, errorCode?: string | null) {
     return (
+      ["API_COST_TARGET_REACHED", "USAGE_POLICY_LIMIT_REACHED", "SUMMARY_DAILY_LIMIT_REACHED", "SUBSCRIPTION_NOT_ACTIVE"].includes(errorCode || "") ||
       /Credit limit reached/i.test(message) ||
       message.includes("ครบโควตาโดยประมาณแล้ว") ||
       message.includes("โควตาการใช้งานเดือนนี้ครบแล้ว") ||
@@ -847,14 +872,33 @@ function PageContent() {
     );
   }
 
-  function parseSummaryQuotaNotice(message: string): SummaryQuotaNotice | null {
-    if (!isUsageLimitMessage(message)) return null;
+  function parseSummaryQuotaNotice(message: string, errorCode?: string | null, resetAt?: string | null): SummaryQuotaNotice | null {
+    if (!isUsageLimitMessage(message, errorCode)) return null;
+    const kind: SummaryQuotaNotice["kind"] = errorCode === "SUBSCRIPTION_NOT_ACTIVE" ? "expired"
+      : errorCode === "SUMMARY_DAILY_LIMIT_REACHED" ? "daily"
+        : errorCode === "API_COST_TARGET_REACHED" ? "next_renewal"
+          : errorCode === "USAGE_POLICY_LIMIT_REACHED" ? "monthly" : "other";
     const resetMatch = message.match(/รีเซ็ตอีกครั้งประมาณ\s*(.+?)(?:\s+หรือ|$)/);
+    let resetAtText = resetMatch?.[1]?.trim() || null;
+    if (resetAt && Number.isFinite(Date.parse(resetAt))) {
+      resetAtText = new Intl.DateTimeFormat("th-TH", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Bangkok" }).format(new Date(resetAt));
+    }
+    if (kind === "expired") resetAtText = null;
     return {
-      shortLabel: message.includes("ถูกใช้งานพร้อมกันเกินจำนวนอุปกรณ์ที่อนุญาต")
+      kind,
+      shortLabel: kind === "expired"
+        ? "สถานะสมาชิกไม่ active กรุณาตรวจสอบการชำระเงินหรือแพ็กเกจ (ไม่มีวันรีเซ็ตที่ยืนยันได้)"
+        : kind === "next_renewal"
+          ? "ถึงเป้าหมายต้นทุน AI ของรอบสมาชิกนี้แล้ว"
+          : kind === "daily"
+            ? "โควตาสรุปรายวันครบแล้ว"
+            : kind === "monthly"
+              ? "โควตาใช้งานประจำเดือนครบแล้ว"
+              : message.includes("ถูกใช้งานพร้อมกันเกินจำนวนอุปกรณ์ที่อนุญาต")
         ? "บัญชีถูกใช้งานเกินจำนวนอุปกรณ์ที่อนุญาต"
         : "โควตาสรุปชาร์จเต็มชั่วคราว",
-      resetAtText: resetMatch?.[1]?.trim() || null,
+      resetAtText,
+      resetLabel: kind === "daily" ? "รีเซ็ต" : kind === "monthly" ? "รอบเดือนใหม่" : kind === "next_renewal" ? "รอบชำระเงินสิ้นสุดโดยประมาณ" : resetAtText ? "รีเซ็ต" : null,
     };
   }
 
@@ -865,6 +909,10 @@ function PageContent() {
     compareBefore?: RecalcCompareSnapshot
   ) {
     if (bypassWorkspaceApi) {
+      return;
+    }
+    if (uploadedImages.length > 0 && !imagesRedactedConfirmed) {
+      setError("ก่อนคำนวณใหม่ กรุณาตรวจทานและปกปิดข้อมูลในรูป แล้วทำเครื่องหมายยืนยันด้านล่าง");
       return;
     }
 
@@ -886,6 +934,7 @@ function PageContent() {
             other,
           },
           imageInputs: uploadedImages.map((img) => ({ name: img.name, dataUrl: img.dataUrl })),
+          imagesRedactedConfirmed,
           extraNote: "",
           templateRules: DEFAULT_TEMPLATE_RULES,
           settings: {
@@ -914,16 +963,18 @@ function PageContent() {
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Recalc failed";
-      if (!isUsageLimitMessage(message)) {
+      const apiError = err instanceof ApiResponseError ? err : null;
+      if (!isUsageLimitMessage(message, apiError?.errorCode)) {
         console.error(err);
       }
-      const quota = parseSummaryQuotaNotice(message);
+      const quota = parseSummaryQuotaNotice(message, apiError?.errorCode, apiError?.resetAt);
       if (quota) setSummaryQuotaNotice(quota);
       if (!silent) {
         setError(quota ? quota.shortLabel : message);
       }
     } finally {
       setRecalcLoading(false);
+      window.dispatchEvent(new Event("usage-updated"));
     }
   }
 
@@ -952,6 +1003,7 @@ function PageContent() {
       );
       const valid = next.filter((x): x is UploadedImageInput => Boolean(x));
       if (!valid.length) return;
+      setImagesRedactedConfirmed(false);
       setUploadedImages((prev) => [...prev, ...valid].slice(0, 4));
       addToast("เพิ่มรูป", `แนบรูปแล้ว ${Math.min(4, uploadedImages.length + valid.length)} ภาพ`);
     } catch {
@@ -962,6 +1014,7 @@ function PageContent() {
   }
 
   function removeUploadedImage(id: string) {
+    setImagesRedactedConfirmed(false);
     setUploadedImages((prev) => prev.filter((img) => img.id !== id));
   }
 
@@ -1133,6 +1186,10 @@ function PageContent() {
   }
 
   async function handleGenerate() {
+    if (uploadedImages.length > 0 && !imagesRedactedConfirmed) {
+      setError("ก่อนสร้างสรุป กรุณาตรวจทานและปกปิดข้อมูลในรูป แล้วทำเครื่องหมายยืนยันด้านล่าง");
+      return;
+    }
     setLoading(true);
     setError("");
     setRecalcCompare(null);
@@ -1169,6 +1226,7 @@ function PageContent() {
             other,
           },
           imageInputs: uploadedImages.map((img) => ({ name: img.name, dataUrl: img.dataUrl })),
+          imagesRedactedConfirmed,
           extraNote: "",
           templateRules: DEFAULT_TEMPLATE_RULES,
           settings: {
@@ -1188,15 +1246,15 @@ function PageContent() {
       setEngine(parsed.result.engine ?? null);
       setDiagnosisItems(buildDiagnosisItemsFromBlocks(nextBlocks));
       setLastRunStrategy(summaryStrategy);
-      window.dispatchEvent(new Event("usage-updated"));
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";
-      const isLimitReached = isUsageLimitMessage(message);
+      const apiError = err instanceof ApiResponseError ? err : null;
+      const isLimitReached = isUsageLimitMessage(message, apiError?.errorCode);
       if (!isLimitReached) {
         console.error(err);
       }
       if (isLimitReached) {
-        const quota = parseSummaryQuotaNotice(message);
+        const quota = parseSummaryQuotaNotice(message, apiError?.errorCode, apiError?.resetAt);
         if (quota) setSummaryQuotaNotice(quota);
         setError(quota?.shortLabel || "โควตาสรุปชาร์จเต็มชั่วคราว");
       } else {
@@ -1204,6 +1262,7 @@ function PageContent() {
       }
     } finally {
       setLoading(false);
+      window.dispatchEvent(new Event("usage-updated"));
     }
   }
 
@@ -1211,6 +1270,7 @@ function PageContent() {
     setOrderSheet("");
     setOther("");
     setUploadedImages([]);
+    setImagesRedactedConfirmed(false);
     setBlocks(createEmptyBlocks());
     setWarnings([]);
     setMeta({
@@ -1983,6 +2043,22 @@ function PageContent() {
                     ))}
                   </div>
                 ) : null}
+                {uploadedImages.length > 0 ? (
+                  <div className="mb-4 rounded-xl border border-amber-700/60 bg-amber-950/30 p-3 text-xs leading-5 text-amber-100">
+                    <p>
+                      ตรวจทานและปกปิดชื่อผู้ป่วย, HN/AN/CID, วันเกิด, ที่อยู่, เบอร์โทร และ QR code/บาร์โค้ดในทุกรูปก่อนส่ง รูปจะถูกส่งไปยังผู้ให้บริการ AI และระบบตรวจสอบการปกปิดในภาพไม่ได้
+                    </p>
+                    <label className="mt-2 flex cursor-pointer items-start gap-2">
+                      <input
+                        type="checkbox"
+                        checked={imagesRedactedConfirmed}
+                        onChange={(event) => setImagesRedactedConfirmed(event.target.checked)}
+                        className="mt-1 accent-amber-400"
+                      />
+                      <span>ฉันตรวจทานและปกปิดข้อมูลระบุตัวบุคคลในรูปที่แนบแล้ว</span>
+                    </label>
+                  </div>
+                ) : null}
                 <ScrollTextarea
                   ref={orderSheetInputRef}
                   value={orderSheet}
@@ -2061,8 +2137,8 @@ function PageContent() {
                     ? "วางข้อความ order sheet หรืออัปโหลดรูปอย่างน้อย 1 อย่าง"
                     : summaryQuotaNotice
                     ? summaryQuotaNotice.resetAtText
-                      ? `โควตาเต็มชั่วคราว รอถึง ${summaryQuotaNotice.resetAtText} หรืออัปเกรดแพ็กเกจ`
-                      : "โควตาเต็มชั่วคราว กรุณาอัปเกรดแพ็กเกจเพื่อใช้งานต่อ"
+                      ? `${summaryQuotaNotice.shortLabel} · ${summaryQuotaNotice.resetLabel} ${summaryQuotaNotice.resetAtText}`
+                      : summaryQuotaNotice.shortLabel
                     : undefined
                 }
                 className="inline-flex min-w-[148px] items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-cyan-900/30 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
@@ -2099,7 +2175,7 @@ function PageContent() {
             {summaryQuotaNotice ? (
               <div className="rounded-xl border border-amber-600/50 bg-amber-950/30 px-3 py-2 text-xs text-amber-100">
                 <span>{summaryQuotaNotice.shortLabel}</span>
-                {summaryQuotaNotice.resetAtText ? <span>{` · รอถึง ${summaryQuotaNotice.resetAtText}`}</span> : null}
+                {summaryQuotaNotice.resetAtText ? <span>{` · ${summaryQuotaNotice.resetLabel} ${summaryQuotaNotice.resetAtText}`}</span> : null}
                 <span>{` · `}</span>
                 <a href="/pricing" className="font-medium underline hover:text-amber-200">
                   อัปเกรดแพ็กเกจ
@@ -2110,14 +2186,14 @@ function PageContent() {
 
             {error ? (
               <div className="rounded-2xl border border-red-900/60 bg-red-950/30 px-4 py-3 text-sm text-red-300">
-                {error.includes("Credit limit reached") ||
+              {Boolean(summaryQuotaNotice) || error.includes("Credit limit reached") ||
                 error.includes("ครบโควตาโดยประมาณแล้ว") ||
                 error.includes("โควตาการใช้งานเดือนนี้ครบแล้ว") ||
                 error.includes("หมดรอบการใช้งานแล้ว") ||
                 error.includes("โควตาสรุปชาร์จเต็มชั่วคราว") ? (
                   <>
                     {summaryQuotaNotice?.shortLabel || "โควตาสรุปชาร์จเต็มชั่วคราว"}
-                    {summaryQuotaNotice?.resetAtText ? ` · รอถึง ${summaryQuotaNotice.resetAtText}` : ""}
+                    {summaryQuotaNotice?.resetAtText ? ` · ${summaryQuotaNotice.resetLabel} ${summaryQuotaNotice.resetAtText}` : ""}
                     {" · "}
                     <a href="/pricing" className="font-medium underline hover:text-red-200">
                       ไปที่หน้า pricing

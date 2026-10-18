@@ -193,7 +193,7 @@ export function Header() {
               <div
                 className="absolute right-0 top-full z-50 mt-1.5 min-w-[11rem] overflow-hidden rounded-xl border border-slate-700 bg-slate-900 py-1 shadow-xl"
               >
-                {[["/app", "สรุปชาร์จ"], ["/automator", "Auto สำหรับ HOSxP"], ["/learn", "วิธีใช้"], ["/downloads", "ดาวน์โหลด"], ["/knowledge", "ความรู้"], ["/pricing", "แพ็กเกจ"]].map(([href,label]) => (
+                {[["/app", "สรุปชาร์จ"], ["/learn", "วิธีใช้"], ["/knowledge", "ความรู้"], ["/pricing", "แพ็กเกจ"]].map(([href,label]) => (
                   <Link key={href} href={href} className="block px-4 py-2.5 text-sm text-slate-200 hover:bg-slate-800 hover:text-white" onClick={() => setMoreMenuOpen(false)}>{label}</Link>
                 ))}
                 <Link
@@ -213,7 +213,6 @@ export function Header() {
               </div>
             ) : null}
           </div>
-          <Link href="/automator" className="hidden shrink-0 rounded-lg px-3 py-2 text-sm text-cyan-200 hover:bg-white/5 lg:inline-flex">Auto สำหรับ HOSxP</Link>
           {isChatEnabled() ? (
             <Link
               href="/chat"

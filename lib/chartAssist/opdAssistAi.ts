@@ -6,6 +6,8 @@
  * Env: `OPENAI_API_KEY`, optional `OPD_ASSIST_AI_MODEL` (default gpt-4o-mini), `OPD_ASSIST_AI_ENABLED=false` for rule-only output.
  */
 import { openai } from "@/lib/openai";
+import type { ChatCompletionCreateParamsNonStreaming } from "openai/resources/chat/completions/completions";
+import { deidentify } from "@/lib/deidentify";
 import type { AssistMode } from "./cardTypes";
 import type { OpdAssistRuleAnalysis } from "./analyzeCase";
 import { buildLayer1FromClinicalAi, buildStructuredNoteFromClinicalAi } from "./opdAssistAiFormat";
@@ -1187,16 +1189,19 @@ async function callOpenAiClinicalNoteJson(
   rule: OpdAssistRuleAnalysis,
 ): Promise<OpdAiClinicalNoteJson> {
   const model = process.env.OPD_ASSIST_AI_MODEL || "gpt-4o-mini";
+  // The API accepts `store: false`; this SDK version omits it from its Chat Completions type.
   const completion = await openai.chat.completions.create({
     model,
+    store: false,
+    stream: false,
     temperature: 0.25,
     max_tokens: 8192,
     response_format: { type: "json_object" },
     messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userPayload },
+      { role: "system", content: deidentify(systemPrompt) },
+      { role: "user", content: deidentify(userPayload) },
     ],
-  });
+  } as ChatCompletionCreateParamsNonStreaming);
   const text = completion.choices[0]?.message?.content ?? "";
   const parsed = extractJsonObject<Record<string, unknown>>(text);
   if (!parsed) throw new Error("Model returned non-JSON");

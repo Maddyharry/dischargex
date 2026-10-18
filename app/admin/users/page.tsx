@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import Link from "next/link";
 
 type UserRow = {
@@ -12,9 +12,40 @@ type UserRow = {
   totalGenerations: number;
   usageCount: number;
   planTotal: number;
+  summariesToday: number;
+  dailySummaryLimit: number;
+  summariesThisMonth: number;
+  lifetimeSummaries: number;
+  apiCostEstimateStatus: "known" | "unknown";
+  apiCostEstimateThb: number | null;
+  apiCostKnownSubtotalThb: number;
+  apiCostUnknownModelCount: number;
+  apiCostInvalidRowCount: number;
+  apiCostRowCount: number | null;
+  apiCostUncertainty: string[];
+  apiCostSafeForEnforcement: boolean;
+  revenue5xEligible: boolean;
+  revenue5xEffectiveFrom: string;
+  currentApiCostCapThb: number | null;
+  currentApiCostCapKind: "revenue_5x" | "legacy_internal";
+  policySpendThb: number | null;
+  policyRemainingThb: number | null;
+  policyStatus: "active" | "expired";
+  policyAllowed: boolean;
+  policyResetAt: string | null;
+  usagePolicySpendBasis: "legacy_internal" | "actual_api_standard_rates";
+  currentApiCostWindow: "billing_period_to_date" | "legacy_calendar_month_to_date" | "calendar_month_to_date";
+  nextRenewalCapForecastThb: number | null;
+  currentPeriodEndsAt: string;
+  dailyUsageResetsAt: string;
+  monthlyUsageResetsAt: string;
   daysLeftInMonth: number;
   deviceCount: number;
   createdAt: string;
+};
+
+type Activity = Record<string, string | number | boolean | string[] | null | undefined> & {
+  id: string; kind: string; createdAt: string;
 };
 
 export default function AdminUsersPage() {
@@ -25,6 +56,10 @@ export default function AdminUsersPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [adjustingId, setAdjustingId] = useState<string | null>(null);
   const [edits, setEdits] = useState<Record<string, { plan: string; role: string }>>({});
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [activityByUser, setActivityByUser] = useState<Record<string, Activity[]>>({});
+  const [activityLoadingId, setActivityLoadingId] = useState<string | null>(null);
+  const [activityError, setActivityError] = useState<string | null>(null);
   /** ลบ user ต้องยืนยัน 2 ขั้นใน modal (ไม่ใช้ window.confirm — บางเบราว์เซอร์ไม่โชว์ชัด) */
   const [deleteModal, setDeleteModal] = useState<{
     userId: string;
@@ -72,6 +107,24 @@ export default function AdminUsersPage() {
       ...prev,
       [id]: { ...prev[id], [field]: value },
     }));
+  }
+
+  async function toggleActivity(userId: string) {
+    if (expandedId === userId) { setExpandedId(null); return; }
+    setExpandedId(userId);
+    setActivityError(null);
+    if (activityByUser[userId]) return;
+    setActivityLoadingId(userId);
+    try {
+      const res = await fetch(`/api/admin/users/${encodeURIComponent(userId)}/activity?limit=20`, { cache: "no-store" });
+      const data = await res.json() as { ok?: boolean; activities?: Activity[]; error?: string };
+      if (!res.ok || !data.ok) throw new Error(data.error || "โหลดกิจกรรมไม่สำเร็จ");
+      setActivityByUser((prev) => ({ ...prev, [userId]: data.activities || [] }));
+    } catch (err) {
+      setActivityError(err instanceof Error ? err.message : "โหลดกิจกรรมไม่สำเร็จ");
+    } finally {
+      setActivityLoadingId(null);
+    }
   }
 
   async function saveUser(id: string) {
@@ -231,7 +284,9 @@ export default function AdminUsersPage() {
                   <th className="px-4 py-3">อีเมล / ชื่อ</th>
                   <th className="px-4 py-3">แผน</th>
                   <th className="px-4 py-3">สิทธิ์</th>
-                  <th className="px-4 py-3">โควตารอบนี้ (ใช้/ทั้งหมด)</th>
+                  <th className="px-4 py-3">สรุปวันนี้ / เพดานต่อวัน · เดือนนี้ · สะสม</th>
+                  <th className="px-4 py-3" title="ประมาณต้นทุน API จาก model และ token ที่บันทึกไว้ ไม่ใช่ใบแจ้งหนี้จริง; model หรือข้อมูลที่ไม่รองรับจะแสดงเป็น unknown">ต้นทุน API ประเมิน / นโยบายเพดาน</th>
+                  <th className="px-4 py-3">เครดิต legacy</th>
                   <th className="px-4 py-3" title="จำนวนวันจนถึงสิ้นรอบของแพ็กเกจ (30 วัน หรือ 365 วัน)">
                     เหลืออีก (วัน)
                   </th>
@@ -245,8 +300,8 @@ export default function AdminUsersPage() {
                   const e = edits[u.id] ?? { plan: u.plan, role: u.role };
                   const changed = e.plan !== u.plan || e.role !== u.role;
                   return (
+                    <Fragment key={u.id}>
                     <tr
-                      key={u.id}
                       className="border-t border-slate-800/60 bg-slate-950/40 hover:bg-slate-900/60"
                     >
                       <td className="px-4 py-3">
@@ -283,7 +338,28 @@ export default function AdminUsersPage() {
                         </select>
                       </td>
                       <td className="px-4 py-3 text-slate-300">
-                        {u.usageCount} / {u.planTotal}
+                        <div>{u.summariesToday} / {u.dailySummaryLimit} · {u.summariesThisMonth} · {u.lifetimeSummaries}</div>
+                        <div className="text-xs text-slate-500">รีเซ็ตรายวัน {new Date(u.dailyUsageResetsAt).toLocaleString("th-TH")} · เดือน {new Date(u.monthlyUsageResetsAt).toLocaleString("th-TH")}</div>
+                      </td>
+                      <td className="px-4 py-3 text-xs text-slate-300">
+                        <div>{u.apiCostEstimateStatus === "known" && u.apiCostSafeForEnforcement && u.apiCostEstimateThb !== null
+                          ? `ประเมิน ${u.apiCostRowCount} รายการ: ฿${u.apiCostEstimateThb.toFixed(4)}`
+                          : `ยอดประมาณยังไม่แน่นอน; คำนวณได้ ฿${u.apiCostKnownSubtotalThb.toFixed(4)} · unknown ${u.apiCostUnknownModelCount} · ข้อมูลไม่ครบ ${u.apiCostInvalidRowCount}`}</div>
+                        <div className="mt-1 text-slate-400">{u.currentApiCostWindow === "billing_period_to_date" ? "ตั้งแต่เริ่มรอบปัจจุบัน" : u.currentApiCostWindow === "legacy_calendar_month_to_date" ? "เดือนปฏิทินนี้ (รอบเดิม)" : "เดือนปฏิทินนี้"} · ไม่ใช่บิล API จริง</div>
+                        <div className="mt-1">นโยบายปัจจุบัน: {u.currentApiCostCapKind === "revenue_5x"
+                          ? `5× รอบเต็ม ฿${u.currentApiCostCapThb === null ? "ไม่ทราบ" : u.currentApiCostCapThb.toFixed(2)} (eligible; ยังไม่ยืนยัน enforcement)`
+                          : `legacy ฿${u.currentApiCostCapThb === null ? "ไม่ทราบ" : u.currentApiCostCapThb.toFixed(2)} / เดือน · หน่วยภายใน`}</div>
+                        {u.policySpendThb === null
+                          ? <div>ยอดใช้ตามนโยบาย: ไม่ทราบ (ข้อมูล ledger ใช้ไม่ได้/ไม่ครบ)</div>
+                          : <div>ยอดใช้ตามนโยบาย: ฿{u.policySpendThb.toFixed(4)}{u.usagePolicySpendBasis === "legacy_internal" ? " หน่วยภายใน legacy ไม่ใช่ต้นทุน API จริง" : " ต้นทุน API ประเมิน ไม่ใช่ใบแจ้งหนี้"}</div>}
+                        {u.policyRemainingThb !== null ? <div>เหลือในกรอบ: ฿{u.policyRemainingThb.toFixed(4)}</div> : null}
+                        {u.policyStatus === "expired" ? <div className="text-amber-300">รอบหมดอายุ</div> : null}
+                        {u.policyResetAt ? <div className="text-slate-500">รีเซ็ตนโยบาย {new Date(u.policyResetAt).toLocaleString("th-TH")}</div> : null}
+                        {u.nextRenewalCapForecastThb !== null && u.currentApiCostCapKind === "legacy_internal" ? <div>คาดการณ์เพดาน 5× รอบต่ออายุ: ฿{u.nextRenewalCapForecastThb.toFixed(2)} / รอบเต็ม (เริ่มได้ตั้งแต่ {new Date(u.revenue5xEffectiveFrom).toLocaleDateString("th-TH")}; ยังไม่ active)</div> : null}
+                        {u.apiCostUncertainty.length > 0 ? <div className="mt-1 text-amber-300">มีข้อไม่แน่นอนในข้อมูลต้นทุนที่บันทึก</div> : null}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-slate-400" title="มิเตอร์เครดิตรุ่นเดิมอาจเป็นศูนย์เมื่อปิด ENFORCE_CREDIT_LIMIT; ไม่ใช่จำนวนสรุป">
+                        {u.usageCount} / {u.planTotal} เครดิต
                       </td>
                       <td className="px-4 py-3 text-slate-300" title="วันคงเหลือจนหมดอายุ subscription">
                         เหลืออีก {u.daysLeftInMonth} วัน
@@ -316,6 +392,14 @@ export default function AdminUsersPage() {
                           </button>
                           <button
                             type="button"
+                            aria-expanded={expandedId === u.id}
+                            onClick={() => void toggleActivity(u.id)}
+                            className="rounded-2xl border border-cyan-800 bg-cyan-950/40 px-3 py-1.5 text-xs font-medium text-cyan-200 hover:bg-cyan-900/50"
+                          >
+                            {expandedId === u.id ? "ซ่อนกิจกรรม" : "กิจกรรมเคส"}
+                          </button>
+                          <button
+                            type="button"
                             disabled={deletingId === u.id}
                             onClick={() => openDeleteModal(u.id, u.email || u.name || u.id)}
                             className="rounded-2xl border border-red-800 bg-red-950/50 px-3 py-1.5 text-xs font-medium text-red-300 hover:bg-red-900/50 disabled:opacity-50"
@@ -325,6 +409,59 @@ export default function AdminUsersPage() {
                         </div>
                       </td>
                     </tr>
+                    {expandedId === u.id ? (
+                      <tr key={`${u.id}:activity`} className="border-t border-cyan-900/50 bg-slate-950/80">
+                        <td colSpan={10} className="px-5 py-4">
+                          <p className="mb-3 text-xs text-amber-200">สำหรับตรวจสอบการทำงานของระบบโดยผู้ดูแลเท่านั้น ข้อความสรุปยังอาจมีข้อมูลสุขภาพอ่อนไหวแม้ผ่านการปกปิดตัวระบุแล้ว; แสดงเมื่อขยายรายการเท่านั้น ไม่มีภาพหรือ raw payload</p>
+                          {activityLoadingId === u.id ? <p className="text-sm text-slate-400">กำลังโหลดกิจกรรม...</p> : null}
+                          {activityError ? <p role="alert" className="text-sm text-red-300">{activityError}</p> : null}
+                          {!activityLoadingId && !activityError && (activityByUser[u.id] || []).length === 0 ? <p className="text-sm text-slate-400">ไม่พบกิจกรรมในแหล่งข้อมูลที่มี</p> : null}
+                          <div className="space-y-3">
+                            {(activityByUser[u.id] || []).map((item) => (
+                              <details key={item.id} className="rounded-xl border border-slate-800 bg-slate-900/60 p-3">
+                                <summary className="cursor-pointer text-sm text-slate-200">
+                                  {new Date(item.createdAt).toLocaleString("th-TH")} · {item.kind} · {String(item.reason || item.source || item.status || "metadata ไม่ครบ")}
+                                  {item.model ? ` · ${String(item.model)}` : ""}
+                                  {typeof item.totalTokens === "number" ? ` · ${item.totalTokens.toLocaleString()} tokens` : ""}
+                                  {typeof item.estimatedCostThb === "number" ? ` · ยอด ledger หน่วยภายใน ฿${item.estimatedCostThb.toFixed(4)}` : ""}
+                                </summary>
+                                <div className="mt-3 space-y-2 text-xs text-slate-300">
+                                  {item.kind === "token_usage" ? <>
+                                    <p>แหล่งข้อมูล: {item.source === "summary_provider_call" ? "การเรียกโมเดลรายครั้ง" : item.source === "summary_image_ocr" ? "OCR/ประมวลผลภาพ" : item.source === "summary_generate" ? "ยอดรวมสร้างสรุป" : item.source === "summary_recalc" ? "ยอดรวมคำนวณสรุปใหม่" : String(item.source || "ไม่ทราบ")}</p>
+                                    <p>ยอด estimatedCostThb เป็นหน่วย ledger ภายใน ไม่ใช่ต้นทุน API จริง และรายการรายครั้งกับยอดรวมอาจอ้างอิงงานเดียวกัน—ห้ามนำมาบวกเอง</p>
+                                    {item.actualApiCostEstimateStatus === "known" && typeof item.actualApiCostEstimateThb === "number"
+                                      ? <p>ประมาณต้นทุน API รายการนี้ตาม standard rates: ฿{item.actualApiCostEstimateThb.toFixed(4)} (ไม่ใช่ใบแจ้งหนี้)</p>
+                                      : <p className="text-amber-300">ไม่สามารถประเมินต้นทุน API รายการนี้ได้แน่นอน</p>}
+                                  </> : null}
+                                  {item.kind === "summary" ? <p>เครดิต: {String(item.creditsUsed ?? "ไม่ทราบ")} (base {String(item.baseCreditsUsed ?? "ไม่ทราบ")}, เสริม {String(item.addonCreditsUsed ?? "ไม่ทราบ")}) · case: {String(item.caseId || "ไม่มีข้อมูล")}</p> : null}
+                                  {item.kind === "error_report" || item.kind === "summary_job" ? <>
+                                    <p>สถานะ: {String(item.status || "ไม่ทราบ")} · issue flag เป็นคำแนะนำอัตโนมัติ ไม่ใช่หลักฐานว่าสรุปถูกหรือผิด</p>
+                                    {item.message ? <p className="whitespace-pre-wrap">{String(item.message)}</p> : null}
+                                    {item.shortSummary ? <p>สรุป: {String(item.shortSummary)}</p> : null}
+                                    {item.pageOrFeature ? <p>ส่วนที่พบ: {String(item.pageOrFeature)}</p> : null}
+                                    {item.reproducibleSteps ? <p>ขั้นตอน: {String(item.reproducibleSteps)}</p> : null}
+                                    {item.errorCode ? <p>รหัสข้อผิดพลาด: {String(item.errorCode)}</p> : null}
+                                    {item.warningCount != null ? <p>คำเตือนที่บันทึก: {String(item.warningCount)}</p> : null}
+                                    {Array.isArray(item.warnings) ? item.warnings.map((warning, i) => <p key={i}>• {warning}</p>) : null}
+                                    {item.diagnosisConfidence ? <p>ความมั่นใจที่บันทึก: {String(item.diagnosisConfidence)}</p> : null}
+                                    {item.privacy ? <p>ข้อมูล privacy: {String(item.privacy)}</p> : null}
+                                    <p>ขั้นตอนลดข้อมูลระบุตัวตนในข้อความ: {item.textRedactionApplied === true ? "มี metadata บันทึกว่าใช้แล้ว (best-effort ไม่ใช่การรับรองว่าปกปิดครบ)" : item.textRedactionApplied === false ? "metadata บันทึกว่าไม่ได้ใช้" : "ไม่ทราบ/ไม่มี metadata"}</p>
+                                    <p>การยืนยันปกปิดภาพจากผู้ใช้: {item.imageRedactionConfirmed === true ? "มีการยืนยัน" : item.imageRedactionConfirmed === false ? "ไม่มีการยืนยัน" : "ไม่ทราบ/ไม่มี metadata"}</p>
+                                    <p>การตรวจสอบเนื้อหาภาพ: {item.imageContentVerified === true ? "มี metadata ว่าตรวจแล้ว (ไม่ใช่การรับรองความถูกต้อง)" : item.imageContentVerified === false ? "บันทึกว่ายังไม่ได้ตรวจ" : "ไม่ทราบ/ไม่มี metadata"}</p>
+                                    {item.warningCount == null ? <p className="text-slate-400">จำนวนคำเตือน: ไม่ทราบหรือไม่ได้บันทึก (metadata ของรายการเก่าอาจไม่มี; การไม่มีข้อมูลไม่ยืนยันว่าไม่มีคำเตือน)</p> : null}
+                                    {!Array.isArray(item.warnings) ? <p className="text-slate-400">รายละเอียดคำเตือน: ไม่ได้บันทึก</p> : null}
+                                    {!item.diagnosisConfidence ? <p className="text-slate-400">ความมั่นใจในการวินิจฉัย: ไม่ทราบหรือไม่ได้บันทึก</p> : null}
+                                    {!item.privacy ? <p className="text-slate-400">metadata privacy: ไม่ทราบหรือไม่ได้บันทึก</p> : null}
+                                  </> : null}
+                                  {item.summaryText ? <p className="whitespace-pre-wrap rounded-lg bg-black/30 p-3">ข้อความสรุปที่ปกปิดตัวระบุแล้ว: {String(item.summaryText)}{item.summaryTextTruncated ? " … (แสดง 12,000 อักขระแรกหลังปกปิดตัวระบุ)" : ""}</p> : item.kind === "summary" ? <p className="text-slate-400">ไม่มี snapshot ที่จัดเก็บไว้ ข้อความเดิมกู้คืนไม่ได้</p> : null}
+                                </div>
+                              </details>
+                            ))}
+                          </div>
+                        </td>
+                      </tr>
+                    ) : null}
+                    </Fragment>
                   );
                 })}
               </tbody>

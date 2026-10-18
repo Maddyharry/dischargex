@@ -33,6 +33,12 @@ export async function POST(req: NextRequest) {
     const planRequestedRaw = String(body.planRequested || "").trim();
     const addCredits = Number(body.addCredits || 0);
     const isAddCredits = Number.isFinite(addCredits) && addCredits > 0;
+    if (isAddCredits) {
+      return NextResponse.json(
+        { ok: false, error: "การซื้อวงเงินเสริมยังไม่เปิดให้บริการ กรุณาติดต่อทีมงาน" },
+        { status: 400 }
+      );
+    }
     if (!isAddCredits && !planRequestedRaw) {
       return NextResponse.json({ ok: false, error: "Missing planRequested" }, { status: 400 });
     }
@@ -110,14 +116,10 @@ export async function POST(req: NextRequest) {
     }
 
     if (!isAddCredits && activeSubscription && dbUser.stripeSubscriptionId) {
-      const portal = await stripe.billingPortal.sessions.create({
-        customer: customerId,
-        return_url: `${appOrigin}/app/profile?billing=portal`,
-      });
       return NextResponse.json({
         ok: true,
-        checkoutUrl: portal.url,
-        mode: "billing_portal",
+        checkoutUrl: `${appOrigin}/app/profile?billing=plans`,
+        mode: "manage_billing",
       });
     }
 

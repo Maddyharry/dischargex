@@ -31,8 +31,21 @@ export default function PrivacyPolicyPage() {
           </p>
           <p>
             Clinical text entered for charge summary generation is processed to generate draft summaries and coding
-            support. The system automatically redacts common identifiers (for example name, CID, HN/AN)
-            before sending text to AI models, and users remain responsible for institutional compliance.
+            support. Best-effort pattern-based text redaction targets common identifiers such as names, CID, HN/AN,
+            contact details, addresses, and dates of birth. It can miss identifiers or redact clinical content, so it
+            does not guarantee anonymization; health information remains sensitive.
+          </p>
+          <p>
+            Medical images are sent to the AI provider for text extraction only after the user checks a per-request
+            confirmation that the images were reviewed and identifying details were obscured. This confirmation is
+            an attestation, not image analysis: DischargeX cannot verify that names, HN/AN/CID, dates of birth,
+            addresses, phone numbers, QR codes, or barcodes have been removed. Image requests are not stored by the
+            AI provider as configured by this application, but provider processing is still involved.
+          </p>
+          <p>
+            Existing Pro summary snapshots are stored with usage records and may be available for authorized
+            administrative review. Snapshot text receives the same best-effort pattern-based redaction, which is not
+            a guarantee that all identifying information is removed.
           </p>
           <p>
             We use reasonable security controls such as authenticated access and transport security.

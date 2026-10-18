@@ -6,6 +6,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { compare } from "bcryptjs";
 import { prisma } from "@/lib/prisma";
+import { sendAdminAlertEmail } from "@/lib/admin-alert";
 
 type AppJWT = JWT & {
   plan?: string;
@@ -103,6 +104,30 @@ export const authOptions: NextAuthOptions = {
   secret: process.env.AUTH_SECRET,
   pages: {
     signIn: "/login",
+  },
+  events: {
+    async createUser({ user }) {
+      try {
+        // NextAuth's createUser event runs before OAuth linkAccount, so the
+        // provider account may not exist in the database yet.
+        const oauthProviders = authOptions.providers.filter((provider) => provider.type === "oauth");
+        const providerName = oauthProviders.length === 1
+          ? `${oauthProviders[0].name} OAuth`
+          : "OAuth (NextAuth adapter)";
+        const email = user.email?.replace(/[\u0000-\u001f\u007f-\u009f]+/g, "").slice(0, 254);
+        await sendAdminAlertEmail({
+          subject: "DischargeX: New user signup",
+          lines: [
+            `User ID: ${user.id}`,
+            `Provider: ${providerName}`,
+            ...(email ? [`Email: ${email}`] : []),
+          ],
+        });
+      } catch {
+        // Signup has already succeeded; admin alert delivery must not block auth.
+        console.error("New user signup admin alert failed");
+      }
+    },
   },
   callbacks: {
     async signIn({ user }) {

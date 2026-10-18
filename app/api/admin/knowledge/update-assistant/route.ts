@@ -4,6 +4,7 @@ import OpenAI from "openai";
 import { authOptions } from "@/lib/auth";
 import { getMergedKnowledge } from "@/lib/knowledge-store";
 import { retrieveExternalEvidence } from "@/lib/reference-retriever";
+import { deidentify } from "@/lib/deidentify";
 
 export const runtime = "nodejs";
 
@@ -155,7 +156,8 @@ export async function POST(req: NextRequest) {
 
   const resp = await openai.responses.create({
     model: process.env.OPENAI_SPECIALIST_CHAT_MODEL_PRECISE || process.env.OPENAI_CHAT_MODEL || "gpt-5.5",
-    input: prompt,
+    input: deidentify(prompt),
+    store: false,
     max_output_tokens: 1400,
   });
   const text = String("output_text" in resp ? resp.output_text || "" : "").trim();
@@ -191,7 +193,7 @@ export async function POST(req: NextRequest) {
     parsed = null;
   }
 
-  if (!parsed) return NextResponse.json({ ok: false, error: "AI output parsing failed", raw: text }, { status: 422 });
+  if (!parsed) return NextResponse.json({ ok: false, error: "AI output parsing failed", raw: deidentify(text) }, { status: 422 });
 
   const today = new Date().toISOString().slice(0, 10);
   return NextResponse.json({

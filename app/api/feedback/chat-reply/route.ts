@@ -11,6 +11,8 @@ export const runtime = "nodejs";
 type HistoryItem = { role: "user" | "assistant"; content: string };
 
 const ADMIN_ACTIVE_WINDOW_MS = 30 * 60 * 1000; // 30 minutes
+const AI_UNAVAILABLE_REPLY =
+  "ขออภัยครับ ขณะนี้บริการ AI ขัดข้องชั่วคราว ทีมงานกำลังตรวจสอบและแก้ไข กรุณาลองใหม่ภายหลัง หากยังพบปัญหา แจ้งเวลาและข้อความผิดพลาดได้ทางแชท โดยไม่ส่งข้อมูลผู้ป่วยครับ";
 
 async function adminRecentlyReplied(userId: string): Promise<boolean> {
   const since = new Date(Date.now() - ADMIN_ACTIVE_WINDOW_MS);
@@ -41,7 +43,7 @@ function normalizeReply(text: string): string {
 
 export async function POST(req: NextRequest) {
   if (!process.env.OPENAI_API_KEY) {
-    return NextResponse.json({ ok: false, error: "บริการแชทยังไม่พร้อม" }, { status: 503 });
+    return NextResponse.json({ ok: true, reply: AI_UNAVAILABLE_REPLY, degraded: true });
   }
 
   try {
@@ -90,24 +92,24 @@ export async function POST(req: NextRequest) {
       deidentifiedMessage +
       "\n\nบอทตอบ (ภาษาไทย สุภาพ อ่านง่าย มีเว้นบรรทัดระหว่างประเด็นสำคัญ 1 บรรทัด; ไม่ต้องขึ้นต้นด้วยคำว่า 'สั้นๆนะ'; ถ้าไม่เกี่ยวกับการใช้งาน/แพ็กเกจ/แจ้งข้อผิดพลาด ให้ปฏิเสธแบบสุภาพแล้วชวนกลับมาหัวข้อที่รับเท่านั้น):";
 
+    // Redact at the final outbound boundary, including database-backed knowledge and history.
+    prompt = deidentify(prompt);
+
     const resp = await openai.responses.create({
       model,
       input: prompt,
+      store: false,
       max_output_tokens: 800,
     });
 
     const replyRaw =
       (resp as { output_text?: string }).output_text?.trim() ||
       "ขออภัย ตอนนี้ตอบไม่ได้ กรุณาลองใหม่หรือแจ้งทีมงานครับ";
-    const reply = normalizeReply(replyRaw);
+    const reply = deidentify(normalizeReply(replyRaw));
 
     return NextResponse.json({ ok: true, reply });
   } catch (e) {
     console.error("Feedback chat-reply error:", e);
-    const errMsg = e instanceof Error ? e.message : "สร้างคำตอบไม่สำเร็จ";
-    return NextResponse.json(
-      { ok: false, error: errMsg || "สร้างคำตอบไม่สำเร็จ กรุณาลองใหม่" },
-      { status: 500 }
-    );
+    return NextResponse.json({ ok: true, reply: AI_UNAVAILABLE_REPLY, degraded: true });
   }
 }

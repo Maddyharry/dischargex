@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
+import type { ResponseInput } from "openai/resources/responses/responses";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -20,6 +21,7 @@ import { extractIcd10Candidates, retrieveExternalEvidence } from "@/lib/referenc
 import { analyzeOpdCase } from "@/lib/chartAssist/analyzeCase";
 import { consumeRateLimit, getRequestIdentity } from "@/lib/request-rate-limit";
 import { getTrialExpiredPolicy } from "@/lib/trial-expired-policy";
+import { isChatEnabled } from "@/lib/feature-flags";
 
 export const runtime = "nodejs";
 
@@ -1294,6 +1296,24 @@ function buildUserContentPayload(prompt: string, images: UploadedImageInput[]) {
   ];
 }
 
+type ChatPromptItem =
+  | { role: "system"; content: string }
+  | { role: "user"; content: string | Array<{ type: "input_text"; text: string } | { type: "input_image"; image_url: string; detail: "auto" }> };
+
+function redactOutboundInput(value: ChatPromptItem[]): ResponseInput {
+  return value.map((item) => {
+    if (typeof item.content === "string") return { ...item, content: deidentify(item.content) };
+    return {
+      ...item,
+      content: item.content.map((part) => {
+        if (part.type === "input_text") return { ...part, text: deidentify(part.text) };
+        if (part.type === "input_image") return part;
+        throw new Error("Unexpected model input content type");
+      }),
+    };
+  });
+}
+
 async function searchKnowledgeEvidence(message: string) {
   const q = message.trim();
   if (!q) return [];
@@ -1323,6 +1343,9 @@ async function searchKnowledgeEvidence(message: string) {
 }
 
 export async function POST(req: NextRequest) {
+  if (!isChatEnabled()) {
+    return jsonUtf8({ ok: false, error: "บริการแชทปิดใช้งานชั่วคราว" }, 503);
+  }
   if (!process.env.OPENAI_API_KEY) {
     return jsonUtf8({ ok: false, error: "บริการ AI ยังไม่พร้อม" }, 503);
   }
@@ -1335,8 +1358,17 @@ export async function POST(req: NextRequest) {
       stream?: boolean;
       assistantMode?: AssistantMode | "opd_rdu";
       images?: UploadedImageInput[];
+      imagesRedactedConfirmed?: boolean;
       styleProfile?: ChatStyleProfilePatch;
     };
+    const confirmedImageInputs = sanitizeIncomingImages(body.images);
+    if (confirmedImageInputs.length > 0 && body.imagesRedactedConfirmed !== true) {
+      return jsonUtf8({
+        ok: false,
+        error: "กรุณายืนยันก่อนว่าตรวจทานและปกปิดข้อมูลระบุตัวบุคคลในรูปแล้ว รูปจะถูกส่งไปยังผู้ให้บริการ AI และระบบตรวจสอบการปกปิดในภาพไม่ได้",
+        errorCode: "PRIVACY_IMAGE_CONFIRMATION_REQUIRED",
+      }, 422);
+    }
     const userMessageTrimmed = String(body.message || "").trim();
     let mode: ChatMode = body.mode === "precise" ? "precise" : "fast";
     const safeImages = sanitizeIncomingImages(body.images);
@@ -1744,7 +1776,8 @@ TRIAL_EXPIRED_LIMITED_MODE:
                   const responseStream = await (openai.responses as unknown as {
                     stream: (params: {
                       model: string;
-                      input: Array<{ role: "system" | "user"; content: unknown }>;
+                      store: false;
+                      input: ResponseInput;
                       max_output_tokens: number;
                     }) => Promise<{
                       [Symbol.asyncIterator]: () => AsyncIterator<{ type?: string; delta?: string }>;
@@ -1752,10 +1785,11 @@ TRIAL_EXPIRED_LIMITED_MODE:
                     }>;
                   }).stream({
                     model: candidate,
-                    input: [
+                    store: false,
+                    input: redactOutboundInput([
                       { role: "system", content: system },
                       { role: "user", content: userContentPayload },
-                    ],
+                    ]),
                     max_output_tokens: maxOutputTokens,
                   });
                   model = candidate;
@@ -1782,7 +1816,7 @@ TRIAL_EXPIRED_LIMITED_MODE:
                   break;
                 } catch (error) {
                   lastModelError = error;
-                  console.warn("specialist-chat model stream failed:", candidate, error);
+                  console.warn("specialist-chat model stream failed", candidate);
                 }
               }
 
@@ -1797,10 +1831,11 @@ TRIAL_EXPIRED_LIMITED_MODE:
                   try {
                     const rescueResp = await openai.responses.create({
                       model: rescueModel,
-                      input: [
+                      store: false,
+                      input: redactOutboundInput([
                         { role: "system", content: system },
                         { role: "user", content: userContentPayload },
-                      ],
+                      ]),
                       max_output_tokens: Math.max(420, Math.floor(maxOutputTokens * 0.9)),
                     });
                     const rescuedText = extractTextFromResponse(rescueResp);
@@ -1811,7 +1846,7 @@ TRIAL_EXPIRED_LIMITED_MODE:
                       break;
                     }
                   } catch (rescueErr) {
-                    console.warn("specialist-chat rescue model failed:", rescueModel, rescueErr);
+                    console.warn("specialist-chat rescue model failed", rescueModel);
                   }
                 }
               }
@@ -1850,7 +1885,7 @@ TRIAL_EXPIRED_LIMITED_MODE:
                     variant,
                     model,
                     usage,
-                    privacy: { deidentifiedBeforeModel: true },
+                    privacy: { textRedactionApplied: true, imageRedactionConfirmed: confirmedImageInputs.length > 0 ? true : null, imageContentVerified: false },
                   })
                 )
               );
@@ -1981,7 +2016,7 @@ TRIAL_EXPIRED_LIMITED_MODE:
                 }
               })();
             } catch (err) {
-              console.error("specialist-chat stream error:", err);
+              console.error("specialist-chat stream error");
               controller.enqueue(
                 encoder.encode(
                   ssePack({
@@ -2033,17 +2068,18 @@ TRIAL_EXPIRED_LIMITED_MODE:
       try {
         resp = await openai.responses.create({
           model: candidate,
-          input: [
+          store: false,
+          input: redactOutboundInput([
             { role: "system", content: system },
             { role: "user", content: userContentPayload },
-          ],
+          ]),
           max_output_tokens: maxOutputTokens,
         });
         model = candidate;
         break;
       } catch (error) {
         lastModelError = error;
-        console.warn("specialist-chat model failed:", candidate, error);
+        console.warn("specialist-chat model failed", candidate);
       }
     }
     if (!resp) {
@@ -2057,10 +2093,11 @@ TRIAL_EXPIRED_LIMITED_MODE:
         try {
           const rescueResp = await openai.responses.create({
             model: rescueModel,
-            input: [
+            store: false,
+            input: redactOutboundInput([
               { role: "system", content: system },
               { role: "user", content: userContentPayload },
-            ],
+            ]),
             max_output_tokens: Math.max(420, Math.floor(maxOutputTokens * 0.9)),
           });
           const rescuedText = extractTextFromResponse(rescueResp);
@@ -2071,7 +2108,7 @@ TRIAL_EXPIRED_LIMITED_MODE:
             break;
           }
         } catch (rescueErr) {
-          console.warn("specialist-chat rescue model failed:", rescueModel, rescueErr);
+          console.warn("specialist-chat rescue model failed", rescueModel);
         }
       }
     }
@@ -2217,14 +2254,15 @@ TRIAL_EXPIRED_LIMITED_MODE:
       variant,
       model,
       usage,
-      privacy: { deidentifiedBeforeModel: true },
+      privacy: { textRedactionApplied: true, imageRedactionConfirmed: confirmedImageInputs.length > 0 ? true : null, imageContentVerified: false },
     });
   } catch (err) {
-    console.error("specialist-chat error:", err);
+    console.error("specialist-chat error");
     return jsonUtf8(
       {
         ok: false,
-        error: normalizeOpenAiError(err),
+        error: "บริการ AI ขัดข้องชั่วคราว กรุณาลองใหม่ภายหลัง",
+        errorCode: "SPECIALIST_CHAT_FAILED",
       },
       500
     );

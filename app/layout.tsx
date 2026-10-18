@@ -7,6 +7,7 @@ import { FeedbackWidget } from "./components/FeedbackWidget";
 import { LayoutFooter } from "./components/LayoutFooter";
 import { WebAnalyticsTracker } from "./components/WebAnalyticsTracker";
 import { GoogleTag } from "./components/GoogleTag";
+import { PrivacyCacheReset } from "./components/PrivacyCacheReset";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://dischargex.net"),
@@ -61,6 +62,7 @@ export default function RootLayout({
   return (
     <html lang="th" suppressHydrationWarning>
       <head>
+        <PrivacyCacheReset />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
