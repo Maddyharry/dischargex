@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
   session: vi.fn(), userFindMany: vi.fn(), userFindUnique: vi.fn(),
   usageAggregate: vi.fn(), usageCount: vi.fn(), usageFindMany: vi.fn(),
   ledgerAggregate: vi.fn(), ledgerFindMany: vi.fn(), feedbackFindMany: vi.fn(),
+  paymentFindMany: vi.fn(),
 }));
 
 vi.mock("next-auth", () => ({ getServerSession: mocks.session }));
@@ -12,6 +13,7 @@ vi.mock("@/lib/prisma", () => ({ prisma: {
   user: { findMany: mocks.userFindMany, findUnique: mocks.userFindUnique },
   usageLog: { aggregate: mocks.usageAggregate, count: mocks.usageCount, findMany: mocks.usageFindMany },
   tokenUsageLedger: { aggregate: mocks.ledgerAggregate, findMany: mocks.ledgerFindMany },
+  paymentRequest: { findMany: mocks.paymentFindMany },
   feedback: { findMany: mocks.feedbackFindMany },
 } }));
 
@@ -22,13 +24,14 @@ const user = {
   id: "user-1", email: "synthetic@example.test", name: "Synthetic User", plan: "pro_monthly", role: "user",
   totalGenerations: 55, createdAt: new Date("2026-10-01T00:00:00Z"), periodStartedAt: new Date("2026-10-01T00:00:00Z"),
   subscriptionExpiresAt: null, subscriptionStatus: "active", _count: { deviceSessions: 1 },
+  extraCredits: 3,
 };
 
 beforeEach(() => {
   vi.resetAllMocks();
   mocks.session.mockResolvedValue({ user: { role: "admin" } });
   mocks.userFindMany.mockResolvedValue([user]);
-  mocks.usageAggregate.mockResolvedValue({ _sum: { baseCreditsUsed: 0 } });
+  mocks.usageAggregate.mockResolvedValue({ _sum: { baseCreditsUsed: 0, addonCreditsUsed: 2 }, _max: { createdAt: new Date("2026-10-14T00:00:00Z") } });
   mocks.usageCount.mockImplementation(({ where }: { where: { createdAt?: { gte?: Date; lt?: Date } } }) => {
     const start = where.createdAt?.gte?.getTime();
     const end = where.createdAt?.lt?.getTime();
@@ -36,6 +39,7 @@ beforeEach(() => {
     return Promise.resolve(55);
   });
   mocks.ledgerFindMany.mockResolvedValue([{ createdAt: new Date("2026-10-12T00:00:00Z"), model: "gpt-5.4", inputTokens: 1_000, outputTokens: 1_000, totalTokens: 2_000, estimatedCostThb: 1 }]);
+  mocks.paymentFindMany.mockResolvedValue([{ userId: "user-1", addCredits: 5, finalAmount: 109, createdAt: new Date("2026-10-13T00:00:00Z"), entitlementAppliedAt: new Date("2026-10-13T00:00:01Z") }]);
 });
 
 describe("admin user usage counters", () => {
@@ -48,8 +52,23 @@ describe("admin user usage counters", () => {
       totalGenerations: 55, usageCount: 0, summariesToday: 0, dailySummaryLimit: 40, summariesThisMonth: 55,
       lifetimeSummaries: 55, apiCostEstimateStatus: "known", apiCostEstimateThb: 0.63,
       currentApiCostCapKind: "legacy_internal", currentApiCostCapThb: 3600, nextRenewalCapForecastThb: 218,
+      boostPassesRemaining: 3, boostPassesPurchased: 5, boostPurchaseCount: 1, boostPurchaseRevenue: 109, boostPassesConsumed: 2,
     });
+    expect(body.boostOverview).toMatchObject({ successfulPurchases: 1, passesSold: 5, revenueThb: 109, passesRemaining: 3, passesConsumed: 2 });
+    expect(mocks.paymentFindMany.mock.calls[0][0].where).toEqual({ type: "addon", entitlementAppliedAt: { not: null } });
     expect(mocks.ledgerFindMany.mock.calls[0][0].where).not.toHaveProperty("source");
+  });
+
+  it("counts only addon requests whose entitlement was applied, independent of status text", async () => {
+    mocks.paymentFindMany.mockResolvedValue([
+      { userId: "user-1", addCredits: 5, finalAmount: 109, createdAt: new Date("2026-10-13T00:00:00Z"), entitlementAppliedAt: new Date("2026-10-13T00:00:01Z") },
+      { userId: "user-1", addCredits: 15, finalAmount: 329, createdAt: new Date("2026-10-14T00:00:00Z"), entitlementAppliedAt: null },
+      { userId: "user-1", addCredits: 5, finalAmount: 109, createdAt: new Date("2026-10-15T00:00:00Z"), entitlementAppliedAt: new Date("2026-10-15T00:00:01Z") },
+    ]);
+    const response = await getUsers();
+    const body = await response.json();
+    expect(body.boostOverview).toMatchObject({ successfulPurchases: 2, passesSold: 10, revenueThb: 218 });
+    expect(body.users[0]).toMatchObject({ boostPassesPurchased: 10, boostPurchaseCount: 2, boostPurchaseRevenue: 218 });
   });
 
   it("keeps unsupported model cost unknown instead of reporting zero", async () => {
@@ -105,6 +124,27 @@ describe("admin per-user activity", () => {
     const response = await getActivity(new Request("https://example.test/api/admin/users/user-1/activity"), { params: Promise.resolve({ id: "user-1" }) });
     expect(response.status).toBe(403);
     expect(mocks.userFindUnique).not.toHaveBeenCalled();
+  });
+
+  it("includes privacy-limited Boost purchase events and excludes payment/customer secrets", async () => {
+    mocks.userFindUnique.mockResolvedValue({ id: "user-1" });
+    mocks.usageFindMany.mockResolvedValue([]);
+    mocks.ledgerFindMany.mockResolvedValue([]);
+    mocks.feedbackFindMany.mockResolvedValue([]);
+    mocks.paymentFindMany.mockResolvedValue([
+      { type: "addon", status: "approved", addCredits: 5, finalAmount: 109, createdAt: new Date("2026-10-13T00:00:00Z"), entitlementAppliedAt: new Date("2026-10-13T00:00:01Z"), phone: "DO_NOT_RETURN_PHONE", hospitalName: "DO_NOT_RETURN_HOSPITAL", slipData: "DO_NOT_RETURN_SLIP", stripeSessionId: "DO_NOT_RETURN_STRIPE" },
+      { type: "addon", status: "rejected", addCredits: 15, finalAmount: 329, createdAt: new Date("2026-10-12T00:00:00Z"), entitlementAppliedAt: null },
+    ]);
+    const response = await getActivity(new Request("https://example.test/api/admin/users/user-1/activity"), { params: Promise.resolve({ id: "user-1" }) });
+    const body = await response.json();
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Cache-Control")).toContain("no-store");
+    expect(mocks.paymentFindMany.mock.calls[0][0].select).toEqual({ type: true, status: true, addCredits: true, finalAmount: true, createdAt: true, entitlementAppliedAt: true });
+    expect(body.activities.filter((event: { kind: string }) => event.kind === "boost_purchase")).toMatchObject([
+      { type: "addon", status: "applied", addCredits: 5, finalAmount: 109 },
+      { type: "addon", status: "rejected", addCredits: 15, finalAmount: 329 },
+    ]);
+    expect(JSON.stringify(body)).not.toMatch(/DO_NOT_RETURN_(PHONE|HOSPITAL|SLIP|STRIPE)/);
   });
 
   it("bounds results, exposes only allowlisted metadata, and redacts saved text", async () => {

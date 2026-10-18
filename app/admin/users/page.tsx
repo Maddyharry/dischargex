@@ -42,7 +42,16 @@ type UserRow = {
   daysLeftInMonth: number;
   deviceCount: number;
   createdAt: string;
+  boostPassesRemaining: number;
+  boostPassesPurchased: number;
+  boostPurchaseCount: number;
+  boostPurchaseRevenue: number;
+  boostPassesConsumed: number;
+  boostLastPurchaseAt: string | null;
+  boostLastUsedAt: string | null;
 };
+
+type BoostOverview = { successfulPurchases: number; passesSold: number; revenueThb: number; passesRemaining: number; passesConsumed: number };
 
 type Activity = Record<string, string | number | boolean | string[] | null | undefined> & {
   id: string; kind: string; createdAt: string;
@@ -50,6 +59,9 @@ type Activity = Record<string, string | number | boolean | string[] | null | und
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<UserRow[]>([]);
+  const [boostOverview, setBoostOverview] = useState<BoostOverview | null>(null);
+  const [userFilter, setUserFilter] = useState<"all" | "current" | "history">("all");
+  const [userSearch, setUserSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
@@ -73,7 +85,7 @@ export default function AdminUsersPage() {
     try {
       const res = await fetch("/api/admin/users");
       const text = await res.text();
-      let data: { ok?: boolean; error?: string; users?: UserRow[] };
+      let data: { ok?: boolean; error?: string; users?: UserRow[]; boostOverview?: BoostOverview };
       try {
         data = text ? JSON.parse(text) : { ok: false };
       } catch {
@@ -83,6 +95,7 @@ export default function AdminUsersPage() {
         throw new Error(data.error || "โหลดรายการผู้ใช้ไม่สำเร็จ");
       }
       setUsers(data.users);
+      setBoostOverview(data.boostOverview ?? null);
       setEdits(
         Object.fromEntries(
           data.users.map((u: UserRow) => [
@@ -97,6 +110,13 @@ export default function AdminUsersPage() {
       setLoading(false);
     }
   }
+
+  const visibleUsers = users.filter((u) => {
+    const query = userSearch.trim().toLocaleLowerCase();
+    const matchesSearch = !query || `${u.email ?? ""} ${u.name ?? ""} ${u.id}`.toLocaleLowerCase().includes(query);
+    const matchesBoost = userFilter === "all" || (userFilter === "current" ? u.boostPassesRemaining > 0 : u.boostPurchaseCount > 0 || u.boostPassesConsumed > 0);
+    return matchesSearch && matchesBoost;
+  });
 
   useEffect(() => {
     void loadUsers();
@@ -270,9 +290,30 @@ export default function AdminUsersPage() {
           </div>
         ) : null}
 
+        {!loading && boostOverview ? <section aria-label="ภาพรวม Boost" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          {[
+            ["ซื้อสำเร็จ", boostOverview.successfulPurchases.toLocaleString("th-TH") + " รายการ"],
+            ["สิทธิ์ขายแล้ว", boostOverview.passesSold.toLocaleString("th-TH")],
+            ["รายรับ Boost", "฿" + boostOverview.revenueThb.toLocaleString("th-TH")],
+            ["สิทธิ์คงเหลือ", boostOverview.passesRemaining.toLocaleString("th-TH")],
+            ["สิทธิ์ใช้แล้ว", boostOverview.passesConsumed.toLocaleString("th-TH")],
+          ].map(([label, value]) => <div key={label} className="rounded-xl border border-cyan-900/60 bg-slate-950/70 p-3"><p className="text-xs text-slate-400">{label}</p><p className="mt-1 text-lg font-semibold text-cyan-100">{value}</p></div>)}
+          <p className="text-xs text-slate-500 sm:col-span-2 lg:col-span-5">ยอดสิทธิ์คงเหลือมาจากเครดิตในบัญชี อาจรวมเครดิตซื้อ Boost และเครดิตที่แอดมิน/แนะนำ/โบนัสเพิ่ม จึงอาจไม่ตรงกับยอดซื้อหักยอดใช้</p>
+        </section> : null}
+
+        {!loading ? <div className="flex flex-wrap items-center gap-2">
+          <input value={userSearch} onChange={(event) => setUserSearch(event.target.value)} placeholder="ค้นหาอีเมล ชื่อ หรือ ID" className="min-w-64 rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm" />
+          <label className="text-sm text-slate-300">Boost:
+            <select value={userFilter} onChange={(event) => setUserFilter(event.target.value as typeof userFilter)} className="ml-2 rounded-xl border border-slate-700 bg-slate-950 px-3 py-2">
+              <option value="all">ผู้ใช้ทั้งหมด</option><option value="current">มีสิทธิ์คงเหลือ</option><option value="history">มีประวัติซื้อ/ใช้</option>
+            </select>
+          </label>
+          <span className="text-xs text-slate-500">แสดง {visibleUsers.length} / {users.length} ผู้ใช้</span>
+        </div> : null}
+
         {loading ? (
           <div className="text-sm text-slate-300">กำลังโหลด...</div>
-        ) : users.length === 0 ? (
+        ) : visibleUsers.length === 0 ? (
           <div className="rounded-2xl border border-slate-700 bg-slate-950/60 px-4 py-6 text-sm text-slate-300">
             ยังไม่มีผู้ใช้
           </div>
@@ -285,6 +326,7 @@ export default function AdminUsersPage() {
                   <th className="px-4 py-3">แผน</th>
                   <th className="px-4 py-3">สิทธิ์</th>
                   <th className="px-4 py-3">สรุปวันนี้ / เพดานต่อวัน · เดือนนี้ · สะสม</th>
+                  <th className="px-4 py-3">Boost · คงเหลือ / ซื้อ / ใช้</th>
                   <th className="px-4 py-3" title="ประมาณต้นทุน API จาก model และ token ที่บันทึกไว้ ไม่ใช่ใบแจ้งหนี้จริง; model หรือข้อมูลที่ไม่รองรับจะแสดงเป็น unknown">ต้นทุน API ประเมิน / นโยบายเพดาน</th>
                   <th className="px-4 py-3">เครดิต legacy</th>
                   <th className="px-4 py-3" title="จำนวนวันจนถึงสิ้นรอบของแพ็กเกจ (30 วัน หรือ 365 วัน)">
@@ -296,7 +338,7 @@ export default function AdminUsersPage() {
                 </tr>
               </thead>
               <tbody>
-                {users.map((u) => {
+                {visibleUsers.map((u) => {
                   const e = edits[u.id] ?? { plan: u.plan, role: u.role };
                   const changed = e.plan !== u.plan || e.role !== u.role;
                   return (
@@ -339,7 +381,12 @@ export default function AdminUsersPage() {
                       </td>
                       <td className="px-4 py-3 text-slate-300">
                         <div>{u.summariesToday} / {u.dailySummaryLimit} · {u.summariesThisMonth} · {u.lifetimeSummaries}</div>
-                        <div className="text-xs text-slate-500">รีเซ็ตรายวัน {new Date(u.dailyUsageResetsAt).toLocaleString("th-TH")} · เดือน {new Date(u.monthlyUsageResetsAt).toLocaleString("th-TH")}</div>
+                        <div className="text-xs text-slate-500">รีเซ็ตรายวัน {new Date(u.dailyUsageResetsAt).toLocaleString("th-TH", { timeZone: "Asia/Bangkok" })} · เดือน {new Date(u.monthlyUsageResetsAt).toLocaleString("th-TH", { timeZone: "Asia/Bangkok" })}</div>
+                      </td>
+                      <td className="px-4 py-3 text-xs text-slate-300">
+                        <div className="font-semibold text-cyan-100">เหลือ {u.boostPassesRemaining} สิทธิ์</div>
+                        <div>ซื้อ {u.boostPassesPurchased} ({u.boostPurchaseCount} ครั้ง, ฿{u.boostPurchaseRevenue}) · ใช้ {u.boostPassesConsumed}</div>
+                        <div className="text-slate-500">ซื้อ {u.boostLastPurchaseAt ? new Date(u.boostLastPurchaseAt).toLocaleString("th-TH", { timeZone: "Asia/Bangkok" }) : "—"} · ใช้ล่าสุด {u.boostLastUsedAt ? new Date(u.boostLastUsedAt).toLocaleString("th-TH", { timeZone: "Asia/Bangkok" }) : "—"}</div>
                       </td>
                       <td className="px-4 py-3 text-xs text-slate-300">
                         <div>{u.apiCostEstimateStatus === "known" && u.apiCostSafeForEnforcement && u.apiCostEstimateThb !== null
@@ -411,7 +458,7 @@ export default function AdminUsersPage() {
                     </tr>
                     {expandedId === u.id ? (
                       <tr key={`${u.id}:activity`} className="border-t border-cyan-900/50 bg-slate-950/80">
-                        <td colSpan={10} className="px-5 py-4">
+                        <td colSpan={11} className="px-5 py-4">
                           <p className="mb-3 text-xs text-amber-200">สำหรับตรวจสอบการทำงานของระบบโดยผู้ดูแลเท่านั้น ข้อความสรุปยังอาจมีข้อมูลสุขภาพอ่อนไหวแม้ผ่านการปกปิดตัวระบุแล้ว; แสดงเมื่อขยายรายการเท่านั้น ไม่มีภาพหรือ raw payload</p>
                           {activityLoadingId === u.id ? <p className="text-sm text-slate-400">กำลังโหลดกิจกรรม...</p> : null}
                           {activityError ? <p role="alert" className="text-sm text-red-300">{activityError}</p> : null}
@@ -420,7 +467,7 @@ export default function AdminUsersPage() {
                             {(activityByUser[u.id] || []).map((item) => (
                               <details key={item.id} className="rounded-xl border border-slate-800 bg-slate-900/60 p-3">
                                 <summary className="cursor-pointer text-sm text-slate-200">
-                                  {new Date(item.createdAt).toLocaleString("th-TH")} · {item.kind} · {String(item.reason || item.source || item.status || "metadata ไม่ครบ")}
+                                  {new Date(item.createdAt).toLocaleString("th-TH", { timeZone: "Asia/Bangkok" })} · {item.kind === "boost_purchase" ? "Boost purchase" : item.kind === "summary" && Number(item.addonCreditsUsed) > 0 ? "Boost used" : item.kind} · {String(item.kind === "boost_purchase" ? item.status : item.reason || item.source || item.status || "metadata ไม่ครบ")}
                                   {item.model ? ` · ${String(item.model)}` : ""}
                                   {typeof item.totalTokens === "number" ? ` · ${item.totalTokens.toLocaleString()} tokens` : ""}
                                   {typeof item.estimatedCostThb === "number" ? ` · ยอด ledger หน่วยภายใน ฿${item.estimatedCostThb.toFixed(4)}` : ""}
@@ -434,6 +481,7 @@ export default function AdminUsersPage() {
                                       : <p className="text-amber-300">ไม่สามารถประเมินต้นทุน API รายการนี้ได้แน่นอน</p>}
                                   </> : null}
                                   {item.kind === "summary" ? <p>เครดิต: {String(item.creditsUsed ?? "ไม่ทราบ")} (base {String(item.baseCreditsUsed ?? "ไม่ทราบ")}, เสริม {String(item.addonCreditsUsed ?? "ไม่ทราบ")}) · case: {String(item.caseId || "ไม่มีข้อมูล")}</p> : null}
+                                  {item.kind === "boost_purchase" ? <p>รายการ Boost: {String(item.addCredits ?? 0)} สิทธิ์ · จำนวนเงิน ฿{String(item.finalAmount ?? "ไม่ทราบ")}</p> : null}
                                   {item.kind === "error_report" || item.kind === "summary_job" ? <>
                                     <p>สถานะ: {String(item.status || "ไม่ทราบ")} · issue flag เป็นคำแนะนำอัตโนมัติ ไม่ใช่หลักฐานว่าสรุปถูกหรือผิด</p>
                                     {item.message ? <p className="whitespace-pre-wrap">{String(item.message)}</p> : null}

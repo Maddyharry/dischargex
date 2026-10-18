@@ -52,11 +52,20 @@ export async function GET() {
         createdAt: true,
         periodStartedAt: true,
         subscriptionExpiresAt: true,
+        extraCredits: true,
         _count: { select: { deviceSessions: true } },
       },
     });
 
     type UserRow = (typeof users)[number];
+    const successfulAddonPayments = (await prisma.paymentRequest.findMany({
+      where: { type: "addon", entitlementAppliedAt: { not: null } },
+      select: { userId: true, addCredits: true, finalAmount: true, createdAt: true, entitlementAppliedAt: true },
+    })).filter((payment) => payment.entitlementAppliedAt !== null);
+    const addonUseTotals = await prisma.usageLog.aggregate({
+      where: { addonCreditsUsed: { gt: 0 } },
+      _sum: { addonCreditsUsed: true },
+    });
     const list = await Promise.all(
       users.map(async (u: UserRow) => {
         const normalizedPlanId = normalizePlanId(u.plan);
@@ -83,13 +92,17 @@ export async function GET() {
               },
             }))._sum.baseCreditsUsed ?? 0;
         const costWindowStart = revenue5xPolicyMode ? periodStartDate : monthStart;
-        const [summariesToday, summariesThisMonth, lifetimeSummaries] = await Promise.all([
+        const [summariesToday, summariesThisMonth, lifetimeSummaries, addonUse] = await Promise.all([
           prisma.usageLog.count({
             where: { userId: u.id, reason: { in: summaryReasons }, createdAt: { gte: dayStart, lt: new Date(dayStart.getTime() + 24 * 60 * 60 * 1000) } },
           }),
           prisma.usageLog.count({ where: { userId: u.id, reason: { in: summaryReasons }, createdAt: { gte: monthStart, lt: monthEnd } } }),
           prisma.usageLog.count({ where: { userId: u.id, reason: { in: summaryReasons } } }),
+          prisma.usageLog.aggregate({ where: { userId: u.id, addonCreditsUsed: { gt: 0 } }, _sum: { addonCreditsUsed: true }, _max: { createdAt: true } }),
         ]);
+        const userAddonPayments = successfulAddonPayments.filter((payment) => payment.userId === u.id);
+        const purchasedPasses = userAddonPayments.reduce((sum, payment) => sum + (payment.addCredits ?? 0), 0);
+        const addonRevenue = userAddonPayments.reduce((sum, payment) => sum + (payment.finalAmount ?? 0), 0);
         let tokenLedgerRows: UsagePolicyLedgerRow[] | null = null;
         try {
           const queriedLedgerRows = await prisma.tokenUsageLedger.findMany({
@@ -127,6 +140,13 @@ export async function GET() {
           planTotal,
           summariesToday,
           dailySummaryLimit: getDailyApproxLimit(normalizedPlanId).summaryPerDay,
+          boostPassesRemaining: u.extraCredits,
+          boostPassesPurchased: purchasedPasses,
+          boostPurchaseCount: userAddonPayments.length,
+          boostPurchaseRevenue: addonRevenue,
+          boostPassesConsumed: addonUse._sum.addonCreditsUsed ?? 0,
+          boostLastPurchaseAt: userAddonPayments.length ? userAddonPayments.reduce((latest, payment) => payment.createdAt > latest ? payment.createdAt : latest, userAddonPayments[0].createdAt).toISOString() : null,
+          boostLastUsedAt: addonUse._max.createdAt?.toISOString() ?? null,
           summariesThisMonth,
           lifetimeSummaries,
           apiCostEstimateStatus: apiCostEstimate.status,
@@ -159,7 +179,14 @@ export async function GET() {
       })
     );
 
-    return NextResponse.json({ ok: true, users: list }, { headers: PRIVATE_NO_STORE });
+    const boostOverview = {
+      successfulPurchases: successfulAddonPayments.length,
+      passesSold: successfulAddonPayments.reduce((sum, payment) => sum + (payment.addCredits ?? 0), 0),
+      revenueThb: successfulAddonPayments.reduce((sum, payment) => sum + (payment.finalAmount ?? 0), 0),
+      passesRemaining: users.reduce((sum: number, row: UserRow) => sum + row.extraCredits, 0),
+      passesConsumed: addonUseTotals._sum.addonCreditsUsed ?? 0,
+    };
+    return NextResponse.json({ ok: true, users: list, boostOverview }, { headers: PRIVATE_NO_STORE });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "โหลดรายการไม่สำเร็จ";
     return NextResponse.json({ ok: false, error: String(message) }, { status: 500, headers: PRIVATE_NO_STORE });

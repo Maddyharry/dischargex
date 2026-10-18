@@ -45,7 +45,7 @@ export async function GET(req: Request, context: { params: Promise<{ id: string 
     const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
     if (!user) return NextResponse.json({ ok: false, error: "User not found" }, { status: 404, headers: PRIVATE_NO_STORE });
 
-    const [usageLogs, ledger, feedback] = await Promise.all([
+    const [usageLogs, ledger, feedback, addonPayments] = await Promise.all([
       prisma.usageLog.findMany({
         where: { userId }, orderBy: { createdAt: "desc" }, take: limit,
         select: { id: true, createdAt: true, reason: true, creditsUsed: true, baseCreditsUsed: true, addonCreditsUsed: true, caseId: true, summarySnapshot: true },
@@ -57,6 +57,10 @@ export async function GET(req: Request, context: { params: Promise<{ id: string 
       prisma.feedback.findMany({
         where: { userId, type: { in: ["summary_job", "error_report"] } }, orderBy: { createdAt: "desc" }, take: limit,
         select: { id: true, createdAt: true, type: true, message: true, status: true, category: true, shortSummary: true, pageOrFeature: true, reproducibleSteps: true, impactLevel: true, aiScore: true, payload: true },
+      }),
+      prisma.paymentRequest.findMany({
+        where: { userId, type: "addon" }, orderBy: { createdAt: "desc" }, take: limit,
+        select: { type: true, status: true, addCredits: true, finalAmount: true, createdAt: true, entitlementAppliedAt: true },
       }),
     ]);
 
@@ -120,6 +124,15 @@ export async function GET(req: Request, context: { params: Promise<{ id: string 
           imageContentVerified: typeof privacyMetadata.imageContentVerified === "boolean" ? privacyMetadata.imageContentVerified : null,
         };
       }),
+      ...addonPayments.map((row, index) => ({
+        id: `boost_purchase:${row.createdAt.toISOString()}:${index}`,
+        kind: "boost_purchase" as const,
+        createdAt: row.createdAt.toISOString(),
+        type: row.type,
+        status: row.entitlementAppliedAt ? "applied" : row.status,
+        addCredits: row.addCredits,
+        finalAmount: row.finalAmount,
+      })),
     ].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, limit);
 
     return NextResponse.json({ ok: true, limit, activities }, { headers: PRIVATE_NO_STORE });

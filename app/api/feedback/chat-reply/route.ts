@@ -5,6 +5,7 @@ import { openai } from "@/lib/openai";
 import { getChatbotKnowledge } from "@/lib/chatbot-settings";
 import { prisma } from "@/lib/prisma";
 import { deidentify } from "@/lib/deidentify";
+import { deterministicSupportReply } from "@/lib/support-intents";
 
 export const runtime = "nodejs";
 
@@ -63,6 +64,9 @@ export async function POST(req: NextRequest) {
     if (!message || typeof message !== "string" || message.trim().length === 0) {
       return NextResponse.json({ ok: false, error: "ไม่มีข้อความ" }, { status: 400 });
     }
+
+    const knownProductReply = deterministicSupportReply(message.trim());
+    if (knownProductReply) return NextResponse.json({ ok: true, reply: knownProductReply, ...(knownProductReply === AI_UNAVAILABLE_REPLY ? { degraded: true } : {}) });
 
     const knownBillingReply = billingHelpReply(message.trim());
     if (knownBillingReply) return NextResponse.json({ ok: true, reply: knownBillingReply });

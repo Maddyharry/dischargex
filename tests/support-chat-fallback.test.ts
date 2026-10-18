@@ -28,6 +28,41 @@ describe("customer support guidance and deterministic outage fallback", () => {
     expect(knowledge).toContain("QR code และ barcode");
     expect(knowledge).toContain("ระบบไม่สามารถตรวจยืนยันได้ว่าพิกเซล");
     expect(knowledge).toContain("ไม่ยกเลิกหน้าที่ด้านกฎหมาย");
+    expect(knowledge).toContain("Trial 2");
+    expect(knowledge).toContain("Basic 5, Standard 15, Pro 40");
+    expect(knowledge).toContain("5 สิทธิ์ ฿109");
+    expect(knowledge).toContain("15 สิทธิ์ ฿329");
+    expect(knowledge).toContain("ผลิตภัณฑ์ AI Chat ยุติให้บริการแล้ว และ /chat จะนำไปยัง /app");
+    expect(knowledge).toContain("ห้ามแนะนำ AI Chat หรือ /chat ให้ลูกค้า");
+    expect(knowledge).not.toMatch(/(?:แนะนำ(?:ให้)?(?:ลูกค้า)?(?:ไปที่|ใช้|เปิด)|recommend(?: the)?).*\/chat/i);
+  });
+
+  it.each([
+    ["Boost คืออะไร", "ถึงขีดจำกัดรายวันหรือรอบแพ็กเกจ", "1 สิทธิ์", "2 สิทธิ์"],
+    ["บูส ราคาเท่าไหร่", "5 สิทธิ์ ฿109", "15 สิทธิ์ ฿329"],
+    ["ซื้อ Boost ยังไง", "/app/profile", "ชำระ", "สำเร็จ"],
+    ["How can I buy boost?", "5 สิทธิ์ ฿109", "/pricing"],
+    ["ทำไม Boost ไม่หักอัตโนมัติ", "ไม่ถูกใช้เอง", "กด"],
+    ["Can Boost bypass daily limit and period cap?", "ถึงขีดจำกัดรายวันหรือรอบแพ็กเกจ", "ไม่รีเซ็ต"],
+    ["เคสยาวกับภาพใช้กี่ pass", "เคสยาว", "2 สิทธิ์"],
+    ["Boost หมดอายุไหม", "ไม่มีตัวนับวันหมดอายุ", "active"],
+    ["แพ็กเกจไม่ active ใช้ Boost ได้หรือเปล่า", "ไม่อนุญาต", "/app/profile"],
+    ["ดูยอด Boost กับ history ที่ไหน", "/app/profile", "ประวัติ"],
+    ["Trial ได้วันละกี่เคส", "Trial 2", "Basic 5", "Standard 15", "Pro 40", "07:00"],
+    ["What is the daily quota per day?", "Trial 2", "Basic 5", "Pro 40"],
+    ["รอบบิล reset เมื่อไหร่", "วันสิ้นสุดรอบ", "/app/profile"],
+    ["AI error, service is down", "บริการ AI ขัดข้องชั่วคราว", "ไม่ส่งข้อมูลผู้ป่วย"],
+    ["Can I paste patient data in support chat?", "อย่าส่งข้อมูลผู้ป่วย", "QR code", "/app"],
+  ])("answers support intent without LLM: %s", async (message, ...phrases) => {
+    vi.stubEnv("OPENAI_API_KEY", "");
+    const response = await POST(new Request("http://localhost/api/feedback/chat-reply", {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ message }),
+    }) as never);
+    const body = await response.json();
+    expect(response.status).toBe(200);
+    for (const phrase of phrases) expect(body.reply).toContain(phrase);
+    expect(body.reply).not.toMatch(/\/chat|AI Chat|Specialist Chat/i);
+    expect(create).not.toHaveBeenCalled();
   });
 
   it("returns the deterministic safe reply when the API key is missing", async () => {
@@ -90,16 +125,20 @@ describe("customer support guidance and deterministic outage fallback", () => {
     expect(await response.json()).toEqual({ ok: true, reply: outageReply, degraded: true });
   });
 
-  it("does not treat non-billing cancellation or pricing questions as subscription actions", async () => {
+  it("answers pricing directly without treating it as a subscription action", async () => {
     vi.stubEnv("OPENAI_API_KEY", "test-key");
     create.mockResolvedValue({ output_text: "ขอรายละเอียดเพิ่มเติมได้ไหมครับ? ขอบคุณครับ" });
-    for (const message of ["ยกเลิกยา", "ราคาแพ็กเกจเท่าไร"]) {
+    for (const message of ["ยกเลิกยา"]) {
       const response = await POST(new Request("http://localhost/api/feedback/chat-reply", {
         method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ message }),
       }) as never);
       expect((await response.json()).degraded).toBeUndefined();
     }
-    expect(create).toHaveBeenCalledTimes(2);
+    const pricing = await POST(new Request("http://localhost/api/feedback/chat-reply", {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ message: "ราคาแพ็กเกจเท่าไร" }),
+    }) as never);
+    expect((await pricing.json()).reply).toContain("Basic ฿299/เดือน");
+    expect(create).toHaveBeenCalledTimes(1);
   });
 
   it("validates the request body before returning the no-key fallback", async () => {
