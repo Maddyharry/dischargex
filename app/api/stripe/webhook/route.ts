@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getCreditCycleBounds, getPlanDefinition, normalizePlanId } from "@/lib/billing-rules";
 import { getPlanIdByStripePriceId, getStripe, getStripeWebhookSecret } from "@/lib/stripe";
 import { notifyUser } from "@/lib/notifications";
-import { markReferralFirstPurchase } from "@/lib/referral";
+import { markReferralFirstPurchase, shouldAwardReferralForCheckout, shouldAwardReferralForPaidInvoice } from "@/lib/referral";
 import { sendAdminAlertEmail } from "@/lib/admin-alert";
 import type Stripe from "stripe";
 import {
@@ -266,7 +266,7 @@ export async function POST(req: Request) {
         return NextResponse.json({ ok: false, error: "Unsupported checkout mode" }, { status: 400 });
       }
 
-      if (session.mode === "subscription") {
+      if (shouldAwardReferralForCheckout(session.mode, session.payment_status, payment.type)) {
         try {
           await markReferralFirstPurchase(user.id);
         } catch (referralErr) {
@@ -316,6 +316,7 @@ export async function POST(req: Request) {
       const invoiceAny = invoice as unknown as {
         id: string;
         status?: string | null;
+        amount_paid?: number | null;
         subscription?: string | null;
         customer?: string | null;
         parent?: { subscription_details?: { subscription?: string | { id?: string } | null } | null } | null;
@@ -352,7 +353,7 @@ export async function POST(req: Request) {
       });
       if (!applied) return NextResponse.json({ ok: true, ignored: true });
 
-      if (invoiceAny.billing_reason === "subscription_create") {
+      if (shouldAwardReferralForPaidInvoice(invoiceAny.billing_reason ?? null, invoiceAny.amount_paid ?? null)) {
         try {
           await markReferralFirstPurchase(user.id);
         } catch (referralErr) {

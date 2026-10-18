@@ -9,6 +9,20 @@ export function deterministicSupportReply(message: string): string | null {
   const mentionsBoost = /boost|บูส|บูสต์|บูท/.test(text);
   if (/\b429\b|no credits remaining|insufficient[_\s-]quota|provider.{0,12}(error|outage)|ai.{0,12}(error|down|unavailable)|เอไอ.{0,10}(ล่ม|ขัดข้อง)|ระบบ.{0,10}(ล่ม|ขัดข้อง)|ขัดข้องชั่วคราว/.test(text)) return AI_UNAVAILABLE;
 
+  const mentionsReferral = /referral|refer(?:ral)?|invite|รีเฟอร์รัล|รีเฟอรัล|รหัส.{0,12}(แนะนำ|เพื่อน)|แนะนำเพื่อน|ชวนเพื่อน|เพื่อน.{0,16}(แนะนำ|ซื้อแพ็ก)/.test(text);
+  if (mentionsReferral && /โบนัส|ได้อะไร|ได้เท่าไหร่|กี่สิทธิ์|reward|bonus|credit|ซื้อแพ็ก|ซื้อครั้งแรก|first purchase/.test(text)) {
+    return "คุณได้รับ Boost 10 สิทธิ์เมื่อเพื่อนที่ใช้รหัสแนะนำซื้อแพ็กเกจแบบชำระเงินสำเร็จครั้งแรกเท่านั้น ไม่มีโบนัสตอนสมัครหรือใช้ฟรีครั้งแรก และใช้สิทธิ์ได้ขณะแพ็กเกจแบบชำระเงินของคุณยัง active หรือ pending_change ครับ";
+  }
+  if (mentionsReferral && /กรอก|ใส่รหัส|claim|enter|redeem|ใช้รหัส/.test(text)) {
+    return "เพื่อนกรอกรหัสของคุณได้ที่ /app/profile ในบัญชีของเพื่อนเองครับ การกรอกรหัสยังไม่มีโบนัสทันที; คุณจะได้รับ Boost 10 สิทธิ์หลังเพื่อนซื้อแพ็กเกจแบบชำระเงินสำเร็จครั้งแรก";
+  }
+  if (mentionsReferral && /รหัส|ชวน|invite|แชร์|share|how|ยังไง|อย่างไร|where/.test(text)) {
+    return "ดูและคัดลอกรหัสแนะนำของคุณได้ที่ /app/profile แล้วส่งรหัสให้เพื่อนกรอกใน /app/profile ของบัญชีเพื่อนครับ คุณจะได้รับ Boost 10 สิทธิ์หลังเพื่อนซื้อแพ็กเกจแบบชำระเงินสำเร็จครั้งแรก ไม่มีโบนัสจากการสมัครหรือใช้ฟรีครั้งแรก";
+  }
+  if (mentionsReferral) {
+    return "Referral ให้ Boost 10 สิทธิ์แก่ผู้แนะนำเมื่อเพื่อนซื้อแพ็กเกจแบบชำระเงินสำเร็จครั้งแรกเท่านั้น ไม่มีโบนัสตอนสมัครหรือใช้ฟรีครั้งแรก ดูรหัสและสถิติได้ที่ /app/profile; สิทธิ์ใช้ได้ขณะแพ็กเกจแบบชำระเงินยัง active หรือ pending_change ครับ";
+  }
+
   if (/(เคสยาว|long case).{0,30}(ภาพ|รูป|pass|สิทธิ์)|(ภาพ|รูป).{0,30}(pass|สิทธิ์)/.test(text)) {
     return "เคสปกติใช้ Boost 1 สิทธิ์ ส่วนเคสยาวหรือเคสที่มีรูปใช้ 2 สิทธิ์; ต้องกดยืนยันใช้เองและหักเมื่อสร้างเคสสำเร็จครับ";
   }

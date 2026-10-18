@@ -32,6 +32,8 @@ describe("customer support guidance and deterministic outage fallback", () => {
     expect(knowledge).toContain("Basic 5, Standard 15, Pro 40");
     expect(knowledge).toContain("5 สิทธิ์ ฿109");
     expect(knowledge).toContain("15 สิทธิ์ ฿329");
+    expect(knowledge).toContain("ผู้แนะนำได้รับ Boost 10 สิทธิ์");
+    expect(knowledge).toContain("ไม่มีโบนัสตอนสมัครหรือใช้ฟรีครั้งแรก");
     expect(knowledge).toContain("ผลิตภัณฑ์ AI Chat ยุติให้บริการแล้ว และ /chat จะนำไปยัง /app");
     expect(knowledge).toContain("ห้ามแนะนำ AI Chat หรือ /chat ให้ลูกค้า");
     expect(knowledge).not.toMatch(/(?:แนะนำ(?:ให้)?(?:ลูกค้า)?(?:ไปที่|ใช้|เปิด)|recommend(?: the)?).*\/chat/i);
@@ -48,6 +50,10 @@ describe("customer support guidance and deterministic outage fallback", () => {
     ["Boost หมดอายุไหม", "ไม่มีตัวนับวันหมดอายุ", "active"],
     ["แพ็กเกจไม่ active ใช้ Boost ได้หรือเปล่า", "ไม่อนุญาต", "/app/profile"],
     ["ดูยอด Boost กับ history ที่ไหน", "/app/profile", "ประวัติ"],
+    ["Referral ได้โบนัสอะไร", "Boost 10 สิทธิ์", "ไม่มีโบนัสตอนสมัคร", "active"],
+    ["รีเฟอร์รัลเพื่อนได้อะไร", "Boost 10 สิทธิ์", "ไม่มีโบนัสตอนสมัคร"],
+    ["How do I invite a friend with my referral code?", "/app/profile", "Boost 10 สิทธิ์", "ใช้ฟรีครั้งแรก"],
+    ["เพื่อนกรอกรหัส referral ที่ไหน", "กรอกรหัส", "/app/profile", "ไม่มีโบนัสทันที"],
     ["Trial ได้วันละกี่เคส", "Trial 2", "Basic 5", "Standard 15", "Pro 40", "07:00"],
     ["What is the daily quota per day?", "Trial 2", "Basic 5", "Pro 40"],
     ["รอบบิล reset เมื่อไหร่", "วันสิ้นสุดรอบ", "/app/profile"],

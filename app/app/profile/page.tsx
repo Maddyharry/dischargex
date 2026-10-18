@@ -90,6 +90,14 @@ type NotificationItem = {
   createdAt: string;
 };
 
+type ReferralData = {
+  referralCode: string | null;
+  stats: { referredCount: number; firstPurchases: number; boostEarned: number };
+  history: Array<{ id: string; status: string; signupAt: string; firstUsageAt: string | null; firstPurchaseAt: string | null; creditsEarned: number }>;
+};
+
+type ReferralLedgerItem = { id: string; amount: number; direction: string; createdAt: string };
+
 function formatPlanName(plan: string | null | undefined): string {
   switch (plan) {
     case "basic_monthly":
@@ -153,6 +161,31 @@ export default function ProfilePage() {
   const [billingError, setBillingError] = useState<string | null>(null);
   const [billingNotice, setBillingNotice] = useState<string | null>(null);
   const [selectedPlanId, setSelectedPlanId] = useState("");
+  const [referral, setReferral] = useState<ReferralData | null>(null);
+  const [referralLedger, setReferralLedger] = useState<ReferralLedgerItem[]>([]);
+  const [referralAlreadyClaimed, setReferralAlreadyClaimed] = useState(false);
+  const [referralCodeInput, setReferralCodeInput] = useState("");
+  const [referralLoading, setReferralLoading] = useState(true);
+  const [referralSubmitting, setReferralSubmitting] = useState(false);
+  const [referralError, setReferralError] = useState<string | null>(null);
+  const [referralFeedback, setReferralFeedback] = useState<string | null>(null);
+
+  async function refreshReferral() {
+    setReferralLoading(true);
+    setReferralError(null);
+    try {
+      const response = await fetch("/api/referral/me", { cache: "no-store" });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.ok) throw new Error(data.error || "โหลดข้อมูลแนะนำเพื่อนไม่สำเร็จ");
+      setReferral(data.referral as ReferralData);
+      setReferralLedger(Array.isArray(data.ledger) ? data.ledger : []);
+      setReferralAlreadyClaimed(data.alreadyClaimed === true);
+    } catch (err) {
+      setReferralError(err instanceof Error ? err.message : "โหลดข้อมูลแนะนำเพื่อนไม่สำเร็จ");
+    } finally {
+      setReferralLoading(false);
+    }
+  }
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
@@ -166,17 +199,19 @@ export default function ProfilePage() {
       setLoading(true);
       setError(null);
       try {
-        const [meRes, usageRes, reqRes, notiRes] = await Promise.all([
+        const [meRes, usageRes, reqRes, notiRes, referralRes] = await Promise.all([
           fetch("/api/me"),
           fetch("/api/usage"),
           fetch("/api/me/requests"),
           fetch("/api/notifications?limit=50"),
+          fetch("/api/referral/me", { cache: "no-store" }),
         ]);
 
         const meData = await meRes.json().catch(() => ({}));
         const usageData = await usageRes.json().catch(() => ({}));
         const reqData = await reqRes.json().catch(() => ({}));
         const notiData = await notiRes.json().catch(() => ({}));
+        const referralData = await referralRes.json().catch(() => ({}));
 
         if (meData.ok && meData.user) {
           setUser(meData.user);
@@ -219,14 +254,58 @@ export default function ProfilePage() {
         if (notiData.ok && Array.isArray(notiData.notifications)) {
           setNotifications(notiData.notifications);
         }
+        if (referralRes.ok && referralData.ok) {
+          setReferral(referralData.referral as ReferralData);
+          setReferralLedger(Array.isArray(referralData.ledger) ? referralData.ledger : []);
+          setReferralAlreadyClaimed(referralData.alreadyClaimed === true);
+          setReferralError(null);
+        } else {
+          setReferralError(referralData.error || "โหลดข้อมูลแนะนำเพื่อนไม่สำเร็จ");
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : "โหลดข้อมูลไม่สำเร็จ");
       } finally {
         setLoading(false);
+        setReferralLoading(false);
       }
     }
     void load();
   }, [sessionStatus]);
+
+  async function copyReferralCode() {
+    const code = referral?.referralCode;
+    if (!code) return;
+    try {
+      await navigator.clipboard.writeText(code);
+      setReferralFeedback("คัดลอกรหัสแนะนำแล้ว");
+    } catch {
+      setReferralFeedback("คัดลอกไม่สำเร็จ กรุณาเลือกและคัดลอกรหัสด้วยตนเอง");
+    }
+  }
+
+  async function submitReferralClaim(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setReferralSubmitting(true);
+    setReferralError(null);
+    setReferralFeedback(null);
+    try {
+      const response = await fetch("/api/referral/claim", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ referralCode: referralCodeInput }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.ok) throw new Error(data.error || "บันทึกรหัสแนะนำไม่สำเร็จ");
+      setReferralAlreadyClaimed(true);
+      setReferralCodeInput("");
+      setReferralFeedback("บันทึกรหัสแนะนำแล้ว การกรอกรหัสยังไม่มีโบนัสทันที");
+      await refreshReferral();
+    } catch (err) {
+      setReferralError(err instanceof Error ? err.message : "บันทึกรหัสแนะนำไม่สำเร็จ");
+    } finally {
+      setReferralSubmitting(false);
+    }
+  }
 
   useEffect(() => {
     if (sessionStatus !== "authenticated") return;
@@ -643,6 +722,46 @@ export default function ProfilePage() {
                   </div>
                 ) : null}
               </div>
+            </section>
+
+            <section className="rounded-3xl border border-violet-500/20 bg-slate-900/60 p-6">
+              <h2 className="text-lg font-semibold text-white">แนะนำเพื่อน</h2>
+              <p className="mt-2 text-sm text-slate-300">แชร์รหัสให้เพื่อนกรอกใน /app/profile ของบัญชีตนเอง คุณจะได้รับ Boost 10 สิทธิ์เมื่อเพื่อนซื้อแพ็กเกจแบบชำระเงินสำเร็จเป็นครั้งแรก การสมัครหรือใช้ฟรีครั้งแรกยังไม่มีโบนัส</p>
+              <p className="mt-1 text-xs text-slate-400">สิทธิ์ Boost ใช้ได้ขณะแพ็กเกจแบบชำระเงินของคุณยัง active หรือ pending_change</p>
+
+              {referralLoading ? <p className="mt-4 text-sm text-slate-400">กำลังโหลดข้อมูลแนะนำเพื่อน…</p> : null}
+              {!referralLoading && referral?.referralCode ? (
+                <div className="mt-4 flex flex-wrap items-center gap-3">
+                  <span className="rounded-xl border border-violet-400/30 bg-slate-950 px-4 py-2 font-mono text-lg tracking-wider text-violet-100">{referral.referralCode}</span>
+                  <button type="button" onClick={() => void copyReferralCode()} className="rounded-xl border border-violet-400/40 px-3 py-2 text-sm text-violet-100 hover:bg-violet-950/40">คัดลอกรหัส</button>
+                </div>
+              ) : null}
+
+              {!referralLoading && !referralAlreadyClaimed ? (
+                <form onSubmit={submitReferralClaim} className="mt-5 flex flex-wrap items-end gap-3">
+                  <label className="text-sm text-slate-300">มีรหัสจากเพื่อน?
+                    <input value={referralCodeInput} onChange={(event) => setReferralCodeInput(event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 32))} maxLength={32} autoComplete="off" className="mt-1 block w-64 rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 font-mono text-white" placeholder="กรอกรหัสแนะนำ" />
+                  </label>
+                  <button type="submit" disabled={referralSubmitting || referralCodeInput.length < 2} className="rounded-xl bg-violet-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{referralSubmitting ? "กำลังบันทึก…" : "บันทึกรหัส"}</button>
+                  <span className="basis-full text-xs text-slate-400">การกรอกรหัสเพียงอย่างเดียวไม่ให้โบนัส</span>
+                </form>
+              ) : referralAlreadyClaimed ? <p className="mt-4 text-sm text-slate-400">บัญชีนี้บันทึกรหัสแนะนำแล้ว</p> : null}
+
+              {referral ? <>
+                <div className="mt-5 grid gap-3 sm:grid-cols-3">
+                  <div className="rounded-xl border border-white/10 bg-slate-950/60 p-3"><p className="text-xs text-slate-400">เพื่อนที่แนะนำ</p><p className="mt-1 font-semibold text-white">{referral.stats.referredCount}</p></div>
+                  <div className="rounded-xl border border-white/10 bg-slate-950/60 p-3"><p className="text-xs text-slate-400">ซื้อแพ็กเกจครั้งแรก</p><p className="mt-1 font-semibold text-white">{referral.stats.firstPurchases}</p></div>
+                  <div className="rounded-xl border border-white/10 bg-slate-950/60 p-3"><p className="text-xs text-slate-400">Boost ที่ได้รับสะสม</p><p className="mt-1 font-semibold text-white">{referral.stats.boostEarned} สิทธิ์</p></div>
+                </div>
+                {referralLedger.length > 0 ? <div className="mt-4">
+                  <h3 className="text-sm font-medium text-slate-200">รายการโบนัสแนะนำเพื่อนล่าสุด</h3>
+                  <ul className="mt-2 divide-y divide-white/10 text-sm text-slate-300">
+                    {referralLedger.slice(0, 8).map((item) => <li key={item.id} className="flex justify-between gap-4 py-2"><span>Boost {item.direction === "minus" ? "ปรับลด" : "ได้รับ"} {item.amount} สิทธิ์</span><time className="text-slate-500">{new Date(item.createdAt).toLocaleString("th-TH")}</time></li>)}
+                  </ul>
+                </div> : null}
+              </> : null}
+              {referralError ? <p role="alert" className="mt-3 text-sm text-red-300">{referralError}</p> : null}
+              {referralFeedback ? <p role="status" className="mt-3 text-sm text-emerald-300">{referralFeedback}</p> : null}
             </section>
 
             <section className="rounded-3xl border border-cyan-500/20 bg-slate-900/60 p-6">
