@@ -41,17 +41,38 @@ function normalizeReply(text: string): string {
   return out;
 }
 
-export async function POST(req: NextRequest) {
-  if (!process.env.OPENAI_API_KEY) {
-    return NextResponse.json({ ok: true, reply: AI_UNAVAILABLE_REPLY, degraded: true });
-  }
+function billingHelpReply(message: string): string | null {
+  const normalized = message.toLocaleLowerCase("th-TH");
+  const billingContext = /แพ็ก|แพค|แพตเกจ|ต่ออายุ|subscription|billing/i.test(normalized);
+  const action = /ยกเลิก|ลด|เปลี่ยน|ปรับ|cancel|downgrade|change|renew/i.test(normalized);
+  const explicitSubscriptionAction = /cancel\s+(?:my\s+)?subscription|subscription\s+cancellation|downgrade\s+(?:my\s+)?subscription/i.test(normalized);
+  const asksBillingChange = (billingContext && action) || explicitSubscriptionAction;
+  if (!asksBillingChange) return null;
 
+  return "จัดการแพ็กเกจได้ด้วยตนเองตามวิธีที่ต้องการครับ\n\n" +
+    "• ลดแพ็กเกจหรือเปลี่ยนแพ็กเกจ: ไปที่ /app/profile → Billing → เปลี่ยนแพ็กเกจ การเปลี่ยนแปลงจะมีผลในรอบชำระถัดไป\n\n" +
+    "• ยกเลิกการต่ออายุ: ใช้ปุ่มจัดการ/ยกเลิกในส่วน Billing ของแอป หากมีแผนเปลี่ยนแพ็กเกจที่ตั้งไว้ ระบบจะจัดการกำหนดการนั้นจากปุ่มนี้ด้วย สิทธิ์ที่ชำระแล้วคงอยู่จนสิ้นสุดรอบปัจจุบัน\n\n" +
+    "ผมยังไม่ได้ดำเนินการเปลี่ยนแปลงหรือยกเลิกแพ็กเกจให้ หากไม่พบตัวเลือกดังกล่าว โปรดติดต่อทีมงานผ่านแชทโดยไม่ส่งข้อมูลผู้ป่วยครับ";
+}
+
+export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const { message, history = [] } = body as { message?: string; history?: HistoryItem[] };
 
     if (!message || typeof message !== "string" || message.trim().length === 0) {
       return NextResponse.json({ ok: false, error: "ไม่มีข้อความ" }, { status: 400 });
+    }
+
+    const knownBillingReply = billingHelpReply(message.trim());
+    if (knownBillingReply) return NextResponse.json({ ok: true, reply: knownBillingReply });
+
+    if (/\b429\b|no credits remaining|insufficient[_\s-]quota|platform\.openai\.com\/(?:settings\/organization\/|account\/)?billing/i.test(message)) {
+      return NextResponse.json({ ok: true, reply: AI_UNAVAILABLE_REPLY, degraded: true });
+    }
+
+    if (!process.env.OPENAI_API_KEY) {
+      return NextResponse.json({ ok: true, reply: AI_UNAVAILABLE_REPLY, degraded: true });
     }
 
     const session = await getServerSession(authOptions);
@@ -99,17 +120,22 @@ export async function POST(req: NextRequest) {
       model,
       input: prompt,
       store: false,
-      max_output_tokens: 800,
+      max_output_tokens: 1200,
     });
 
-    const replyRaw =
-      (resp as { output_text?: string }).output_text?.trim() ||
-      "ขออภัย ตอนนี้ตอบไม่ได้ กรุณาลองใหม่หรือแจ้งทีมงานครับ";
+    const response = resp as { output_text?: string; status?: string; incomplete_details?: { reason?: string } | null };
+    if (response.status === "incomplete" || response.incomplete_details?.reason) {
+      return NextResponse.json({ ok: true, reply: AI_UNAVAILABLE_REPLY, degraded: true });
+    }
+    const replyRaw = response.output_text?.trim() || "";
+    if (replyRaw.length < 40) {
+      return NextResponse.json({ ok: true, reply: AI_UNAVAILABLE_REPLY, degraded: true });
+    }
     const reply = deidentify(normalizeReply(replyRaw));
 
     return NextResponse.json({ ok: true, reply });
-  } catch (e) {
-    console.error("Feedback chat-reply error:", e);
+  } catch {
+    console.error("Feedback chat-reply failed: AI_UNAVAILABLE_REPLY");
     return NextResponse.json({ ok: true, reply: AI_UNAVAILABLE_REPLY, degraded: true });
   }
 }

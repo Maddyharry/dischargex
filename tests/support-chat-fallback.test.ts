@@ -33,10 +33,81 @@ describe("customer support guidance and deterministic outage fallback", () => {
   it("returns the deterministic safe reply when the API key is missing", async () => {
     vi.stubEnv("OPENAI_API_KEY", "");
     const response = await POST(new Request("http://localhost/api/feedback/chat-reply", {
-      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ message: "How do I cancel?" }),
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ message: "How do I report an error?" }),
     }) as never);
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ ok: true, reply: outageReply, degraded: true });
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it.each(["ยกเลิกแพ็กเกจ", "อยากลดแพคเกจ", "ปรับแพ็กเกจและยกเลิกการต่ออายุ"])(
+    "answers billing request %s completely without calling AI, even with no key",
+    async (message) => {
+      vi.stubEnv("OPENAI_API_KEY", "");
+      const response = await POST(new Request("http://localhost/api/feedback/chat-reply", {
+        method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ message }),
+      }) as never);
+      const body = await response.json();
+      expect(response.status).toBe(200);
+      expect(body.reply).toContain("/app/profile → Billing → เปลี่ยนแพ็กเกจ");
+      expect(body.reply).toContain("รอบชำระถัดไป");
+      expect(body.reply).toContain("ปุ่มจัดการ/ยกเลิกในส่วน Billing ของแอป");
+      expect(body.reply).toContain("จนสิ้นสุดรอบปัจจุบัน");
+      expect(body.reply).toContain("ยังไม่ได้ดำเนินการเปลี่ยนแปลงหรือยกเลิก");
+      expect(body.degraded).toBeUndefined();
+      expect(create).not.toHaveBeenCalled();
+    },
+  );
+
+  it("uses a safe complete fallback for empty or truncated provider output", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    create.mockResolvedValueOnce({ output_text: "ได้ครับ" });
+    const response = await POST(new Request("http://localhost/api/feedback/chat-reply", {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ message: "How do I report an error?" }),
+    }) as never);
+    expect(await response.json()).toEqual({ ok: true, reply: outageReply, degraded: true });
+    expect(create).toHaveBeenCalledOnce();
+  });
+
+  it.each(["429 no credits remaining", "insufficient_quota", "https://platform.openai.com/settings/organization/billing/"])(
+    "does not send known provider billing error %s to the model",
+    async (message) => {
+      vi.stubEnv("OPENAI_API_KEY", "test-key");
+      const response = await POST(new Request("http://localhost/api/feedback/chat-reply", {
+        method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ message }),
+      }) as never);
+      expect(await response.json()).toEqual({ ok: true, reply: outageReply, degraded: true });
+      expect(create).not.toHaveBeenCalled();
+    },
+  );
+
+  it("uses a safe fallback for a long response marked incomplete", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    create.mockResolvedValueOnce({ output_text: "คำตอบที่ดูยาวพอสมควรแต่ยังไม่จบประโยคและมีเนื้อหาบางส่วน", status: "incomplete", incomplete_details: { reason: "max_output_tokens" } });
+    const response = await POST(new Request("http://localhost/api/feedback/chat-reply", {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ message: "How do I report a technical error?" }),
+    }) as never);
+    expect(await response.json()).toEqual({ ok: true, reply: outageReply, degraded: true });
+  });
+
+  it("does not treat non-billing cancellation or pricing questions as subscription actions", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    create.mockResolvedValue({ output_text: "ขอรายละเอียดเพิ่มเติมได้ไหมครับ? ขอบคุณครับ" });
+    for (const message of ["ยกเลิกยา", "ราคาแพ็กเกจเท่าไร"]) {
+      const response = await POST(new Request("http://localhost/api/feedback/chat-reply", {
+        method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ message }),
+      }) as never);
+      expect((await response.json()).degraded).toBeUndefined();
+    }
+    expect(create).toHaveBeenCalledTimes(2);
+  });
+
+  it("validates the request body before returning the no-key fallback", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "");
+    const response = await POST(new Request("http://localhost/api/feedback/chat-reply", {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ message: "  " }),
+    }) as never);
+    expect(response.status).toBe(400);
     expect(create).not.toHaveBeenCalled();
   });
 
