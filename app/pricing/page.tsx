@@ -575,8 +575,7 @@ function PricingPageContent() {
 
         <section className="rounded-2xl border border-cyan-500/20 bg-cyan-950/20 p-5">
           <h2 className="text-lg font-semibold text-white">Boost ใช้ทำเคสต่อได้ทันที</h2>
-          <p className="mt-1 text-sm text-slate-300">ใช้ทำเคสต่อได้ทันทีเมื่อถึงขีดจำกัดรายวันหรือรอบแพ็กเกจ โดยไม่รีเซ็ตโควตารายวัน เคสยาวหรือมีรูปใช้ 2 สิทธิ์</p>
-          <p className="mt-2 text-sm text-slate-300">ใช้ได้เมื่อถึงขีดจำกัดรายวันหรือรอบแพ็กเกจ โดยไม่รีเซ็ตโควตารายวัน; เคสยาวหรือมีรูปใช้ 2 สิทธิ์</p>
+          <p className="mt-1 text-sm text-slate-300">เมื่อถึงขีดจำกัด กดใช้ Boost เพื่อทำเคสต่อได้ทันที เคสยาวหรือมีรูปใช้ 2 สิทธิ์</p>
           <div className="mt-3 flex gap-3"><BoostPurchaseButton credits={5} /><BoostPurchaseButton credits={15} /></div>
         </section>
 
