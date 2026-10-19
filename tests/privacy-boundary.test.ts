@@ -197,7 +197,7 @@ describe("AI privacy request boundaries", () => {
     expect(mocks.openaiCreate).not.toHaveBeenCalled();
   });
 
-  it("blocks an exhausted new revenue-5x period before confirmed-image OCR", async () => {
+  it("blocks an exhausted new revenue-4x period before confirmed-image OCR", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-10-20T12:00:00.000Z"));
     try {

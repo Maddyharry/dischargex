@@ -45,7 +45,7 @@ export default function PrivacyPolicyPage() {
           <p>
             Existing Pro summary snapshots are stored with usage records and may be available for authorized
             administrative review. Snapshot text receives the same best-effort pattern-based redaction, which is not
-            a guarantee that all identifying information is removed.
+            a guarantee that all identifying information is removed or certify PDPA compliance.
           </p>
           <p>
             We use reasonable security controls such as authenticated access and transport security.

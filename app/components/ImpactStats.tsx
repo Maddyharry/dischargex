@@ -1,11 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { formatSavedDuration } from "@/lib/summary-impact";
 
 type Stats = {
   available: boolean;
   completedJobs: number;
+  timedJobs?: number;
   averageGenerationSeconds: number | null;
+  manualMinutesPerCase?: number;
+  estimatedSavedMinutes?: number | null;
   updatedAt?: string;
 };
 
@@ -14,12 +18,17 @@ type ImpactStatsPanelProps = {
   failed: boolean;
 };
 
+function formatGenerationDuration(seconds: number): string {
+  const roundedSeconds = Math.max(0, Math.round(seconds));
+  return `${Math.floor(roundedSeconds / 60)} นาที ${roundedSeconds % 60} วินาที`;
+}
+
 export function ImpactStatsPanel({ stats, failed }: ImpactStatsPanelProps) {
   const isLoading = !stats && !failed;
 
   return (
     <section className="mx-auto max-w-6xl px-6 py-14" aria-labelledby="impact-stats-heading">
-      <p className="text-sm font-medium text-cyan-300">ข้อมูลจากการใช้งานจริง</p>
+      <p className="text-sm font-medium text-cyan-300">ข้อมูลจริงจากผู้ใช้งานทุกบัญชี</p>
       <h2 id="impact-stats-heading" className="mt-2 text-2xl font-semibold">สถิติการสร้างสรุปในระบบ</h2>
 
       {isLoading ? (
@@ -29,25 +38,34 @@ export function ImpactStatsPanel({ stats, failed }: ImpactStatsPanelProps) {
           ตอนนี้ยังเชื่อมต่อข้อมูลสถิติไม่ได้ กรุณาลองใหม่ภายหลัง
         </p>
       ) : (
-        <div className="mt-6 grid gap-6 sm:grid-cols-2" aria-live="polite">
+        <div className="mt-6 grid gap-6 sm:grid-cols-3" aria-live="polite">
           <div>
             <strong className="text-4xl">{stats.completedJobs.toLocaleString("th-TH")}</strong>
-            <p className="mt-2 text-slate-300">งานสร้างสรุปที่สำเร็จในช่วง 30 วันที่ผ่านมา</p>
+            <p className="mt-2 text-slate-300">งานสร้างสรุปที่สำเร็จจากประวัติที่ระบบบันทึกไว้</p>
             {stats.completedJobs === 0 && (
-              <p className="mt-2 text-sm text-slate-400">ยังไม่มีรายการที่บันทึกได้ในช่วงเวลานี้</p>
+              <p className="mt-2 text-sm text-slate-400">ยังไม่มีงานสำเร็จที่บันทึกไว้</p>
             )}
           </div>
           <div>
             <strong className="text-4xl">
               {stats.averageGenerationSeconds === null
                 ? "—"
-                : `${Math.round(stats.averageGenerationSeconds).toLocaleString("th-TH")} วินาที`}
+                : formatGenerationDuration(stats.averageGenerationSeconds)}
             </strong>
-            <p className="mt-2 text-slate-300">เวลาเฉลี่ยที่ระบบใช้สร้างสรุป</p>
+            <p className="mt-2 text-slate-300">เวลา Generate เฉลี่ยต่อเคส</p>
             <p className="mt-1 text-sm text-slate-400">
               {stats.averageGenerationSeconds === null
                 ? "ยังไม่มีข้อมูลเวลาเฉลี่ยเพียงพอ"
-                : "ไม่รวมเวลาตรวจทานหรือกรอกข้อมูลใน HOSxP"}
+                : `คำนวณจาก ${stats.timedJobs ?? 0} เคสที่มีเวลาบันทึก`}
+            </p>
+          </div>
+          <div>
+            <strong className="text-4xl">
+              {typeof stats.estimatedSavedMinutes === "number" ? formatSavedDuration(stats.estimatedSavedMinutes) : "—"}
+            </strong>
+            <p className="mt-2 text-slate-300">เวลาที่อาจประหยัดได้โดยประมาณ</p>
+            <p className="mt-1 text-sm text-slate-400">
+              เทียบกับสมมติฐานทำเอง {stats.manualMinutesPerCase ?? 10} นาที/เคส เฉพาะ {stats.timedJobs ?? 0} เคสที่มีเวลา Generate บันทึก
             </p>
           </div>
           {stats.updatedAt && (
@@ -61,9 +79,9 @@ export function ImpactStatsPanel({ stats, failed }: ImpactStatsPanelProps) {
       <details className="mt-5 text-sm text-slate-400">
         <summary className="cursor-pointer">สถิตินี้นับอย่างไร</summary>
         <p className="mt-2">
-          นับงานสร้างสรุปที่สำเร็จจากบันทึกฝั่งเซิร์ฟเวอร์ รวมงานของผู้ดูแลระบบโดยไม่หักโควตา และนับงานเดิมครั้งเดียว
+          นับงานสร้างสรุปที่สำเร็จจากประวัติฝั่งเซิร์ฟเวอร์ที่ยังเก็บอยู่ของผู้ใช้งานทุกบัญชี รวมงานของผู้ดูแลระบบโดยไม่หักโควตา และนับงานเดิมครั้งเดียว
           ไม่นับงานที่ล้มเหลวหรือการคำนวณซ้ำ ตัวเลขนี้ไม่ใช่จำนวนผู้ป่วยที่ไม่ซ้ำกัน
-          เวลาเฉลี่ยเป็นเฉพาะเวลาที่ระบบสร้างสรุป ไม่รวมการตรวจทานหรือกรอกข้อมูลใน HOSxP
+          เวลาเฉลี่ยเป็นเวลา Generate ฝั่งเซิร์ฟเวอร์ของงานที่มีข้อมูลเวลาเท่านั้น เวลาที่ประหยัดเป็นการประมาณโดยเทียบกับสมมติฐานทำเอง 10 นาทีต่อเคส ไม่ใช่การจับเวลาการทำงานจริง และไม่รวมเวลาตรวจทานหรือแก้ไขโดยแพทย์
         </p>
       </details>
     </section>

@@ -34,6 +34,7 @@ vi.mock("@/lib/prisma", () => ({
 import { markReferralFirstPurchase, markReferralFirstUsage, getReferralDashboard, shouldAwardReferralForCheckout, shouldAwardReferralForPaidInvoice, claimReferralCode } from "../lib/referral";
 import { GET } from "../app/api/referral/me/route";
 import { POST as claimPost } from "../app/api/referral/claim/route";
+import { normalizeReferralCode } from "../lib/pending-referral";
 
 const activeReferral = {
   id: "ref-1",
@@ -64,6 +65,12 @@ beforeEach(() => {
 });
 
 describe("referral reward policy", () => {
+  it("normalizes only safe referral codes for the same-origin OAuth handoff", () => {
+    expect(normalizeReferralCode(" dxAbC123 ")).toBe("DXABC123");
+    expect(normalizeReferralCode("bad code")).toBeNull();
+    expect(normalizeReferralCode(null)).toBeNull();
+  });
+
   it("records first usage with zero credit and no bonus notification", async () => {
     await markReferralFirstUsage("friend-1");
     expect(mocks.referralUpdateMany).toHaveBeenCalledWith(expect.objectContaining({
@@ -186,6 +193,18 @@ describe("referral reward policy", () => {
     expect(response.headers.get("cache-control")).toContain("no-store");
   });
 
+  it("treats an existing referral as a successful idempotent claim", async () => {
+    mocks.getSession.mockResolvedValue({ user: { email: "friend@example.test" } });
+    mocks.userFindUnique.mockResolvedValue({ id: "friend-1" });
+    mocks.referralFindUnique.mockResolvedValue({ id: "existing-referral" });
+    const response = await claimPost(new Request("https://dischargex.net/api/referral/claim", {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ referralCode: "dxabcdefgh" }),
+    }));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ ok: true, alreadyClaimed: true });
+    expect(mocks.referralCreate).not.toHaveBeenCalled();
+  });
+
   it("supports referral signup and claim-after-login across email and Google flows", () => {
     const profile = readFileSync("app/app/profile/page.tsx", "utf8");
     expect(profile).toContain("Boost 10 สิทธิ์");
@@ -198,22 +217,23 @@ describe("referral reward policy", () => {
     expect(signup).toContain("รหัสแนะนำ (ถ้ามี)");
     expect(signup).toContain("referralCode: referralCode.trim() || undefined");
     expect(signup).toContain("สมัครหรือทดลองใช้ฟรียังไม่ให้โบนัส");
-    expect(signup).toContain('signIn("google", { callbackUrl })');
+    expect(signup).toContain('signIn("google", { callbackUrl: "/app" })');
+    expect(signup).toContain("PENDING_REFERRAL_CODE_KEY");
     const login = readFileSync("app/login/page.tsx", "utf8");
-    expect(login).toContain('searchParams.get("claimRef") || searchParams.get("ref")');
+    expect(login).toContain('searchParams.get("ref") || searchParams.get("claimRef")');
     expect(login).toContain('id="login-referral-code"');
     expect(login).toContain("const [referralCode, setReferralCode] = useState(referralCodeFromQuery)");
     expect(login).toContain(".toUpperCase()");
-    expect(login).toContain("/^[A-Z0-9]{2,32}$/");
     expect(login).toContain('setReferralCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 32))');
-    expect(login).toContain("referralClaimReturnUrl");
-    expect(login).toContain('callbackUrl: referralClaimReturnUrl');
-    expect(login).toContain("referralClaimStarted.current");
-    expect(login).toContain('fetch("/api/referral/claim"');
-    expect(login).toContain('signIn("google", { callbackUrl: googleCallbackUrl })');
+    expect(login).toContain("PENDING_REFERRAL_CODE_KEY");
+    expect(login).toContain("callbackUrl: postLoginUrl");
+    expect(login).toContain('signIn("google", { callbackUrl: postLoginUrl })');
     expect(login).toContain("router.replace(postLoginUrl)");
-    expect(login).not.toContain("sessionStorage");
     expect(login).not.toContain("handleGoogleSignIn");
-    expect(readFileSync("app/app/layout.tsx", "utf8")).not.toContain("ReferralClaimOnLogin");
+    const claimOnLogin = readFileSync("app/components/ReferralClaimOnLogin.tsx", "utf8");
+    expect(claimOnLogin).toContain('fetch("/api/referral/claim"');
+    expect(claimOnLogin).toContain("sessionStorage.removeItem(PENDING_REFERRAL_CODE_KEY)");
+    expect(claimOnLogin).toContain("result.alreadyClaimed === true");
+    expect(readFileSync("app/layout.tsx", "utf8")).toContain("<ReferralClaimOnLogin />");
   });
 });

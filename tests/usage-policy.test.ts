@@ -17,10 +17,10 @@ const BASE: UsagePolicyUserFields = {
 };
 
 describe("getUsagePolicySnapshot", () => {
-  it("uses the full monthly 5x cap and treats a successful empty ledger as zero", () => {
+  it("uses the full monthly 4x cap and treats a successful empty ledger as zero", () => {
     const snapshot = getUsagePolicySnapshot(BASE, NOW);
     expect(snapshot).toMatchObject({
-      mode: "revenue_5x", capThb: 59.8, spendThb: 0, remainingThb: 59.8,
+      mode: "revenue_4x", capThb: 74.75, spendThb: 0, remainingThb: 74.75,
       allowed: true, status: "active", costEstimate: { status: "known", basis: "actual_api_standard_rates" },
       actualApiCostEstimate: { status: "known", estimatedCostThb: 0 },
     });
@@ -46,9 +46,9 @@ describe("getUsagePolicySnapshot", () => {
     expect(getUsagePolicySnapshot({ ...BASE, periodStartedAt: null }, NOW).mode).toBe("legacy_internal");
   });
 
-  it("uses the full annual price / 5 rather than a monthly slice", () => {
+  it("uses the full annual price / 4 rather than a monthly slice", () => {
     const snapshot = getUsagePolicySnapshot({ ...BASE, planId: "standard_yearly" }, NOW);
-    expect(snapshot.capThb).toBe(1198);
+    expect(snapshot.capThb).toBe(1497.5);
   });
 
   it("selects per-call rows for revenue mode and aggregate rows for legacy mode without double-counting", () => {
@@ -61,7 +61,7 @@ describe("getUsagePolicySnapshot", () => {
       { source: "summary_provider_call", referenceId: "partial-no-final", id: "partial" },
       { source: "summary_recalc", referenceId: null, id: "unlinked-aggregate" },
     ];
-    expect(selectUsagePolicyLedgerRows(rows, "revenue_5x").map((row) => row.id)).toEqual([
+    expect(selectUsagePolicyLedgerRows(rows, "revenue_4x").map((row) => row.id)).toEqual([
       "provider-1", "provider-2", "ocr", "fallback", "partial", "unlinked-aggregate",
     ]);
     expect(selectUsagePolicyLedgerRows(rows, "legacy_internal").map((row) => row.id)).toEqual([
@@ -98,7 +98,7 @@ describe("getUsagePolicySnapshot", () => {
       periodStartedAt: "2026-10-21T00:00:00+07:00",
       expiresAt: "2026-11-20T00:00:00+07:00",
     }, NOW);
-    expect(snapshot).toMatchObject({ mode: "revenue_5x", status: "not_started", allowed: false });
+    expect(snapshot).toMatchObject({ mode: "revenue_4x", status: "not_started", allowed: false });
   });
 
   it("fails closed when ledger query failed or a model is unknown", () => {
@@ -125,7 +125,7 @@ describe("getUsagePolicySnapshot", () => {
         outputTokens: 0, estimatedCostThb: 50,
       }],
     }, NOW);
-    expect(snapshot).toMatchObject({ mode: "revenue_5x", status: "expired", allowed: false, capThb: 59.8, spendThb: 0 });
+    expect(snapshot).toMatchObject({ mode: "revenue_4x", status: "expired", allowed: false, capThb: 74.75, spendThb: 0 });
   });
 
   it("resets grandfathered spend at the server-local calendar-month boundary", () => {

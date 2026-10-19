@@ -8,8 +8,8 @@ describe("homepage usage statistics display", () => {
   it("keeps the panel and explicitly shows zero when there are no recorded jobs", () => {
     const markup = renderToStaticMarkup(<ImpactStatsPanel stats={{ available: true, completedJobs: 0, averageGenerationSeconds: null }} failed={false} />);
     expect(markup).toContain(">0</strong>");
-    expect(markup).toContain("ยังไม่มีรายการที่บันทึกได้ในช่วงเวลานี้");
-    expect(markup).toContain("ข้อมูลจากการใช้งานจริง");
+    expect(markup).toContain("ยังไม่มีงานสำเร็จที่บันทึกไว้");
+    expect(markup).toContain("ข้อมูลจริงจากผู้ใช้งานทุกบัญชี");
     expect(markup).not.toContain("0 วินาที");
   });
 
@@ -22,7 +22,8 @@ describe("homepage usage statistics display", () => {
   it("renders actual available values and the update timestamp", () => {
     const markup = renderToStaticMarkup(<ImpactStatsPanel stats={{ available: true, completedJobs: 24, averageGenerationSeconds: 8.6, updatedAt: "2026-10-19T06:30:00.000Z" }} failed={false} />);
     expect(markup).toContain("24");
-    expect(markup).toContain("9 วินาที");
+    expect(markup).toContain("0 นาที 9 วินาที");
+    expect(markup).toContain("สมมติฐานทำเอง 10 นาที/เคส");
     expect(markup).toContain("ข้อมูลล่าสุด");
   });
 });

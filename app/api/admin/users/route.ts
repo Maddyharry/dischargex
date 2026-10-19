@@ -16,8 +16,8 @@ import { getUsagePolicySnapshot, selectUsagePolicyLedgerRows, type UsagePolicyLe
 import { isStripeVerifiedBoostPayment } from "@/lib/stripe-boost-payment";
 import {
   EFFECTIVE_FROM,
-  forecastRevenue5xPeriodCostCapThb,
-  isRevenue5xEligible,
+  forecastRevenue4xPeriodCostCapThb,
+  isRevenue4xEligible,
 } from "@/lib/api-cost";
 
 export const runtime = "nodejs";
@@ -79,9 +79,9 @@ export async function GET() {
         const periodStartDate = u.periodStartedAt ?? u.createdAt;
         const paidPlan = isPaidPlan(normalizedPlanId);
         const paidSubscriptionActive = u.subscriptionStatus === "active" || u.subscriptionStatus === "pending_change";
-        const revenue5xEligible = paidPlan && paidSubscriptionActive && isRevenue5xEligible(u.periodStartedAt);
-        const revenue5xPolicyMode = paidPlan && isRevenue5xEligible(u.periodStartedAt);
-        const nextRenewalCapForecastThb = paidPlan ? forecastRevenue5xPeriodCostCapThb(planDefinition.priceThb) : null;
+        const revenue4xEligible = paidPlan && paidSubscriptionActive && isRevenue4xEligible(u.periodStartedAt);
+        const revenue4xPolicyMode = paidPlan && isRevenue4xEligible(u.periodStartedAt);
+        const nextRenewalCapForecastThb = paidPlan ? forecastRevenue4xPeriodCostCapThb(planDefinition.priceThb) : null;
         const { start: periodStart, end: fallbackPeriodEnd } = getPeriodBounds(periodStartDate, normalizedPlanId);
         const periodEnd = u.subscriptionExpiresAt ?? fallbackPeriodEnd;
         const isExpired = now.getTime() > periodEnd.getTime();
@@ -96,7 +96,7 @@ export async function GET() {
                 createdAt: { gte: cycleStart, lte: cycleWindowEnd },
               },
             }))._sum.baseCreditsUsed ?? 0;
-        const costWindowStart = revenue5xPolicyMode ? periodStartDate : monthStart;
+        const costWindowStart = revenue4xPolicyMode ? periodStartDate : monthStart;
         const [summariesToday, summariesThisMonth, lifetimeSummaries, addonUse] = await Promise.all([
           prisma.usageLog.count({
             where: { userId: u.id, reason: { in: summaryReasons }, createdAt: { gte: dayStart, lt: new Date(dayStart.getTime() + 24 * 60 * 60 * 1000) } },
@@ -144,7 +144,7 @@ export async function GET() {
           usageCount: usedInPeriod,
           planTotal,
           summariesToday,
-          dailySummaryLimit: getDailyApproxLimit(normalizedPlanId).summaryPerDay,
+          dailySummaryLimit: getDailyApproxLimit(normalizedPlanId, u.periodStartedAt).summaryPerDay,
           boostPassesRemaining: u.extraCredits,
           boostPassesPurchased: purchasedPasses,
           boostPurchaseCount: userAddonPayments.length,
@@ -161,11 +161,11 @@ export async function GET() {
           apiCostInvalidRowCount: apiCostEstimate.invalidRowCount,
           apiCostRowCount,
           apiCostUncertainty: apiCostEstimate.uncertainty,
-          revenue5xEligible,
-          revenue5xEffectiveFrom: EFFECTIVE_FROM,
+          revenue4xEligible,
+          revenue4xEffectiveFrom: EFFECTIVE_FROM,
           currentApiCostCapThb: policy.capThb,
           currentApiCostCapKind: policy.mode,
-          currentApiCostWindow: revenue5xPolicyMode ? "billing_period_to_date" : paidPlan ? "legacy_calendar_month_to_date" : "calendar_month_to_date",
+          currentApiCostWindow: revenue4xPolicyMode ? "billing_period_to_date" : paidPlan ? "legacy_calendar_month_to_date" : "calendar_month_to_date",
           apiCostSafeForEnforcement: apiCostEstimate.safeForEnforcement,
           policySpendThb: policy.spendThb,
           policyRemainingThb: policy.remainingThb,

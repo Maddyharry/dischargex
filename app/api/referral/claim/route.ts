@@ -27,6 +27,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: "รหัสแนะนำเพื่อนไม่ถูกต้อง" }, { status: 400, headers: PRIVATE_NO_STORE });
     }
 
+    const existingReferral = await prisma.referral.findUnique({
+      where: { referredUserId: user.id },
+      select: { id: true },
+    });
+    if (existingReferral) {
+      return NextResponse.json({ ok: true, alreadyClaimed: true }, { headers: PRIVATE_NO_STORE });
+    }
+
     const clientIp =
       req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
       req.headers.get("x-real-ip") ||

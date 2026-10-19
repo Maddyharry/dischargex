@@ -11,6 +11,7 @@ type UsagePolicyCardProps = {
   periodEnd: string | null | undefined;
   periodPercentUsed: number | null | undefined;
   allowanceDisplayMode: "ai_cost" | "legacy_units" | "not_applicable";
+  approxCasesPerMonth?: { min: number; max: number } | null;
   grandfathered: boolean;
   boostCredits: number;
   active: boolean;
@@ -45,6 +46,7 @@ export default function UsagePolicyCard(props: UsagePolicyCardProps) {
             <p className="mt-1 text-xs text-slate-400">สิ้นสุดรอบแพ็กเกจ: {formatUsageReset(props.periodEnd)} (เวลาไทย)</p>
           </> : props.allowanceDisplayMode === "ai_cost" ? <>
             <p className="text-slate-300">วงเงิน AI รอบนี้ (ประเมินตามปริมาณประมวลผล)</p>
+            {props.approxCasesPerMonth ? <p className="mt-1 text-xs text-slate-400">โดยเฉลี่ยประมาณ {props.approxCasesPerMonth.min}–{props.approxCasesPerMonth.max} เคสต่อเดือนเมื่อใช้ข้อมูลมาตรฐาน · เคสยาวหรือมีหลายภาพอาจใช้วงเงินมากขึ้นและทำเคสได้น้อยลง</p> : null}
             {typeof percent === "number" ? <div className="mt-2" aria-label={`ใช้วงเงิน AI รอบนี้แล้ว ${percent}%`}>
               <div className="h-2 overflow-hidden rounded-full bg-slate-800"><div className="h-full rounded-full bg-cyan-400" style={{ width: `${Math.max(0, Math.min(100, percent))}%` }} /></div>
               <p className="mt-1 text-xs text-slate-400">ใช้วงเงิน AI ไปแล้ว {percent}%</p>

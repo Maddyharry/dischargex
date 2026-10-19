@@ -1,6 +1,6 @@
 import { describe, expect,it } from "vitest";
 import { incidentSchema,normalizeIncidentInput,readBoundedJson } from "../lib/automator-contract";
-import { summarizeImpact } from "../lib/summary-impact";
+import { formatSavedDuration, summarizeImpact } from "../lib/summary-impact";
 const fixture={schema:1,incidentId:"a".repeat(32),at:"2026-09-09T00:00:00Z",appVersion:"0.12.6.0",failure:1,timeline:[{at:"2026-09-09T00:00:00Z",action:6}],automaticResumeAllowed:false,windowsVersion:"10.0.19045",screenWidth:1920,screenHeight:1080};
 describe("incident boundary",()=>{
   it("accepts actual v12.6 numeric enums",()=>expect(incidentSchema.parse(fixture).failure).toBe("HosXpUnresponsive"));
@@ -11,6 +11,7 @@ describe("incident boundary",()=>{
   it("bounds incoming body even without content-length",async()=>await expect(readBoundedJson(new Request("https://example.test",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:"x".repeat(500)})}),100)).rejects.toThrow());
 });
 describe("public impact honesty",()=>{
-  it("does not equate generation with verified saved time",()=>{const r=summarizeImpact([{durationMs:30000}]);expect(r.completedJobs).toBe(1);expect(r.estimatedSavedMinutes).toBeNull();});
-  it("retains negative savings and excludes bad timings",()=>{const r=summarizeImpact([{durationMs:30000,verifiedDurationMs:12*60000},{durationMs:-1}]);expect(r.completedJobs).toBe(1);expect(r.estimatedSavedMinutes).toEqual({low:-7,high:-2});});
+  it("estimates time against the explicit 10-minute manual-work assumption",()=>{const r=summarizeImpact([{durationMs:2*60000},{durationMs:4*60000}]);expect(r.timedJobs).toBe(2);expect(r.averageGenerationSeconds).toBe(180);expect(r.estimatedSavedMinutes).toBe(14);});
+  it("floors saved time at zero and excludes invalid timings",()=>{const r=summarizeImpact([{durationMs:12*60000},{durationMs:-1}]);expect(r.timedJobs).toBe(1);expect(r.estimatedSavedMinutes).toBe(0);});
+  it("renders saved time in days, hours, and minutes",()=>{expect(formatSavedDuration(1565)).toBe("1 วัน 2 ชั่วโมง 5 นาที");});
 });

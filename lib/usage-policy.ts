@@ -1,7 +1,7 @@
 import {
   estimateActualApiCostThbFromLedgerRows,
-  forecastRevenue5xPeriodCostCapThb,
-  isRevenue5xEligible,
+  forecastRevenue4xPeriodCostCapThb,
+  isRevenue4xEligible,
   type ApiCostLedgerEstimate,
 } from "./api-cost";
 import { getPlanDefinition } from "./billing-rules";
@@ -27,7 +27,7 @@ export type UsagePolicyLedgerSourceRow = { source?: string; referenceId?: string
  */
 export function selectUsagePolicyLedgerRows<T extends UsagePolicyLedgerSourceRow>(
   rows: readonly T[],
-  mode: "legacy_internal" | "revenue_5x",
+  mode: "legacy_internal" | "revenue_4x",
 ): T[] {
   const aggregateSources = new Set(["summary_generate", "summary_recalc"]);
   const providerRefs = new Set(
@@ -41,7 +41,7 @@ export function selectUsagePolicyLedgerRows<T extends UsagePolicyLedgerSourceRow
 
   return rows.filter((row) => {
     if (!row.referenceId) return true;
-    if (mode === "revenue_5x" && aggregateSources.has(row.source ?? "")) {
+    if (mode === "revenue_4x" && aggregateSources.has(row.source ?? "")) {
       return !providerRefs.has(row.referenceId);
     }
     if (mode === "legacy_internal" && row.source === "summary_provider_call") {
@@ -74,7 +74,7 @@ export type UsagePolicyCostEstimate = {
 };
 
 export type UsagePolicySnapshot = {
-  mode: "legacy_internal" | "revenue_5x";
+  mode: "legacy_internal" | "revenue_4x";
   capThb: number | null;
   spendThb: number | null;
   remainingThb: number | null;
@@ -207,20 +207,20 @@ export function getUsagePolicySnapshot(userFields: UsagePolicyUserFields, now: D
 
   // Mode is tied to the paid period start, not current subscription status, so expired/cancelled
   // eligible periods retain their correct historical policy for customer/admin display.
-  const mode = plan.isPaid && periodStart !== null && isRevenue5xEligible(periodStart)
-    ? "revenue_5x" as const
+  const mode = plan.isPaid && periodStart !== null && isRevenue4xEligible(periodStart)
+    ? "revenue_4x" as const
     : "legacy_internal" as const;
 
   const month = validNow ? calendarMonth(now) : null;
-  const rawWindowStart = mode === "revenue_5x" ? periodStart : month?.start ?? null;
-  const rawWindowEnd = mode === "revenue_5x" ? periodEnd : month?.end ?? null;
+  const rawWindowStart = mode === "revenue_4x" ? periodStart : month?.start ?? null;
+  const rawWindowEnd = mode === "revenue_4x" ? periodEnd : month?.end ?? null;
   const actualApiCostEstimate = rawEstimate(userFields.ledgerRows, rawWindowStart, rawWindowEnd, mode);
 
   let capThb: number | null;
   let resetAt: string | null;
   let costEstimate: UsagePolicyCostEstimate;
-  if (mode === "revenue_5x") {
-    capThb = forecastRevenue5xPeriodCostCapThb(plan.priceThb);
+  if (mode === "revenue_4x") {
+    capThb = forecastRevenue4xPeriodCostCapThb(plan.priceThb);
     resetAt = periodEnd?.toISOString() ?? null;
     if (!periodStart || !periodEnd || periodEnd.getTime() <= periodStart.getTime()) {
       costEstimate = unknownEstimate("actual_api_standard_rates", "Paid-period bounds are unavailable or invalid.");

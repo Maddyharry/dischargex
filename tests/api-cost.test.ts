@@ -3,9 +3,9 @@ import {
   estimateActualApiCostThbByModel,
   estimateActualApiCostThbFromLedgerRows,
   forecastApiCostCapThbFromPlanPrice,
-  forecastRevenue5xPeriodCostCapThb,
+  forecastRevenue4xPeriodCostCapThb,
   EFFECTIVE_FROM,
-  isRevenue5xEligible,
+  isRevenue4xEligible,
   resolveApiCostModelAlias,
 } from "../lib/api-cost";
 
@@ -110,42 +110,42 @@ describe("actual API cost estimates", () => {
   });
 });
 
-describe("5x revenue-to-API-cost caps", () => {
+describe("4x revenue-to-API-cost caps", () => {
   it.each([
-    ["Basic", 299, 59.8],
-    ["Standard", 590, 118],
-    ["Pro", 1_090, 218],
+    ["Basic", 299, 74.75],
+    ["Standard", 590, 147.5],
+    ["Pro", 1_090, 272.5],
   ])("calculates the %s monthly cost cap", (_plan, priceThb, expected) => {
     expect(forecastApiCostCapThbFromPlanPrice({ priceThb, billingInterval: "monthly" })).toMatchObject({
       apiCostCapThb: expected,
       periodLabel: "billing_month",
-      revenueMultiple: 5,
+      revenueMultiple: 4,
     });
   });
 
   it.each([
-    ["Basic", 2_990, 598],
-    ["Standard", 5_990, 1_198],
-    ["Pro", 10_990, 2_198],
+    ["Basic", 2_990, 747.5],
+    ["Standard", 5_990, 1_497.5],
+    ["Pro", 10_990, 2_747.5],
   ])("calculates the %s full-year billing-period cap", (_plan, priceThb, expected) => {
     expect(forecastApiCostCapThbFromPlanPrice({ priceThb, billingInterval: "yearly" })).toMatchObject({
       apiCostCapThb: expected,
       periodLabel: "billing_year",
-      revenueMultiple: 5,
+      revenueMultiple: 4,
     });
   });
 
   it("starts eligibility exactly at the Thailand-time cutoff and keeps earlier periods grandfathered", () => {
     expect(EFFECTIVE_FROM).toBe("2026-10-19T00:00:00+07:00");
-    expect(isRevenue5xEligible("2026-10-18T23:59:59+07:00")).toBe(false);
-    expect(isRevenue5xEligible(EFFECTIVE_FROM)).toBe(true);
-    expect(isRevenue5xEligible(null)).toBe(false);
-    expect(isRevenue5xEligible("invalid-date")).toBe(false);
+    expect(isRevenue4xEligible("2026-10-18T23:59:59+07:00")).toBe(false);
+    expect(isRevenue4xEligible(EFFECTIVE_FROM)).toBe(true);
+    expect(isRevenue4xEligible(null)).toBe(false);
+    expect(isRevenue4xEligible("invalid-date")).toBe(false);
   });
 
   it("exposes full-period plan cap and rejects invalid prices", () => {
-    expect(forecastRevenue5xPeriodCostCapThb(2_990)).toBe(598);
-    expect(forecastRevenue5xPeriodCostCapThb(Number.NaN)).toBeNull();
+    expect(forecastRevenue4xPeriodCostCapThb(2_990)).toBe(747.5);
+    expect(forecastRevenue4xPeriodCostCapThb(Number.NaN)).toBeNull();
   });
 
   it("fails closed on unknown ledger models and flags aggregate long-context uncertainty", () => {

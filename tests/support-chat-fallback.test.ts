@@ -28,8 +28,9 @@ describe("customer support guidance and deterministic outage fallback", () => {
     expect(knowledge).toContain("QR code และ barcode");
     expect(knowledge).toContain("ระบบไม่สามารถตรวจยืนยันได้ว่าพิกเซล");
     expect(knowledge).toContain("ไม่ยกเลิกหน้าที่ด้านกฎหมาย");
-    expect(knowledge).toContain("Trial 2");
-    expect(knowledge).toContain("Basic 5, Standard 15, Pro 40");
+    expect(knowledge).toContain("Trial จำกัด 2 เคสปกติต่อวัน");
+    expect(knowledge).toContain("Basic 5, Standard 10, Pro 20");
+    expect(knowledge).toContain("Basic 15–18, Standard 30–35, Pro 55–65");
     expect(knowledge).toContain("5 สิทธิ์ ฿109");
     expect(knowledge).toContain("15 สิทธิ์ ฿299");
     expect(knowledge).toContain("ผู้แนะนำได้รับ Boost 10 สิทธิ์");
@@ -37,10 +38,12 @@ describe("customer support guidance and deterministic outage fallback", () => {
     expect(knowledge).toContain("ตัวเลข 120/420/1260 เป็นหน่วยสิทธิ์");
     expect(knowledge).toContain("ไม่ใช่จำนวนเคส");
     expect(knowledge).toContain("ประเมินต้นทุน API จากปริมาณ token");
+    expect(knowledge).toContain("หลังระบบยืนยันการชำระเงินสำเร็จเท่านั้น");
     expect(knowledge).toContain("วงเงินเดิม 3600 เป็นหน่วยภายใน");
     expect(knowledge).toContain("snapshot ข้อความที่ผ่านการปกปิดแบบ best-effort ทุกแพ็กเกจ");
     expect(knowledge).toContain("ดูหรือ export ที่ /app/history ได้เฉพาะ Pro");
     expect(knowledge).toContain("ทุกแพ็กเกจลบข้อความที่เก็บไว้ได้");
+    expect(knowledge).toContain("ไม่ใช่การรับรองการปฏิบัติตาม PDPA");
     expect(knowledge).toContain("หากการสร้างสรุปล้มเหลวก่อนบันทึกสำเร็จ");
     expect(knowledge).toContain("ผลิตภัณฑ์ AI Chat ยุติให้บริการแล้ว และ /chat จะนำไปยัง /app");
     expect(knowledge).toContain("ห้ามแนะนำ AI Chat หรือ /chat ให้ลูกค้า");
@@ -62,8 +65,8 @@ describe("customer support guidance and deterministic outage fallback", () => {
     ["รีเฟอร์รัลเพื่อนได้อะไร", "Boost 10 สิทธิ์", "ไม่มีโบนัสตอนสมัคร"],
     ["How do I invite a friend with my referral code?", "/app/profile", "/signup?ref=CODE", "Boost 10 สิทธิ์", "ทดลองใช้"],
     ["เพื่อนกรอกรหัส referral ที่ไหน", "รหัสแนะนำ (ถ้ามี)", "/signup?ref=CODE", "ไม่มีโบนัสทันที"],
-    ["Trial ได้วันละกี่เคส", "Trial 2", "Basic 5", "Standard 15", "Pro 40", "วงเงิน AI", "ซื้อ Boost"],
-    ["What is the daily quota per day?", "Trial 2", "Basic 5", "Pro 40", "AI", "Boost"],
+    ["Trial ได้วันละกี่เคส", "Trial 2", "Basic 5", "Standard 10", "Pro 20", "วงเงิน AI", "ซื้อ Boost"],
+    ["What is the daily quota per day?", "Trial 2", "Basic 5", "Pro 20", "AI", "Boost"],
     ["ทำไมโควตาแพ็กเกจขึ้น 0 / 1260", "จำนวนครั้ง/เคส", "หน่วยสิทธิ์", "ไม่ใช่จำนวนเคส", "ลูกค้าเก่า", "Boost"],
     ["รอบบิล reset เมื่อไหร่", "วันสิ้นสุดรอบ", "/app/profile"],
     ["ถ้าสรุป error จะหักโควตาไหม", "ล้มเหลวก่อนระบบบันทึกผลสำเร็จ", "จะไม่ตัดโควตา", "ต้นทุน"],

@@ -28,6 +28,18 @@ export type PlanDailyApproxLimit = {
   summaryPerDay: number;
 };
 
+export type ApproxMonthlySummaryCases = { min: number; max: number };
+const APPROX_MONTHLY_SUMMARY_CASES: Partial<Record<PlanId, ApproxMonthlySummaryCases>> = {
+  basic_monthly: { min: 15, max: 18 },
+  basic_yearly: { min: 15, max: 18 },
+  standard_monthly: { min: 30, max: 35 },
+  standard_yearly: { min: 30, max: 35 },
+  pro_monthly: { min: 55, max: 65 },
+  pro_yearly: { min: 55, max: 65 },
+};
+
+export const NEW_USAGE_POLICY_EFFECTIVE_FROM = "2026-10-19T00:00:00+07:00";
+
 function parsePositiveInt(raw: string | undefined, fallback: number) {
   const n = Number(raw);
   if (Number.isFinite(n) && n > 0) return Math.floor(n);
@@ -128,10 +140,17 @@ const PLAN_DAILY_APPROX_LIMITS: Record<PlanId, PlanDailyApproxLimit> = {
   trial: { chatPerDay: 20, summaryPerDay: 2 },
   basic_monthly: { chatPerDay: 40, summaryPerDay: 5 },
   basic_yearly: { chatPerDay: 40, summaryPerDay: 5 },
-  standard_monthly: { chatPerDay: 140, summaryPerDay: 15 },
-  standard_yearly: { chatPerDay: 140, summaryPerDay: 15 },
-  pro_monthly: { chatPerDay: 420, summaryPerDay: 40 },
-  pro_yearly: { chatPerDay: 420, summaryPerDay: 40 },
+  standard_monthly: { chatPerDay: 140, summaryPerDay: 10 },
+  standard_yearly: { chatPerDay: 140, summaryPerDay: 10 },
+  pro_monthly: { chatPerDay: 420, summaryPerDay: 20 },
+  pro_yearly: { chatPerDay: 420, summaryPerDay: 20 },
+};
+
+const LEGACY_DAILY_SUMMARY_LIMITS: Partial<Record<PlanId, number>> = {
+  standard_monthly: 15,
+  standard_yearly: 15,
+  pro_monthly: 40,
+  pro_yearly: 40,
 };
 
 const PLAN_ALIAS: Record<string, PlanId> = {
@@ -273,9 +292,24 @@ export function getAddonPrice(credits: number): number | null {
   return option ? option.priceThb : null;
 }
 
-export function getDailyApproxLimit(rawPlan: string | null | undefined): PlanDailyApproxLimit {
+export function getDailyApproxLimit(rawPlan: string | null | undefined, periodStartedAt?: Date | string | null): PlanDailyApproxLimit {
   const plan = normalizePlanId(rawPlan);
-  return PLAN_DAILY_APPROX_LIMITS[plan];
+  const limit = PLAN_DAILY_APPROX_LIMITS[plan];
+  if (!getPlanDefinition(plan).isPaid) return limit;
+  if (periodStartedAt == null) {
+    const legacyLimit = LEGACY_DAILY_SUMMARY_LIMITS[plan];
+    return legacyLimit === undefined ? limit : { ...limit, summaryPerDay: legacyLimit };
+  }
+  const started = periodStartedAt instanceof Date ? periodStartedAt.getTime() : Date.parse(periodStartedAt);
+  if (Number.isFinite(started) && started < Date.parse(NEW_USAGE_POLICY_EFFECTIVE_FROM)) {
+    const legacyLimit = LEGACY_DAILY_SUMMARY_LIMITS[plan];
+    if (legacyLimit !== undefined) return { ...limit, summaryPerDay: legacyLimit };
+  }
+  return limit;
+}
+
+export function getApproxMonthlySummaryCases(rawPlan: string | null | undefined): ApproxMonthlySummaryCases | null {
+  return APPROX_MONTHLY_SUMMARY_CASES[normalizePlanId(rawPlan)] ?? null;
 }
 
 export function getLongCaseThresholdChars(): number {

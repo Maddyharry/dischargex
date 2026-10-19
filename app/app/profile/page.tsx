@@ -30,6 +30,7 @@ type UsageInfo = {
   periodAllowanceResetAt?: string | null;
   periodAllowanceGrandfathered?: boolean;
   periodAllowanceDisplayMode?: "ai_cost" | "legacy_units" | "not_applicable";
+  approxSummaryCasesPerMonth?: { min: number; max: number } | null;
   periodEnd?: string | null;
   usagePolicyKnown?: boolean;
   boostPurchaseAvailable?: boolean;
@@ -241,6 +242,11 @@ export default function ProfilePage() {
               usageData.periodAllowanceDisplayMode === "ai_cost" || usageData.periodAllowanceDisplayMode === "legacy_units"
                 ? usageData.periodAllowanceDisplayMode
                 : "not_applicable",
+            approxSummaryCasesPerMonth: usageData.approxSummaryCasesPerMonth &&
+              typeof usageData.approxSummaryCasesPerMonth.min === "number" &&
+              typeof usageData.approxSummaryCasesPerMonth.max === "number"
+              ? usageData.approxSummaryCasesPerMonth
+              : null,
             periodEnd: typeof usageData.periodEnd === "string" ? usageData.periodEnd : null,
             baseUsagePercent:
               typeof usageData.baseUsagePercent === "number" ? usageData.baseUsagePercent : undefined,
@@ -727,6 +733,7 @@ export default function ProfilePage() {
                     periodEnd={usage?.periodEnd}
                     periodPercentUsed={usage?.periodAllowancePercentUsed}
                     allowanceDisplayMode={usage?.periodAllowanceDisplayMode ?? "not_applicable"}
+                    approxCasesPerMonth={usage?.approxSummaryCasesPerMonth ?? null}
                     grandfathered={usage?.periodAllowanceGrandfathered === true}
                     boostCredits={usage?.extraCredits ?? 0}
                     active={usage?.subscriptionStatus === "active" || usage?.subscriptionStatus === "pending_change"}

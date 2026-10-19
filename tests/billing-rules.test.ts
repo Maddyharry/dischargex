@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { EFFECTIVE_FROM } from "../lib/api-cost";
 import {
   calculateRenewalStack,
   calculateUpgradeFinalAmount,
@@ -8,6 +9,7 @@ import {
   normalizePlanId,
   getAddonPrice,
   getDailyApproxLimit,
+  NEW_USAGE_POLICY_EFFECTIVE_FROM,
 } from "../lib/billing-rules";
 
 describe("billing rules", () => {
@@ -64,11 +66,21 @@ describe("billing rules", () => {
     expect(getCreditsRequiredForCase(20000)).toBe(2);
   });
 
-  it("uses the clarified paid daily case caps for monthly and yearly plans", () => {
-    expect(["basic_monthly", "basic_yearly"].map((p) => getDailyApproxLimit(p).summaryPerDay)).toEqual([5, 5]);
-    expect(["standard_monthly", "standard_yearly"].map((p) => getDailyApproxLimit(p).summaryPerDay)).toEqual([15, 15]);
-    expect(["pro_monthly", "pro_yearly"].map((p) => getDailyApproxLimit(p).summaryPerDay)).toEqual([40, 40]);
+  it("uses the new daily case caps for paid periods that start after the policy cutoff", () => {
+    const newPeriod = "2026-10-19T00:00:00+07:00";
+    expect(["basic_monthly", "basic_yearly"].map((p) => getDailyApproxLimit(p, newPeriod).summaryPerDay)).toEqual([5, 5]);
+    expect(["standard_monthly", "standard_yearly"].map((p) => getDailyApproxLimit(p, newPeriod).summaryPerDay)).toEqual([10, 10]);
+    expect(["pro_monthly", "pro_yearly"].map((p) => getDailyApproxLimit(p, newPeriod).summaryPerDay)).toEqual([20, 20]);
     expect(getDailyApproxLimit("trial").summaryPerDay).toBe(2);
+    expect(getDailyApproxLimit("pro_monthly").summaryPerDay).toBe(40);
+  });
+
+  it("keeps legacy daily caps until a paid period renews into the new policy", () => {
+    expect(NEW_USAGE_POLICY_EFFECTIVE_FROM).toBe(EFFECTIVE_FROM);
+    expect(getDailyApproxLimit("standard_monthly", "2026-10-18T23:59:59+07:00").summaryPerDay).toBe(15);
+    expect(getDailyApproxLimit("pro_monthly", "2026-10-18T23:59:59+07:00").summaryPerDay).toBe(40);
+    expect(getDailyApproxLimit("standard_monthly", "2026-10-19T00:00:00+07:00").summaryPerDay).toBe(10);
+    expect(getDailyApproxLimit("pro_monthly", "2026-10-19T00:00:00+07:00").summaryPerDay).toBe(20);
   });
 
   it("prices new Boost pass packs", () => {

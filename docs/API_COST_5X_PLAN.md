@@ -1,16 +1,16 @@
-# API cost estimate and 5x revenue cap
+# API cost estimate and 4x revenue cap
 
 ## Decision
 
-The approved target is revenue equal to 5 times actual API cost. Estimated API cost is capped at 20% of the plan revenue for eligible billing periods. The policy starts at `2026-10-19T00:00:00+07:00`; paid periods that started earlier remain grandfathered under the legacy policy until renewal.
+The approved target is revenue equal to 4 times estimated actual API cost. Estimated API cost is capped at 25% of plan revenue for eligible billing periods. The policy starts at `2026-10-19T00:00:00+07:00`; paid periods that started earlier retain legacy entitlements and daily case caps through renewal.
 
 The pure estimator and plan-price helper are exported from `lib/api-cost.ts`:
 
 ```ts
-isRevenue5xEligible(periodStartedAt)
+isRevenue4xEligible(periodStartedAt)
 estimateActualApiCostThbByModel(usage, model, { cachedInputTokens?, usdToThb? })
 estimateActualApiCostThbFromLedgerRows(rows, { usdToThb? })
-forecastRevenue5xPeriodCostCapThb(planPriceThb)
+forecastRevenue4xPeriodCostCapThb(planPriceThb)
 forecastApiCostCapThbFromPlanPrice({ priceThb, billingInterval })
 ```
 
@@ -51,15 +51,15 @@ prefers per-call usage, while grandfathered legacy mode preserves the aggregate.
 Unmatched aggregates remain as historical fallbacks; unmatched per-call rows
 remain to account for partial failures. OCR rows are separate and retained.
 
-## Cost caps at the 5x target
+## Cost caps at the 4x target
 
-Enforcement uses the full billing-period plan price divided by 5. A yearly subscription receives one cap for its full paid year; it is not divided by 12 for enforcement. Existing paid customers keep the legacy policy through their current period, then the 5x cap applies at the next renewal.
+Enforcement uses the full billing-period plan price divided by 4. A yearly subscription receives one cap for its full paid year; it is not divided by 12 for enforcement. Existing paid customers keep the legacy policy through their current period, then the 4x cap applies at the next renewal.
 
 | Plan | Monthly price used | Monthly API cost cap | Yearly price used | Full-year API cost cap |
 | --- | ---: | ---: | ---: | ---: |
-| Basic | ฿299 | ฿59.80 | ฿2,990 | ฿598 |
-| Standard | ฿590 | ฿118.00 | ฿5,990 | ฿1,198 |
-| Pro | ฿1,090 | ฿218.00 | ฿10,990 | ฿2,198 |
+| Basic | ฿299 | ฿74.75 | ฿2,990 | ฿747.50 |
+| Standard | ฿590 | ฿147.50 | ฿5,990 | ฿1,497.50 |
+| Pro | ฿1,090 | ฿272.50 | ฿10,990 | ฿2,747.50 |
 
 These are forecasts from listed plan prices. The policy helper is pure and does
 not modify entitlement budgets or database records. New enforcement must use

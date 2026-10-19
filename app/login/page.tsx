@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
+import { normalizeReferralCode, PENDING_REFERRAL_CODE_KEY } from "@/lib/pending-referral";
 
 const ERROR_MESSAGES: Record<string, string> = {
   OAuthAccountNotLinked:
@@ -29,18 +30,9 @@ function LoginForm() {
   const errorMsg = ERROR_MESSAGES[error] || (error ? ERROR_MESSAGES.Default : null);
   const callbackUrl = (searchParams.get("callbackUrl") || "").trim();
   const postLoginUrl = callbackUrl || "/app";
-  const referralCodeFromQuery = (searchParams.get("claimRef") || searchParams.get("ref") || "")
-    .trim()
-    .toUpperCase()
-    .replace(/[^A-Z0-9]/g, "")
-    .slice(0, 32);
+  const referralCodeFromQuery = normalizeReferralCode(searchParams.get("ref") || searchParams.get("claimRef")) || "";
   const [referralCode, setReferralCode] = useState(referralCodeFromQuery);
-  const validReferralCode = /^[A-Z0-9]{2,32}$/.test(referralCode) ? referralCode : "";
-  const referralClaimStarted = useRef(false);
-  const referralClaimReturnUrl = validReferralCode
-    ? `/login?claimRef=${encodeURIComponent(validReferralCode)}&callbackUrl=${encodeURIComponent(postLoginUrl)}`
-    : postLoginUrl;
-  const googleCallbackUrl = validReferralCode ? referralClaimReturnUrl : postLoginUrl;
+  const validReferralCode = normalizeReferralCode(referralCode) || "";
   const registered = searchParams.get("registered") === "1";
   const reset = searchParams.get("reset") === "1";
   const verified = searchParams.get("verified") === "1";
@@ -59,27 +51,8 @@ function LoginForm() {
   }, [referralCodeFromQuery]);
 
   useEffect(() => {
-    if (status !== "authenticated") return;
-    if (!validReferralCode) {
-      router.replace(postLoginUrl);
-      return;
-    }
-    if (referralClaimStarted.current) return;
-    referralClaimStarted.current = true;
-    void (async () => {
-      try {
-        await fetch("/api/referral/claim", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ referralCode: validReferralCode }),
-        });
-      } catch {
-        // Referral is optional; never block login if claiming fails.
-      } finally {
-        router.replace(postLoginUrl);
-      }
-    })();
-  }, [postLoginUrl, router, status, validReferralCode]);
+    if (status === "authenticated") router.replace(postLoginUrl);
+  }, [postLoginUrl, router, status]);
 
   useEffect(() => {
     if (!emailFromQuery) return;
@@ -124,10 +97,11 @@ function LoginForm() {
       if (typeof window !== "undefined" && rememberUser) {
         window.localStorage.setItem(rememberedEmailKey, email.trim());
       }
+      if (validReferralCode) window.sessionStorage.setItem(PENDING_REFERRAL_CODE_KEY, validReferralCode);
       const res = await signIn("credentials", {
         email: email.trim(),
         password,
-        callbackUrl: referralClaimReturnUrl,
+        callbackUrl: postLoginUrl,
         redirect: false,
       });
       if (res?.error) {
@@ -327,7 +301,10 @@ function LoginForm() {
           </p>
           <button
             type="button"
-            onClick={() => signIn("google", { callbackUrl: googleCallbackUrl })}
+            onClick={() => {
+              if (validReferralCode) window.sessionStorage.setItem(PENDING_REFERRAL_CODE_KEY, validReferralCode);
+              void signIn("google", { callbackUrl: postLoginUrl });
+            }}
             className="w-full rounded-2xl bg-white px-4 py-3 text-sm font-medium text-slate-900 shadow hover:bg-slate-100"
           >
             เข้าสู่ด้วย Google

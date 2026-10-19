@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import {
   daysLeftUntil,
   getCreditCycleBounds,
+  getApproxMonthlySummaryCases,
   getDailyApproxLimit,
   getPeriodBounds,
   getPlanDefinition,
@@ -13,7 +14,7 @@ import {
 } from "@/lib/billing-rules";
 import { applyScheduledPlanChangeIfDue } from "@/lib/subscription-switch";
 import { getPlanTokenBudgetThb } from "@/lib/token-billing";
-import { isRevenue5xEligible } from "@/lib/api-cost";
+import { isRevenue4xEligible } from "@/lib/api-cost";
 import { getUsagePolicySnapshot, type UsagePolicyLedgerRow } from "@/lib/usage-policy";
 import { resolveEmailFromBearerToken } from "@/lib/api-token";
 
@@ -111,7 +112,7 @@ async function getUsage(req: Request) {
   const baseRemaining = Math.max(0, plan.creditsPerCycle - baseUsed);
   const remaining = isActive ? baseRemaining : 0;
 
-  const dailyApprox = getDailyApproxLimit(normalizedPlanId);
+  const dailyApprox = getDailyApproxLimit(normalizedPlanId, dbUser?.periodStartedAt);
   const cycleSpanMs = Math.max(86_400_000, cycleWindowEnd.getTime() - cycleStart.getTime());
   const approxCycleDays = Math.max(1, Math.ceil(cycleSpanMs / 86_400_000));
   const approxMaxChatsInCycle = Math.max(1, dailyApprox.chatPerDay * approxCycleDays);
@@ -143,11 +144,11 @@ async function getUsage(req: Request) {
   // Read only the current enforcement window, not a user's full ledger history.
   // Policy eligibility requires an actual paid-period start; account creation is not a substitute.
   const usagePolicyPeriodStart = dbUser?.periodStartedAt ?? null;
-  const usesRevenue5x = plan.isPaid && isRevenue5xEligible(usagePolicyPeriodStart);
-  const tokenLedgerStart = usesRevenue5x
+  const usesRevenue4x = plan.isPaid && isRevenue4xEligible(usagePolicyPeriodStart);
+  const tokenLedgerStart = usesRevenue4x
     ? usagePolicyPeriodStart!
     : new Date(now.getFullYear(), now.getMonth(), 1);
-  const tokenLedgerEnd = usesRevenue5x
+  const tokenLedgerEnd = usesRevenue4x
     ? periodEnd
     : new Date(now.getFullYear(), now.getMonth() + 1, 1);
   let ledgerRows: UsagePolicyLedgerRow[] | null = null;
@@ -237,9 +238,9 @@ async function getUsage(req: Request) {
     periodAllowancePercentUsed: tokenUsagePercent,
     periodAllowanceReached: tokenBudgetReached,
     periodAllowanceResetAt: usagePolicy.resetAt,
-    periodAllowanceDisplayMode: plan.isPaid ? (usesRevenue5x ? "ai_cost" : "legacy_units") : "not_applicable",
+    periodAllowanceDisplayMode: plan.isPaid ? (usesRevenue4x ? "ai_cost" : "legacy_units") : "not_applicable",
     periodAllowanceGrandfathered:
-      plan.isPaid && usagePolicy.status === "active" && usagePolicyPeriodStart !== null && !usesRevenue5x,
+      plan.isPaid && usagePolicy.status === "active" && usagePolicyPeriodStart !== null && !usesRevenue4x,
     usagePolicyKnown: usagePolicy.costEstimate.status === "known" && usagePolicy.costEstimate.safeForEnforcement,
     boostPurchaseAvailable: isActive && plan.isPaid && usagePolicy.costEstimate.status === "known" && usagePolicy.costEstimate.safeForEnforcement,
     baseUsagePercent,
@@ -248,6 +249,7 @@ async function getUsage(req: Request) {
     chatDailyLimitReached,
     summaryUsedToday,
     summaryDailyLimit: dailyApprox.summaryPerDay,
+    approxSummaryCasesPerMonth: usesRevenue4x ? getApproxMonthlySummaryCases(normalizedPlanId) : null,
     summaryDailyLimitReached,
     tokenBudgetReached,
     nextDailyResetAt: nextDailyResetAt.toISOString(),

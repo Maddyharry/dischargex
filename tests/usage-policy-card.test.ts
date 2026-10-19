@@ -12,7 +12,7 @@ describe("UsagePolicyCard", () => {
     expect(profile).toContain("total={usage?.total ?? 0}");
     expect(profile).toContain("allowanceDisplayMode={usage?.periodAllowanceDisplayMode");
     const endpoint = readFileSync("app/api/usage/route.ts", "utf8");
-    expect(endpoint).toContain('periodAllowanceDisplayMode: plan.isPaid ? (usesRevenue5x ? "ai_cost" : "legacy_units")');
+    expect(endpoint).toContain('periodAllowanceDisplayMode: plan.isPaid ? (usesRevenue4x ? "ai_cost" : "legacy_units")');
   });
 
   it("renders precise Thailand-time daily and budget resets without throwing", () => {
@@ -22,6 +22,7 @@ describe("UsagePolicyCard", () => {
       summaryResetAt: "2026-10-19T00:00:00.000Z", periodAllowanceResetAt: "2026-10-20T00:00:00.000Z",
       periodEnd: "2026-11-01T00:00:00.000Z", grandfathered: true,
       allowanceDisplayMode: "legacy_units",
+      approxCasesPerMonth: null,
       periodPercentUsed: 20, boostCredits: 3, active: true, canPurchaseBoost: true,
     }));
     expect(markup).toContain("รีเซ็ตรายวัน:");

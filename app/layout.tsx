@@ -8,6 +8,7 @@ import { LayoutFooter } from "./components/LayoutFooter";
 import { WebAnalyticsTracker } from "./components/WebAnalyticsTracker";
 import { GoogleTag } from "./components/GoogleTag";
 import { PrivacyCacheReset } from "./components/PrivacyCacheReset";
+import { ReferralClaimOnLogin } from "./components/ReferralClaimOnLogin";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://dischargex.net"),
@@ -70,6 +71,7 @@ export default function RootLayout({
       <body className="bg-slate-50 text-slate-900 antialiased dark:bg-slate-950 dark:text-slate-50">
         <Providers>
           <FeedbackProvider>
+            <ReferralClaimOnLogin />
             <WebAnalyticsTracker />
             <GoogleTag />
             <Header />

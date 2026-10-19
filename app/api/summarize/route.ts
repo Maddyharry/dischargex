@@ -53,7 +53,7 @@ import { getMergedKnowledge, queuePendingKnowledgeEntry } from "@/lib/knowledge-
 import { retrieveExternalEvidence } from "@/lib/reference-retriever";
 import { getTrialExpiredPolicy } from "@/lib/trial-expired-policy";
 import { callModelJSON, type SummaryModelCallOptions } from "@/lib/summary-model";
-import { estimateActualApiCostThbByModel, isRevenue5xEligible, resolveApiCostModelAlias } from "@/lib/api-cost";
+import { estimateActualApiCostThbByModel, isRevenue4xEligible, resolveApiCostModelAlias } from "@/lib/api-cost";
 import { getUsagePolicySnapshot, selectUsagePolicyLedgerRows, type UsagePolicyLedgerRow } from "@/lib/usage-policy";
 import { evaluateBoostGate, getBoostPassesRequired, projectBoostCaseCost } from "@/lib/boost-policy";
 
@@ -1104,6 +1104,9 @@ export async function POST(req: Request) {
   let summaryJobUserId: string | null = null;
   let usageLease: { key: string; value: string } | null = null;
   let policyResetAt: string | null = null;
+  let boostOfferUsable = false;
+  let boostPassBalance = 0;
+  let requiredBoostPassesForCase = 0;
   try {
     const body = (await req.json()) as ReqBody;
     const safeImageInputs = sanitizeImageInputs(body.imageInputs);
@@ -1171,6 +1174,7 @@ export async function POST(req: Request) {
     const includeAdjrwMeta = plan === "trial" || isProPlan;
     const maxDevices = getMaxDevices(plan);
     const extraCredits = dbUser?.extraCredits ?? 0;
+    boostPassBalance = extraCredits;
 
     const periodStartDate = dbUser?.periodStartedAt ?? dbUser?.createdAt ?? new Date();
     const { start: periodStart, end: fallbackPeriodEnd } = getPeriodBounds(periodStartDate, plan);
@@ -1236,7 +1240,7 @@ export async function POST(req: Request) {
             },
           })
         : 0;
-    const summaryApproxLimit = getDailyApproxLimit(plan).summaryPerDay;
+    const summaryApproxLimit = getDailyApproxLimit(plan, dbUser?.periodStartedAt).summaryPerDay;
     const nextDailyResetAt = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
 
     // ตรวจ device limit
@@ -1295,6 +1299,7 @@ export async function POST(req: Request) {
     const estimatedCreditsForCase = mode === "generate"
       ? getBoostPassesRequired({ totalInputChars: estimatedInputChars, imageCount: safeImageInputs.length })
       : 0;
+    requiredBoostPassesForCase = estimatedCreditsForCase;
     let useBoostForCase = false;
     const enforceCreditLimit = shouldEnforceLegacyCreditLimit();
     const fast = body.settings?.fast ?? false;
@@ -1308,10 +1313,10 @@ export async function POST(req: Request) {
 
     // Shared canonical policy snapshot: check every plan before OCR/provider work.
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const revenue5xMode = planDefinition.isPaid && isRevenue5xEligible(dbUser?.periodStartedAt);
+    const revenue4xMode = planDefinition.isPaid && isRevenue4xEligible(dbUser?.periodStartedAt);
     const tokenBudgetThb = getPlanTokenBudgetThb(plan);
     const dailyLimitReached = mode === "generate" && !isAdminUser && todaySummaryCount >= summaryApproxLimit;
-    const legacyCreditsBlocked = mode === "generate" && !revenue5xMode && enforceCreditLimit &&
+    const legacyCreditsBlocked = mode === "generate" && !revenue4xMode && enforceCreditLimit &&
       !isAdminUser && baseRemaining < estimatedCreditsForCase;
 
     const policyRangeStart = new Date(Math.min(monthStart.getTime(), periodStart.getTime()));
@@ -1324,7 +1329,7 @@ export async function POST(req: Request) {
             where: { userId, createdAt: { gte: policyRangeStart, lt: policyRangeEnd } },
             select: { createdAt: true, model: true, inputTokens: true, outputTokens: true, totalTokens: true, estimatedCostThb: true, source: true, referenceId: true },
           });
-          ledgerRows = selectUsagePolicyLedgerRows(fetchedRows, revenue5xMode ? "revenue_5x" : "legacy_internal") as UsagePolicyLedgerRow[];
+          ledgerRows = selectUsagePolicyLedgerRows(fetchedRows, revenue4xMode ? "revenue_4x" : "legacy_internal") as UsagePolicyLedgerRow[];
         } catch {
           ledgerRows = null;
         }
@@ -1337,6 +1342,8 @@ export async function POST(req: Request) {
         legacyCalendarMonthCapThb: tokenBudgetThb,
         ledgerRows,
       }, new Date());
+      boostOfferUsable = !isAdminUser && planDefinition.isPaid && snapshot.status === "active" &&
+        snapshot.costEstimate.status === "known" && snapshot.costEstimate.safeForEnforcement;
       policyResetAt = snapshot.resetAt;
       return snapshot;
     };
@@ -1359,7 +1366,7 @@ export async function POST(req: Request) {
         const inactive = gate.reason === "inactive";
         return json({
           error: unavailable ? "ไม่สามารถตรวจสอบโควตาการใช้งานได้ กรุณาลองใหม่ภายหลัง" : inactive ? "แพ็กเกจไม่ active จึงยังใช้งานไม่ได้" : dailyLimitReached ? `วันนี้ครบโควตาแล้ว ลองใหม่หลัง ${formatBangkokDateTime(nextDailyResetAt)}` : legacyCreditsBlocked ? "โควตาเคสของรอบนี้ไม่พอ Boost ใช้ทำเคสต่อได้" : "โควตารอบนี้ครบแล้ว",
-          errorCode: unavailable ? "USAGE_POLICY_UNAVAILABLE" : inactive ? "SUBSCRIPTION_NOT_ACTIVE" : gate.reason === "insufficient_passes" ? "BOOST_CREDITS_INSUFFICIENT" : legacyCreditsBlocked ? "LEGACY_CREDIT_LIMIT_REACHED" : dailyLimitReached ? "SUMMARY_DAILY_LIMIT_REACHED" : snapshot.mode === "revenue_5x" ? "API_COST_TARGET_REACHED" : "USAGE_POLICY_LIMIT_REACHED",
+          errorCode: unavailable ? "USAGE_POLICY_UNAVAILABLE" : inactive ? "SUBSCRIPTION_NOT_ACTIVE" : gate.reason === "insufficient_passes" ? "BOOST_CREDITS_INSUFFICIENT" : legacyCreditsBlocked ? "LEGACY_CREDIT_LIMIT_REACHED" : dailyLimitReached ? "SUMMARY_DAILY_LIMIT_REACHED" : snapshot.mode === "revenue_4x" ? "API_COST_TARGET_REACHED" : "USAGE_POLICY_LIMIT_REACHED",
           ...(!inactive && snapshot.resetAt ? { resetAt: snapshot.resetAt } : {}),
           ...(dailyLimitReached ? { resetAt: nextDailyResetAt.toISOString() } : {}),
           ...(gate.canOffer ? { canPurchaseBoost: true, boostAvailable: extraCredits >= estimatedCreditsForCase, requiredBoostPasses: estimatedCreditsForCase, boostPassBalance: extraCredits } : {}),
@@ -1387,10 +1394,10 @@ export async function POST(req: Request) {
         throw new Error(snapshot.costEstimate.status === "unknown"
           ? "USAGE_POLICY_UNAVAILABLE"
           : snapshot.status === "expired" ? "SUBSCRIPTION_NOT_ACTIVE"
-            : snapshot.mode === "revenue_5x" ? "API_COST_TARGET_REACHED" : "USAGE_POLICY_LIMIT_REACHED");
+            : snapshot.mode === "revenue_4x" ? "API_COST_TARGET_REACHED" : "USAGE_POLICY_LIMIT_REACHED");
       }
       const projectedInputTokens = (typeof input === "number" ? input : new TextEncoder().encode(input).length) + 512;
-      if (snapshot.mode === "revenue_5x") {
+      if (snapshot.mode === "revenue_4x") {
         const projected = estimateActualApiCostThbByModel({ inputTokens: projectedInputTokens, outputTokens, totalTokens: projectedInputTokens + outputTokens }, providerModel);
         if (projected.status !== "known") throw new Error("API_COST_TARGET_REACHED");
         if (projected.estimatedCostThb > snapshot.remainingThb) {
@@ -2145,7 +2152,7 @@ export async function POST(req: Request) {
       // write fails, the request fails without consuming user entitlement (provider calls
       // already recorded remain billable where provider-level ledgering is enabled).
       const tokenBilling = estimateTokenBillingThb(aggregateUsage);
-      if (!revenue5xMode) {
+      if (!revenue4xMode) {
         await prisma.tokenUsageLedger.create({
           data: {
             userId,
@@ -2218,7 +2225,7 @@ export async function POST(req: Request) {
     }
 
     const tokenBilling = estimateTokenBillingThb(aggregateUsage);
-    if (userId && !revenue5xMode && !legacyTokenLedgerWritten) {
+    if (userId && !revenue4xMode && !legacyTokenLedgerWritten) {
       await prisma.tokenUsageLedger.create({
         data: {
           userId,
@@ -2285,6 +2292,7 @@ export async function POST(req: Request) {
   } catch (err: unknown) {
     const policyErrorCode = err instanceof Error && (["API_COST_TARGET_REACHED", "USAGE_POLICY_LIMIT_REACHED", "USAGE_POLICY_UNAVAILABLE", "SUBSCRIPTION_NOT_ACTIVE", "BOOST_USAGE_UNAVAILABLE", "BOOST_CASE_COST_LIMIT"].includes(err.message)) ? err.message : null;
     const policyBlocked = policyErrorCode !== null;
+    const quotaBudgetReached = policyErrorCode === "API_COST_TARGET_REACHED" || policyErrorCode === "USAGE_POLICY_LIMIT_REACHED";
     const errorCode = policyErrorCode || "SUMMARY_GENERATION_FAILED";
     console.error("summarize_route_failed", errorCode);
     if (summaryJobId && summaryJobUserId) {
@@ -2305,9 +2313,14 @@ export async function POST(req: Request) {
     }
     return json(
       {
-        error: policyErrorCode === "USAGE_POLICY_UNAVAILABLE" || policyErrorCode === "BOOST_USAGE_UNAVAILABLE" ? "ไม่สามารถตรวจสอบการใช้งานได้อย่างปลอดภัย กรุณาลองใหม่ภายหลัง" : policyErrorCode === "BOOST_CASE_COST_LIMIT" ? "เคสนี้เกินขอบเขตการใช้งาน Boost กรุณาใช้ข้อมูลสั้นลงหรือสิทธิ์เพิ่ม" : policyBlocked ? "โควตาหรือวงเงินสำหรับคำขอนี้ไม่เพียงพอ กรุณาลองใหม่ในรอบถัดไป" : "ขออภัย ระบบสรุปชาร์จขัดข้องชั่วคราว กรุณาลองใหม่ภายหลัง",
+        error: policyErrorCode === "USAGE_POLICY_UNAVAILABLE" || policyErrorCode === "BOOST_USAGE_UNAVAILABLE" ? "ไม่สามารถตรวจสอบการใช้งานได้อย่างปลอดภัย กรุณาลองใหม่ภายหลัง" : policyErrorCode === "BOOST_CASE_COST_LIMIT" ? "เคสนี้เกินขอบเขตการใช้งาน Boost กรุณาใช้ข้อมูลสั้นลงหรือสิทธิ์เพิ่ม" : quotaBudgetReached ? "วงเงิน AI รอบนี้ครบแล้ว กรุณารอตามวันรีเซ็ตรอบแพ็กเกจ หรือซื้อ Boost เพื่อทำเคสต่อ" : policyBlocked ? "โควตาหรือวงเงินสำหรับคำขอนี้ไม่เพียงพอ กรุณาลองใหม่ในรอบถัดไป" : "ขออภัย ระบบสรุปชาร์จขัดข้องชั่วคราว กรุณาลองใหม่ภายหลัง",
         errorCode,
         ...(policyErrorCode !== "SUBSCRIPTION_NOT_ACTIVE" && policyResetAt ? { resetAt: policyResetAt } : {}),
+        ...(quotaBudgetReached && boostOfferUsable && requiredBoostPassesForCase > 0 ? {
+          canPurchaseBoost: true,
+          boostAvailable: boostPassBalance >= requiredBoostPassesForCase,
+          requiredBoostPasses: requiredBoostPassesForCase,
+        } : {}),
       },
       policyErrorCode === "USAGE_POLICY_UNAVAILABLE" || policyErrorCode === "BOOST_USAGE_UNAVAILABLE" ? 503 : policyBlocked || policyErrorCode === "BOOST_CASE_COST_LIMIT" ? 402 : 500
     );

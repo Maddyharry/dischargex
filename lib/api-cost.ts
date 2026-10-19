@@ -16,7 +16,7 @@ export type ApiTokenUsage = {
 /** Rollout starts at midnight Thailand time; earlier paid periods are grandfathered. */
 export const EFFECTIVE_FROM = "2026-10-19T00:00:00+07:00";
 
-export function isRevenue5xEligible(
+export function isRevenue4xEligible(
   periodStartedAt: Date | string | null | undefined,
 ): boolean {
   if (periodStartedAt == null) return false;
@@ -84,7 +84,7 @@ export type PlanBillingInterval = "monthly" | "yearly";
 export type PlanApiCostCapForecast = {
   planPriceThb: number;
   billingInterval: PlanBillingInterval;
-  revenueMultiple: 5;
+  revenueMultiple: 4;
   apiCostCapThb: number;
   periodLabel: "billing_month" | "billing_year";
 };
@@ -305,13 +305,13 @@ export function estimateActualApiCostThbFromLedgerRows(
   };
 }
 
-/** Full paid billing-period cap at a 5x revenue-to-cost target. */
-export function forecastRevenue5xPeriodCostCapThb(planPriceThb: number): number | null {
+/** Full paid billing-period cap at a 4x revenue-to-cost target. */
+export function forecastRevenue4xPeriodCostCapThb(planPriceThb: number): number | null {
   if (!Number.isFinite(planPriceThb) || planPriceThb < 0) return null;
-  return roundThb(planPriceThb / 5);
+  return roundThb(planPriceThb / 4);
 }
 
-/** Forecast the maximum API cost at a 5x revenue-to-cost ratio. */
+/** Forecast the maximum API cost at a 4x revenue-to-cost ratio. */
 export function forecastApiCostCapThbFromPlanPrice(input: {
   priceThb: number;
   billingInterval: PlanBillingInterval;
@@ -319,11 +319,11 @@ export function forecastApiCostCapThbFromPlanPrice(input: {
   if (!Number.isFinite(input.priceThb) || input.priceThb < 0) {
     throw new RangeError("priceThb must be a finite non-negative amount");
   }
-  const divisor = 5;
+  const divisor = 4;
   return {
     planPriceThb: input.priceThb,
     billingInterval: input.billingInterval,
-    revenueMultiple: 5,
+    revenueMultiple: 4,
     apiCostCapThb: roundThb(input.priceThb / divisor),
     periodLabel: input.billingInterval === "yearly" ? "billing_year" : "billing_month",
   };

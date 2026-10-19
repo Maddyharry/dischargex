@@ -24,10 +24,10 @@ type UserRow = {
   apiCostRowCount: number | null;
   apiCostUncertainty: string[];
   apiCostSafeForEnforcement: boolean;
-  revenue5xEligible: boolean;
-  revenue5xEffectiveFrom: string;
+  revenue4xEligible: boolean;
+  revenue4xEffectiveFrom: string;
   currentApiCostCapThb: number | null;
-  currentApiCostCapKind: "revenue_5x" | "legacy_internal";
+  currentApiCostCapKind: "revenue_4x" | "legacy_internal";
   policySpendThb: number | null;
   policyRemainingThb: number | null;
   policyStatus: "active" | "expired";
@@ -369,12 +369,12 @@ export default function AdminUsersPage() {
                               <div>ต้นทุน API ประเมิน: {u.apiCostEstimateStatus === "known" && u.apiCostEstimateThb !== null ? `฿${u.apiCostEstimateThb.toFixed(4)} จาก ${u.apiCostRowCount} รายการ` : `ข้อมูลไม่ครบ · ประเมินได้ ฿${u.apiCostKnownSubtotalThb.toFixed(4)}`}; ไม่ใช่ใบแจ้งหนี้</div>
                               {u.apiCostUnknownModelCount > 0 || u.apiCostInvalidRowCount > 0 ? <div className="text-amber-300">รุ่นที่ไม่รองรับ {u.apiCostUnknownModelCount} · ข้อมูลไม่ครบ {u.apiCostInvalidRowCount}</div> : null}
                               {u.apiCostUncertainty.length > 0 ? <ul className="list-inside list-disc text-amber-300">{u.apiCostUncertainty.map((item) => <li key={item}>{item}</li>)}</ul> : null}
-                              <div>นโยบาย: {u.currentApiCostCapKind === "revenue_5x" ? `เพดานต้นทุน API รอบเต็ม ฿${u.currentApiCostCapThb === null ? "ไม่ทราบ" : u.currentApiCostCapThb.toFixed(2)}` : `เพดานรุ่นเดิม ${u.currentApiCostCapThb === null ? "ไม่ทราบ" : u.currentApiCostCapThb.toFixed(2)} หน่วยภายใน / เดือน (ไม่ใช่บาท)`}</div>
+                              <div>นโยบาย: {u.currentApiCostCapKind === "revenue_4x" ? `เพดานต้นทุน API รอบเต็ม ฿${u.currentApiCostCapThb === null ? "ไม่ทราบ" : u.currentApiCostCapThb.toFixed(2)}` : `เพดานรุ่นเดิม ${u.currentApiCostCapThb === null ? "ไม่ทราบ" : u.currentApiCostCapThb.toFixed(2)} หน่วยภายใน / เดือน (ไม่ใช่บาท)`}</div>
                               {u.policySpendThb === null ? <div>ยอดใช้ตามนโยบาย: ไม่ทราบ (ledger อ่านไม่ได้หรือข้อมูลไม่ครบ)</div> : <div>ยอดใช้ตามนโยบาย: {u.usagePolicySpendBasis === "legacy_internal" ? `${u.policySpendThb.toFixed(4)} หน่วยภายในรุ่นเดิม` : `฿${u.policySpendThb.toFixed(4)} ต้นทุน API ประเมิน`}</div>}
                               {u.policyRemainingThb !== null ? <div>เหลือในกรอบ: {u.usagePolicySpendBasis === "legacy_internal" ? `${u.policyRemainingThb.toFixed(4)} หน่วยภายในรุ่นเดิม` : `฿${u.policyRemainingThb.toFixed(4)}`}</div> : null}
                               {u.policyStatus === "expired" ? <div className="text-amber-300">รอบนโยบายหมดอายุ</div> : null}
                               {u.policyResetAt ? <div>รีเซ็ตนโยบาย {new Date(u.policyResetAt).toLocaleString("th-TH", { timeZone: "Asia/Bangkok" })}</div> : null}
-                              {u.nextRenewalCapForecastThb !== null && u.currentApiCostCapKind === "legacy_internal" ? <div>คาดการณ์เพดานรอบต่ออายุ ฿{u.nextRenewalCapForecastThb.toFixed(2)} (เริ่มได้ตั้งแต่ {new Date(u.revenue5xEffectiveFrom).toLocaleDateString("th-TH", { timeZone: "Asia/Bangkok" })}; ยังไม่ active)</div> : null}
+                              {u.nextRenewalCapForecastThb !== null && u.currentApiCostCapKind === "legacy_internal" ? <div>คาดการณ์เพดานรอบต่ออายุ ฿{u.nextRenewalCapForecastThb.toFixed(2)} (เริ่มได้ตั้งแต่ {new Date(u.revenue4xEffectiveFrom).toLocaleDateString("th-TH", { timeZone: "Asia/Bangkok" })}; ยังไม่ active)</div> : null}
                             </div>
                           </div>
                         </details>

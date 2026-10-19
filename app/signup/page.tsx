@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { signIn, useSession } from "next-auth/react";
 import { useEffect } from "react";
+import { normalizeReferralCode, PENDING_REFERRAL_CODE_KEY } from "@/lib/pending-referral";
 
 function isValidEmail(value: string): boolean {
   const email = value.trim().toLowerCase();
@@ -190,11 +191,9 @@ export default function SignupPage() {
             <button
               type="button"
               onClick={() => {
-                const code = /^[A-Z0-9]{2,32}$/.test(referralCode.trim().toUpperCase()) ? referralCode.trim().toUpperCase() : "";
-                const callbackUrl = code
-                  ? `/login?claimRef=${encodeURIComponent(code)}&callbackUrl=%2Fapp`
-                  : "/app";
-                void signIn("google", { callbackUrl });
+                const code = normalizeReferralCode(referralCode);
+                if (code) window.sessionStorage.setItem(PENDING_REFERRAL_CODE_KEY, code);
+                void signIn("google", { callbackUrl: "/app" });
               }}
               className="mt-3 w-full rounded-2xl bg-white px-4 py-3 text-sm font-medium text-slate-900 shadow hover:bg-slate-100"
             >

@@ -51,7 +51,7 @@ describe("admin user usage counters", () => {
     expect(body.users[0]).toMatchObject({
       totalGenerations: 55, usageCount: 0, summariesToday: 0, dailySummaryLimit: 40, summariesThisMonth: 55,
       lifetimeSummaries: 55, apiCostEstimateStatus: "known", apiCostEstimateThb: 0.63,
-      currentApiCostCapKind: "legacy_internal", currentApiCostCapThb: 3600, nextRenewalCapForecastThb: 218,
+      currentApiCostCapKind: "legacy_internal", currentApiCostCapThb: 3600, nextRenewalCapForecastThb: 272.5,
       boostPassesRemaining: 3, boostPassesPurchased: 5, boostPurchaseCount: 1, boostPurchaseRevenue: 109, boostPassesConsumed: 2,
     });
     expect(body.boostOverview).toMatchObject({ successfulPurchases: 1, passesSold: 5, revenueThb: 109, passesRemaining: 3, passesConsumed: 2 });
@@ -104,10 +104,10 @@ describe("admin user usage counters", () => {
     const response = await getUsers();
     const body = await response.json();
     expect(body.users[0]).toMatchObject({
-      revenue5xEligible: true,
-      currentApiCostCapKind: "revenue_5x",
-      currentApiCostCapThb: 218,
-      nextRenewalCapForecastThb: 218,
+      revenue4xEligible: true,
+      currentApiCostCapKind: "revenue_4x",
+      currentApiCostCapThb: 272.5,
+      nextRenewalCapForecastThb: 272.5,
     });
   });
 
