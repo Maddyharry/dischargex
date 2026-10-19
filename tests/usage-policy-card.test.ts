@@ -25,16 +25,16 @@ describe("UsagePolicyCard", () => {
       periodPercentUsed: 20, boostCredits: 3, active: true, canPurchaseBoost: true,
     }));
     expect(markup).toContain("รีเซ็ตรายวัน:");
-    expect(markup).toContain("ใช้แล้ว 0 · คงเหลือ 1260 จาก 1260");
-    expect(markup).toContain("ตัวเลขนี้เป็นหน่วยสิทธิ์ของแพ็กเกจรอบเดิม ไม่ใช่จำนวนเคส");
-    expect(markup).not.toContain("ใช้วงเงิน AI ไปแล้ว 20%");
+    expect(markup).toContain("ใช้ไป 20%");
+    expect(markup).toContain("ไม่ใช่จำนวนเคสหรือยอดเรียกเก็บจริง");
+    expect(markup).not.toContain("1260");
     expect(markup).toContain("สิ้นสุดรอบแพ็กเกจ:");
     expect(markup).toContain("เงื่อนไขใหม่จึงเริ่มเมื่อรอบต่ออายุ");
     expect(markup).toContain("โควตารายวัน");
     expect(markup).toContain("2 / 5 เคส");
     expect(markup).toContain("เวลาไทย");
     expect(markup).toContain("฿109");
-    expect(markup).toContain("฿329");
+    expect(markup).toContain("฿299");
     expect(markup).toContain("Boost คงเหลือ");
   });
 

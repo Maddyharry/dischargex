@@ -73,7 +73,7 @@ describe("billing rules", () => {
 
   it("prices new Boost pass packs", () => {
     expect(getAddonPrice(5)).toBe(109);
-    expect(getAddonPrice(15)).toBe(329);
+    expect(getAddonPrice(15)).toBe(299);
     expect(getAddonPrice(40)).toBeNull();
   });
 });

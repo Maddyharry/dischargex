@@ -12,7 +12,6 @@ type LogEntry = {
 
 export default function HistoryPage() {
   const [logs, setLogs] = useState<LogEntry[]>([]);
-  const [plan, setPlan] = useState<string>("basic");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [modal, setModal] = useState<{ logId: string; text: string } | null>(null);
@@ -29,7 +28,6 @@ export default function HistoryPage() {
           throw new Error(data.error || "โหลดประวัติไม่สำเร็จ");
         }
         setLogs(data.logs || []);
-        setPlan(data.plan ?? "basic");
       } catch (err) {
         setError(err instanceof Error ? err.message : "โหลดข้อมูลล้มเหลว");
       } finally {
@@ -55,6 +53,22 @@ export default function HistoryPage() {
     }
   }
 
+  async function deleteSnapshot(logId: string) {
+    if (!window.confirm("ลบข้อความต้นทางและผลสรุปที่บันทึกไว้หรือไม่? รายการโควตาจะยังอยู่ แต่กู้คืนข้อความไม่ได้")) return;
+    setSnapshotLoading(logId);
+    try {
+      const res = await fetch(`/api/usage/snapshot?logId=${encodeURIComponent(logId)}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || "ลบข้อมูลไม่สำเร็จ");
+      setLogs((current) => current.map((entry) => entry.id === logId ? { ...entry, hasSnapshot: false } : entry));
+      if (modal?.logId === logId) setModal(null);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "ลบข้อมูลไม่สำเร็จ");
+    } finally {
+      setSnapshotLoading(null);
+    }
+  }
+
   function copySnapshot(text: string) {
     navigator.clipboard.writeText(text).then(
       () => alert("คัดลอกลงคลิปบอร์ดแล้ว"),
@@ -72,8 +86,6 @@ export default function HistoryPage() {
     URL.revokeObjectURL(url);
   }
 
-  const isPro = plan === "pro" || plan === "pro_monthly" || plan === "pro_yearly";
-
   return (
     <main className="min-h-screen bg-[#081120] text-slate-100">
       <div className="mx-auto max-w-4xl px-4 py-8 space-y-6">
@@ -82,7 +94,7 @@ export default function HistoryPage() {
             <h1 className="text-2xl font-semibold text-white">ประวัติการใช้งาน</h1>
             <p className="mt-1 text-sm text-slate-300">
               รายการ Generate Summary ย้อนหลัง (เรียงจากล่าสุด)
-              {isPro && " — แผน Pro สามารถดูและ export ข้อความสรุปย้อนหลังได้"}
+              {" — ดู/export ข้อความที่ผ่านการปกปิดแบบ best-effort หรือเลือกลบข้อความที่บันทึกไว้ได้"}
             </p>
           </div>
           <Link
@@ -113,7 +125,7 @@ export default function HistoryPage() {
                   <th className="px-4 py-3">#</th>
                   <th className="px-4 py-3">วันที่ / เวลา</th>
                   <th className="px-4 py-3">รายการ</th>
-                  {isPro ? <th className="px-4 py-3">ดูย้อนหลัง</th> : null}
+                  <th className="px-4 py-3">ดูย้อนหลัง</th>
                 </tr>
               </thead>
               <tbody>
@@ -130,24 +142,30 @@ export default function HistoryPage() {
                       })}
                     </td>
                     <td className="px-4 py-3 text-slate-300">
-                      สร้างสรุปประมาณ {entry.creditsUsed ?? 1} เคส
+                      สร้างสรุป 1 รายการ{(entry.creditsUsed ?? 0) > 0 ? ` · ใช้ ${entry.creditsUsed} สิทธิ์` : ""}
                     </td>
-                    {isPro ? (
-                      <td className="px-4 py-3">
+                    <td className="px-4 py-3">
                         {entry.hasSnapshot ? (
-                          <button
-                            type="button"
-                            onClick={() => fetchSnapshot(entry.id)}
-                            disabled={snapshotLoading === entry.id}
-                            className="rounded-xl border border-cyan-500/50 bg-cyan-500/10 px-3 py-1.5 text-xs font-medium text-cyan-200 transition hover:bg-cyan-500/20 disabled:opacity-50"
-                          >
-                            {snapshotLoading === entry.id ? "กำลังโหลด..." : "ดู / Export"}
-                          </button>
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => fetchSnapshot(entry.id)}
+                              disabled={snapshotLoading === entry.id}
+                              className="rounded-xl border border-cyan-500/50 bg-cyan-500/10 px-3 py-1.5 text-xs font-medium text-cyan-200 transition hover:bg-cyan-500/20 disabled:opacity-50"
+                            >
+                              {snapshotLoading === entry.id ? "กำลังโหลด..." : "ดู / Export"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void deleteSnapshot(entry.id)}
+                              disabled={snapshotLoading === entry.id}
+                              className="ml-2 rounded-xl border border-red-700/50 bg-red-950/20 px-3 py-1.5 text-xs font-medium text-red-200 hover:bg-red-950/40 disabled:opacity-50"
+                            >ลบข้อความ</button>
+                          </>
                         ) : (
                           <span className="text-slate-500 text-xs">—</span>
                         )}
-                      </td>
-                    ) : null}
+                    </td>
                   </tr>
                 ))}
               </tbody>

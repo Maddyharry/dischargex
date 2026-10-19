@@ -17,9 +17,10 @@ describe("admin users table layout", () => {
 
   it("explains the old counter in per-user details", () => {
     expect(page).toContain("ดูรายละเอียด");
-    expect(page).toContain("โควตารุ่นเดิม (ไม่ใช้ตัดสิทธิ์)");
-    expect(page).toContain("ตัวนับ 120/420/1260 รุ่นก่อน ไม่ใช่จำนวนเคส");
-    expect(page).toContain("ปัจจุบันระบบใช้เพดานรายวันและวงเงิน AI รอบแพ็กเกจ");
+    expect(page).toContain("เครดิตรอบเดิม (หน่วยภายใน)");
+    expect(page).toContain("120/420/1260 เป็นเครดิตภายใน ไม่ใช่จำนวนเคส");
+    expect(page).toContain("วงเงินภายใน 3600 หน่วยร่วมกัน");
+    expect(page).toContain("ไม่ใช่บาท");
   });
 
   it("preserves plan, role, quota, activity, delete, and Boost filter controls", () => {

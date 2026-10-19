@@ -31,12 +31,15 @@ describe("customer support guidance and deterministic outage fallback", () => {
     expect(knowledge).toContain("Trial 2");
     expect(knowledge).toContain("Basic 5, Standard 15, Pro 40");
     expect(knowledge).toContain("5 สิทธิ์ ฿109");
-    expect(knowledge).toContain("15 สิทธิ์ ฿329");
+    expect(knowledge).toContain("15 สิทธิ์ ฿299");
     expect(knowledge).toContain("ผู้แนะนำได้รับ Boost 10 สิทธิ์");
     expect(knowledge).toContain("การสมัคร ทดลองใช้ หรือกรอกรหัสอย่างเดียวไม่ให้โบนัส");
     expect(knowledge).toContain("ตัวเลข 120/420/1260 เป็นหน่วยสิทธิ์");
     expect(knowledge).toContain("ไม่ใช่จำนวนเคส");
     expect(knowledge).toContain("ประเมินต้นทุน API จากปริมาณ token");
+    expect(knowledge).toContain("วงเงินเดิม 3600 เป็นหน่วยภายใน");
+    expect(knowledge).toContain("ข้อความต้นทางเมื่อผ่านการปกปิด/ตรวจเบื้องต้นแบบ best-effort");
+    expect(knowledge).toContain("หากการสร้างสรุปล้มเหลวก่อนบันทึกสำเร็จ");
     expect(knowledge).toContain("ผลิตภัณฑ์ AI Chat ยุติให้บริการแล้ว และ /chat จะนำไปยัง /app");
     expect(knowledge).toContain("ห้ามแนะนำ AI Chat หรือ /chat ให้ลูกค้า");
     expect(knowledge).not.toMatch(/(?:แนะนำ(?:ให้)?(?:ลูกค้า)?(?:ไปที่|ใช้|เปิด)|recommend(?: the)?).*\/chat/i);
@@ -44,7 +47,7 @@ describe("customer support guidance and deterministic outage fallback", () => {
 
   it.each([
     ["Boost คืออะไร", "ถึงขีดจำกัดรายวันหรือรอบแพ็กเกจ", "1 สิทธิ์", "2 สิทธิ์"],
-    ["บูส ราคาเท่าไหร่", "5 สิทธิ์ ฿109", "15 สิทธิ์ ฿329"],
+    ["บูส ราคาเท่าไหร่", "5 สิทธิ์ ฿109", "15 สิทธิ์ ฿299"],
     ["ซื้อ Boost ยังไง", "/app/profile", "ชำระ", "สำเร็จ"],
     ["How can I buy boost?", "5 สิทธิ์ ฿109", "/pricing"],
     ["ทำไม Boost ไม่หักอัตโนมัติ", "ไม่ถูกใช้เอง", "กด"],
@@ -61,6 +64,8 @@ describe("customer support guidance and deterministic outage fallback", () => {
     ["What is the daily quota per day?", "Trial 2", "Basic 5", "Pro 40", "AI", "Boost"],
     ["ทำไมโควตาแพ็กเกจขึ้น 0 / 1260", "จำนวนครั้ง/เคส", "หน่วยสิทธิ์", "ไม่ใช่จำนวนเคส", "ลูกค้าเก่า", "Boost"],
     ["รอบบิล reset เมื่อไหร่", "วันสิ้นสุดรอบ", "/app/profile"],
+    ["ถ้าสรุป error จะหักโควตาไหม", "ล้มเหลวก่อนระบบบันทึกผลสำเร็จ", "จะไม่ตัดโควตา", "ต้นทุน"],
+    ["ปิดหน้าเว็บแล้วจะดูผลสรุปเก่าได้ไหม", "/app/history", "ตรวจเบื้องต้นแบบ best-effort", "ลบ"],
     ["AI error, service is down", "บริการ AI ขัดข้องชั่วคราว", "ไม่ส่งข้อมูลผู้ป่วย"],
     ["Can I paste patient data in support chat?", "อย่าส่งข้อมูลผู้ป่วย", "QR code", "/app"],
   ])("answers support intent without LLM: %s", async (message, ...phrases) => {

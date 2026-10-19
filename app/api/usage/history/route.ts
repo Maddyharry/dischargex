@@ -22,10 +22,6 @@ export async function GET(req: Request) {
     return NextResponse.json({ ok: false, error: "User not found" }, { status: 404 });
   }
 
-  const isPro =
-    user.plan === "pro" ||
-    user.plan === "pro_monthly" ||
-    user.plan === "pro_yearly";
   const logs = await prisma.usageLog.findMany({
     where: { userId: user.id },
     orderBy: { createdAt: "desc" },
@@ -34,7 +30,7 @@ export async function GET(req: Request) {
       id: true,
       createdAt: true,
       creditsUsed: true,
-      ...(isPro ? { summarySnapshot: true } : {}),
+      summarySnapshot: true,
     },
   });
 
@@ -45,7 +41,7 @@ export async function GET(req: Request) {
       id: l.id,
       createdAt: l.createdAt.toISOString(),
       creditsUsed: l.creditsUsed ?? 1,
-      ...(isPro && "summarySnapshot" in l ? { hasSnapshot: l.summarySnapshot != null && l.summarySnapshot !== "" } : {}),
+      hasSnapshot: l.summarySnapshot != null && l.summarySnapshot !== "",
     })),
   });
 }

@@ -252,6 +252,7 @@ function PageContent() {
   const [uploadedImages, setUploadedImages] = useState<UploadedImageInput[]>([]);
   const [imagesRedactedConfirmed, setImagesRedactedConfirmed] = useState(false);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
+  const pendingGenerateRequestRef = useRef<{ fingerprint: string; id: string } | null>(null);
 
   const [blocks, setBlocks] = useState<NormalizedBlock[]>(createEmptyBlocks());
   const [warnings, setWarnings] = useState<string[]>([]);
@@ -1149,6 +1150,13 @@ function PageContent() {
         return;
       }
 
+      const requestFingerprint = JSON.stringify({
+        orderSheet, other, images: uploadedImages.map((image) => [image.name, image.dataUrl]),
+        imagesRedactedConfirmed, summaryStrategy,
+      });
+      const pendingRequest = pendingGenerateRequestRef.current;
+      const summaryJobId = pendingRequest?.fingerprint === requestFingerprint ? pendingRequest.id : crypto.randomUUID();
+      pendingGenerateRequestRef.current = { fingerprint: requestFingerprint, id: summaryJobId };
       const res = await fetch("/api/summarize", {
         method: "POST",
         headers: {
@@ -1157,6 +1165,7 @@ function PageContent() {
         },
         body: JSON.stringify({
           mode: "generate",
+          summaryJobId,
           ...(useBoost ? { useBoost: true } : {}),
           template: { blocks: DEFAULT_BLOCKS },
           inputs: {
@@ -1175,6 +1184,7 @@ function PageContent() {
       });
 
       const parsed = await parseApiResponse(res);
+      if (pendingGenerateRequestRef.current?.id === summaryJobId) pendingGenerateRequestRef.current = null;
       const nextBlocks = normalizeBlocks(parsed.result.blocks);
 
       setBlocks(nextBlocks);

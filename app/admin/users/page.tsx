@@ -358,10 +358,10 @@ export default function AdminUsersPage() {
                             <div>รีเซ็ตรายวัน {new Date(u.dailyUsageResetsAt).toLocaleString("th-TH", { timeZone: "Asia/Bangkok" })}</div>
                             <div>รีเซ็ตรอบโควตา {new Date(u.monthlyUsageResetsAt).toLocaleString("th-TH", { timeZone: "Asia/Bangkok" })}</div>
                             <div>อุปกรณ์ที่ลงทะเบียน {u.deviceCount} เครื่อง · สมัคร {new Date(u.createdAt).toLocaleDateString("th-TH", { timeZone: "Asia/Bangkok" })}</div>
-                            <div className="border-t border-slate-800 pt-2" title="ตัวนับ 120/420/1260 รุ่นก่อน ไม่ใช่จำนวนเคส; backend ปัจจุบันตัดสิทธิ์ด้วยเพดานรายวันและวงเงิน AI รอบแพ็กเกจ">
-                              <span className="font-medium text-slate-200">โควตารุ่นเดิม (ไม่ใช้ตัดสิทธิ์): </span>
+                            <div className="border-t border-slate-800 pt-2" title="120/420/1260 เป็นเครดิตภายใน ไม่ใช่จำนวนเคส; รอบเดิมอาจยังบังคับเพดานนี้ควบคู่กับวงเงิน AI">
+                              <span className="font-medium text-slate-200">เครดิตรอบเดิม (หน่วยภายใน): </span>
                               {u.usageCount} / {u.planTotal} หน่วย
-                              <p className="mt-1 text-slate-500">ตัวนับ 120/420/1260 รุ่นก่อน ไม่ใช่จำนวนเคส ปัจจุบันระบบใช้เพดานรายวันและวงเงิน AI รอบแพ็กเกจ</p>
+                              <p className="mt-1 text-slate-500">ไม่ใช่จำนวนเคสหรือเงินบาท; รอบที่จ่ายก่อนนโยบายใหม่อาจยังถูกจำกัดด้วยเครดิตนี้และวงเงินภายใน 3600 หน่วยร่วมกัน ส่วนค่าประเมิน API แสดงแยกต่างหาก</p>
                             </div>
                             <div className="border-t border-slate-800 pt-2">
                               <div className="font-medium text-slate-200">รายละเอียดวงเงินและต้นทุน</div>
@@ -369,7 +369,7 @@ export default function AdminUsersPage() {
                               <div>ต้นทุน API ประเมิน: {u.apiCostEstimateStatus === "known" && u.apiCostEstimateThb !== null ? `฿${u.apiCostEstimateThb.toFixed(4)} จาก ${u.apiCostRowCount} รายการ` : `ข้อมูลไม่ครบ · ประเมินได้ ฿${u.apiCostKnownSubtotalThb.toFixed(4)}`}; ไม่ใช่ใบแจ้งหนี้</div>
                               {u.apiCostUnknownModelCount > 0 || u.apiCostInvalidRowCount > 0 ? <div className="text-amber-300">รุ่นที่ไม่รองรับ {u.apiCostUnknownModelCount} · ข้อมูลไม่ครบ {u.apiCostInvalidRowCount}</div> : null}
                               {u.apiCostUncertainty.length > 0 ? <ul className="list-inside list-disc text-amber-300">{u.apiCostUncertainty.map((item) => <li key={item}>{item}</li>)}</ul> : null}
-                              <div>นโยบาย: {u.currentApiCostCapKind === "revenue_5x" ? `เพดานต้นทุน API รอบเต็ม ฿${u.currentApiCostCapThb === null ? "ไม่ทราบ" : u.currentApiCostCapThb.toFixed(2)}` : `วงเงินรุ่นเดิม ${u.currentApiCostCapThb === null ? "ไม่ทราบ" : u.currentApiCostCapThb.toFixed(2)} หน่วยภายใน / เดือน`}</div>
+                              <div>นโยบาย: {u.currentApiCostCapKind === "revenue_5x" ? `เพดานต้นทุน API รอบเต็ม ฿${u.currentApiCostCapThb === null ? "ไม่ทราบ" : u.currentApiCostCapThb.toFixed(2)}` : `เพดานรุ่นเดิม ${u.currentApiCostCapThb === null ? "ไม่ทราบ" : u.currentApiCostCapThb.toFixed(2)} หน่วยภายใน / เดือน (ไม่ใช่บาท)`}</div>
                               {u.policySpendThb === null ? <div>ยอดใช้ตามนโยบาย: ไม่ทราบ (ledger อ่านไม่ได้หรือข้อมูลไม่ครบ)</div> : <div>ยอดใช้ตามนโยบาย: {u.usagePolicySpendBasis === "legacy_internal" ? `${u.policySpendThb.toFixed(4)} หน่วยภายในรุ่นเดิม` : `฿${u.policySpendThb.toFixed(4)} ต้นทุน API ประเมิน`}</div>}
                               {u.policyRemainingThb !== null ? <div>เหลือในกรอบ: {u.usagePolicySpendBasis === "legacy_internal" ? `${u.policyRemainingThb.toFixed(4)} หน่วยภายในรุ่นเดิม` : `฿${u.policyRemainingThb.toFixed(4)}`}</div> : null}
                               {u.policyStatus === "expired" ? <div className="text-amber-300">รอบนโยบายหมดอายุ</div> : null}
@@ -399,7 +399,7 @@ export default function AdminUsersPage() {
                         <div className="font-semibold tabular-nums text-slate-100">{u.policySpendThb === null ? "ยอดใช้ไม่ทราบ" : u.usagePolicySpendBasis === "legacy_internal" ? `${u.policySpendThb.toFixed(2)} / ${u.currentApiCostCapThb?.toFixed(2) ?? "?"} หน่วย` : `฿${u.policySpendThb.toFixed(2)} / ฿${u.currentApiCostCapThb?.toFixed(2) ?? "?"}`}</div>
                         <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
                           <span className={`rounded-full px-2 py-0.5 ${u.policyStatus === "expired" ? "bg-amber-950/60 text-amber-200" : u.policyAllowed ? "bg-emerald-950/60 text-emerald-200" : "bg-red-950/60 text-red-200"}`}>{u.policyStatus === "expired" ? "รอบหมดอายุ" : u.policyAllowed ? "ยังอยู่ในวงเงิน" : "ถึงเพดาน"}</span>
-                          <span className="text-slate-500">{u.usagePolicySpendBasis === "legacy_internal" ? "วงเงินรอบเดิม" : "ต้นทุนประเมิน"}</span>
+                          <span className="text-slate-500">{u.usagePolicySpendBasis === "legacy_internal" ? "หน่วยวงเงินภายใน (ไม่ใช่บาท)" : "ต้นทุน API ประเมิน"}</span>
                         </div>
                       </td>
                       <td className="px-4 py-3 text-xs text-slate-300">

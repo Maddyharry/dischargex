@@ -47,6 +47,8 @@ import {
 } from "@/lib/token-billing";
 import { extractSummaryDates, summaryLosDays } from "@/lib/summary-dates";
 import { deidentify } from "@/lib/deidentify";
+import { createDeidentifiedSummarySnapshot } from "@/lib/summary-snapshot";
+import { commitSummaryUsageOnce, runBestEffortSideEffect } from "@/lib/summary-idempotency";
 import { getMergedKnowledge, queuePendingKnowledgeEntry } from "@/lib/knowledge-store";
 import { retrieveExternalEvidence } from "@/lib/reference-retriever";
 import { getTrialExpiredPolicy } from "@/lib/trial-expired-policy";
@@ -129,6 +131,7 @@ type NormalizedBlock = {
 };
 
 type ReqBody = {
+  summaryJobId?: string;
   useBoost?: boolean;
   mode?: "generate" | "recalc";
   template: { blocks: Block[] };
@@ -1110,7 +1113,9 @@ export async function POST(req: Request) {
         errorCode: "PRIVACY_IMAGE_CONFIRMATION_REQUIRED",
       }, 422);
     }
-    summaryJobId = crypto.randomUUID();
+    summaryJobId = typeof body.summaryJobId === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(body.summaryJobId)
+      ? body.summaryJobId
+      : crypto.randomUUID();
     const bearerEmail = await resolveEmailFromBearerToken(req);
     const session = bearerEmail ? null : await getServerSession(authOptions);
     const email = bearerEmail || session?.user?.email;
@@ -1195,6 +1200,13 @@ export async function POST(req: Request) {
       }
     } else if (!userId && !isAdminUser) {
       return json({ error: "ไม่สามารถตรวจสอบบัญชีและโควตาได้ กรุณาเข้าสู่ระบบใหม่", errorCode: "USAGE_POLICY_UNAVAILABLE" }, 503);
+    }
+    if (userId && (body.mode || "generate") === "generate") {
+      const priorCommit = await prisma.usageLog.findFirst({
+        where: { userId, caseId: summaryJobId },
+        select: { id: true },
+      });
+      if (priorCommit) return json({ error: "คำขอนี้บันทึกสำเร็จแล้ว ดูรายการได้ที่ประวัติการใช้งาน", errorCode: "SUMMARY_ALREADY_COMMITTED", jobId: summaryJobId }, 409);
     }
     const { cycleStart, cycleEnd } = getCreditCycleBounds(periodStart, plan, now);
     const cycleWindowEnd = cycleEnd.getTime() > periodEnd.getTime() ? periodEnd : cycleEnd;
@@ -2115,20 +2127,47 @@ export async function POST(req: Request) {
       );
     }
 
+    let legacyTokenLedgerWritten = false;
     if (mode === "generate" && userId) {
       const baseToUse = useBoostForCase ? 0 : Math.min(baseRemaining, requiredCreditsForCase);
       const addonToUse = useBoostForCase ? requiredCreditsForCase : 0;
 
-      const exportText =
-        isProPlan
-          ? normalized
-              .slice()
-              .sort((a, b) => a.order - b.order)
-              .map((b) => `${b.title}: ${b.content}`)
-              .join("\n")
-          : null;
-      await prisma.$transaction(
-        async (tx: PrismaTx) => {
+      const exportText = normalized
+        .slice()
+        .sort((a, b) => a.order - b.order)
+        .map((b) => `${b.title}: ${b.content}`)
+        .join("\n");
+      const summarySnapshot = exportText
+        ? createDeidentifiedSummarySnapshot(mergedRaw, exportText)
+        : null;
+
+      // Record legacy aggregate token usage before charging package/Boost quota. If this
+      // write fails, the request fails without consuming user entitlement (provider calls
+      // already recorded remain billable where provider-level ledgering is enabled).
+      const tokenBilling = estimateTokenBillingThb(aggregateUsage);
+      if (!revenue5xMode) {
+        await prisma.tokenUsageLedger.create({
+          data: {
+            userId,
+            source: "summary_generate",
+            model,
+            inputTokens: aggregateUsage.inputTokens,
+            outputTokens: aggregateUsage.outputTokens,
+            totalTokens: aggregateUsage.totalTokens,
+            estimatedCostThb: tokenBilling.estimatedCostThb,
+            referenceId: summaryJobId,
+            payload: JSON.stringify({ plan, diagnosisConfidence: diagnosis_confidence, diagnosisConfidenceSource: "heuristic_not_clinical_source" }),
+          },
+        });
+        legacyTokenLedgerWritten = true;
+      }
+      const committed = await prisma.$transaction(
+        async (tx: PrismaTx) => commitSummaryUsageOnce({
+          findExisting: async () => Boolean(await tx.usageLog.findFirst({
+            where: { userId, caseId: summaryJobId },
+            select: { id: true },
+          })),
+          commit: async () => {
           await tx.usage.upsert({
             where: { userId },
             create: { userId, count: 1 },
@@ -2165,17 +2204,21 @@ export async function POST(req: Request) {
                   ? "long_case_generate"
                   : "generate"
                 : "token_generate",
-              ...(exportText != null && exportText !== "" ? { summarySnapshot: deidentify(exportText) } : {}),
+              ...(summarySnapshot ? { summarySnapshot } : {}),
             },
           });
-        },
+          },
+        }),
         { maxWait: 20_000, timeout: 60_000 }
       );
-      await markReferralFirstUsage(userId);
+      if (!committed) {
+        return json({ error: "คำขอนี้บันทึกสำเร็จแล้ว ดูรายการได้ที่ประวัติการใช้งาน", errorCode: "SUMMARY_ALREADY_COMMITTED", jobId: summaryJobId }, 409);
+      }
+      await runBestEffortSideEffect(() => markReferralFirstUsage(userId));
     }
 
     const tokenBilling = estimateTokenBillingThb(aggregateUsage);
-    if (userId && !revenue5xMode) {
+    if (userId && !revenue5xMode && !legacyTokenLedgerWritten) {
       await prisma.tokenUsageLedger.create({
         data: {
           userId,
@@ -2190,7 +2233,7 @@ export async function POST(req: Request) {
         },
       });
     }
-    await trackTelemetry({
+    await runBestEffortSideEffect(() => trackTelemetry({
       userId,
       source: "summary",
       event: mode === "generate" ? "summary_generated" : "summary_recalc",
@@ -2203,12 +2246,11 @@ export async function POST(req: Request) {
         tokenUsage: aggregateUsage,
         tokenBilling,
       },
-    });
+    }));
 
     const generationDurationMs = Math.round(performance.now() - requestStarted);
     if (summaryJobId && userId && !isAdminUser) {
-      try {
-        await prisma.feedback.create({ data: { id: `summary_${summaryJobId}`, userId, type: "summary_job", message: "Summary generated", status: "completed",
+      await runBestEffortSideEffect(() => prisma.feedback.create({ data: { id: `summary_${summaryJobId}`, userId, type: "summary_job", message: "Summary generated", status: "completed",
           payload: JSON.stringify({
             durationMs: generationDurationMs,
             production: process.env.VERCEL_ENV === "production",
@@ -2217,8 +2259,7 @@ export async function POST(req: Request) {
             diagnosisConfidence: diagnosis_confidence,
             diagnosisConfidenceSource: "heuristic_not_clinical_source",
             privacy: { deidentifiedBeforeModel: safeImageInputs.length === 0, textRedactionApplied: true, imageRedactionConfirmed: safeImageInputs.length > 0 ? body.imagesRedactedConfirmed === true : null, imageContentVerified: false },
-          }) } });
-      } catch { /* Statistics are supplementary; a completed summary remains available. */ }
+          }) } }));
     }
     return json({
       result: {

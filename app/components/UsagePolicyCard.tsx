@@ -38,9 +38,10 @@ export default function UsagePolicyCard(props: UsagePolicyCardProps) {
         </div>
         <div className="border-t border-slate-800 pt-3">
           {props.allowanceDisplayMode === "legacy_units" ? <>
-            <p className="text-slate-300">หน่วยสิทธิ์รอบเดิม: <span className="font-semibold text-white">ใช้แล้ว {props.used} · คงเหลือ {props.remaining} จาก {props.total}</span></p>
-            <p className="mt-1 text-xs leading-relaxed text-slate-400">ตัวเลขนี้เป็นหน่วยสิทธิ์ของแพ็กเกจรอบเดิม ไม่ใช่จำนวนเคส; เพดานรายวันนับจำนวนครั้ง ส่วนรอบนโยบายใหม่แสดงการใช้วงเงิน AI เป็นเปอร์เซ็นต์</p>
+            <p className="text-slate-300">วงเงิน AI รอบเดิม: {typeof percent === "number" ? <span className="font-semibold text-white">ใช้ไป {percent}%</span> : <span className="text-amber-300">ข้อมูลยังไม่พร้อมแสดง</span>}</p>
+            <p className="mt-1 text-xs leading-relaxed text-slate-400">เปอร์เซ็นต์นี้มาจากหน่วยคำนวณภายในของเงื่อนไขเดิม ไม่ใช่จำนวนเคสหรือยอดเรียกเก็บจริงจากผู้ให้บริการ AI; จำนวนครั้งที่สรุปได้ยังขึ้นกับเพดานรายวัน และเคสยาวหรือมีรูปอาจใช้วงเงินมากกว่า</p>
             {props.grandfathered ? <p className="mt-2 rounded-lg border border-amber-700/40 bg-amber-950/20 p-2 text-xs leading-relaxed text-amber-200">แพ็กเกจรอบที่ชำระอยู่ยังคงเงื่อนไขเดิมถึงวันสิ้นสุดรอบข้างต้น เงื่อนไขใหม่จึงเริ่มเมื่อรอบต่ออายุ</p> : null}
+            <p className="mt-1 text-xs text-slate-400">รีเซ็ตวงเงินรอบนี้: {formatUsageReset(props.periodAllowanceResetAt)} (เวลาไทย)</p>
             <p className="mt-1 text-xs text-slate-400">สิ้นสุดรอบแพ็กเกจ: {formatUsageReset(props.periodEnd)} (เวลาไทย)</p>
           </> : props.allowanceDisplayMode === "ai_cost" ? <>
             <p className="text-slate-300">วงเงิน AI รอบนี้ (ประเมินตามปริมาณประมวลผล)</p>
@@ -54,7 +55,7 @@ export default function UsagePolicyCard(props: UsagePolicyCardProps) {
         </div>
         <div className="border-t border-slate-800 pt-3">
           <p className="text-slate-300">Boost คงเหลือ: <span className="font-semibold text-white">{props.boostCredits} สิทธิ์</span></p>
-          <p className="mt-1 text-xs text-slate-400">Boost คือสิทธิ์สรุปเพิ่ม แยกจากตัวเลขวงเงินปกติ เคสยาวหรือมีรูปอาจใช้วงเงิน AI มากกว่า เมื่อถึงขีดจำกัดให้รอเวลาที่แสดง หรือใช้ Boost หากมีสิทธิ์</p>
+          <p className="mt-1 text-xs text-slate-400">Boost คือสิทธิ์สรุปเพิ่ม ใช้ต่อได้ทันทีเมื่อถึงขีดจำกัด ไม่จำกัดโควตารายวัน; เคสปกติใช้ 1 สิทธิ์ เคสยาวหรือมีรูปอาจใช้ 2 สิทธิ์ ระบบหักเมื่อสรุปสำเร็จ</p>
           {props.active && props.canPurchaseBoost ? <div className="mt-2 flex gap-2"><BoostPurchaseButton credits={5} compact /><BoostPurchaseButton credits={15} compact /></div> : null}
         </div>
         <p className="border-t border-slate-800 pt-3 text-xs text-slate-400">สถานะแพ็กเกจ: {props.active ? "ใช้งานอยู่" : "หมดอายุหรือยังไม่ active"}</p>

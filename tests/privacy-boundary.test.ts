@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   adminAlert: vi.fn(),
   getSession: vi.fn(),
   userFindUnique: vi.fn(), usageAggregate: vi.fn(), usageCount: vi.fn(),
+  usageLogFindFirst: vi.fn(),
   appSettingCreate: vi.fn(), appSettingFindUnique: vi.fn(), appSettingDeleteMany: vi.fn(),
   ledgerFindMany: vi.fn(), deviceDeleteMany: vi.fn(),
 }));
@@ -27,7 +28,7 @@ vi.mock("@/lib/api-token", () => ({ resolveEmailFromBearerToken: vi.fn().mockRes
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     user: { findUnique: mocks.userFindUnique },
-    usageLog: { aggregate: mocks.usageAggregate, count: mocks.usageCount },
+    usageLog: { aggregate: mocks.usageAggregate, count: mocks.usageCount, findFirst: mocks.usageLogFindFirst },
     appSetting: { create: mocks.appSettingCreate, findUnique: mocks.appSettingFindUnique, deleteMany: mocks.appSettingDeleteMany },
     tokenUsageLedger: { findMany: mocks.ledgerFindMany, create: vi.fn() },
     deviceSession: { deleteMany: mocks.deviceDeleteMany, findMany: vi.fn(), upsert: vi.fn() },
@@ -61,6 +62,7 @@ function configureSummaryUser(overrides: Record<string, unknown> = {}) {
   });
   mocks.usageAggregate.mockResolvedValue({ _sum: { baseCreditsUsed: 0 } });
   mocks.usageCount.mockResolvedValue(0);
+  mocks.usageLogFindFirst.mockResolvedValue(null);
   mocks.appSettingCreate.mockResolvedValue({ key: "lease" });
   mocks.appSettingDeleteMany.mockResolvedValue({ count: 1 });
   mocks.ledgerFindMany.mockResolvedValue([]);

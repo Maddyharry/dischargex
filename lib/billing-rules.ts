@@ -121,7 +121,7 @@ export type AddonCreditOption = {
 
 export const ADDON_OPTIONS: AddonCreditOption[] = [
   { credits: 5, priceThb: 109 },
-  { credits: 15, priceThb: 329 },
+  { credits: 15, priceThb: 299 },
 ];
 
 const PLAN_DAILY_APPROX_LIMITS: Record<PlanId, PlanDailyApproxLimit> = {
