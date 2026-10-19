@@ -499,16 +499,16 @@ export function FeedbackWidget() {
 
       {open && (
         <div
-          className={`fixed bottom-24 right-6 z-[100] flex max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-xl ${
-            isAdmin ? "h-[560px] w-[760px]" : "h-[560px] w-[460px]"
+          className={`fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] left-[max(1rem,env(safe-area-inset-left))] right-[max(1rem,env(safe-area-inset-right))] z-[100] flex h-[min(560px,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-7rem))] max-h-[calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-6rem)] min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-xl md:left-auto md:right-[max(1.5rem,env(safe-area-inset-right))] ${
+            isAdmin ? "md:w-[min(760px,calc(100vw-3rem))]" : "md:w-[min(460px,calc(100vw-3rem))]"
           }`}
         >
           {isAdmin ? (
-            <div className="border-b border-slate-700 bg-slate-800/80 px-4 py-3 text-sm font-medium text-white">
+            <div className="shrink-0 border-b border-slate-700 bg-slate-800/80 px-4 py-3 text-sm font-medium text-white">
               Inbox ลูกค้า
             </div>
           ) : (
-            <div className="flex border-b border-slate-700 bg-slate-800/80">
+            <div className="flex shrink-0 border-b border-slate-700 bg-slate-800/80">
               <button
                 type="button"
                 onClick={() => setTab("chat")}
@@ -526,12 +526,12 @@ export function FeedbackWidget() {
             </div>
           )}
 
-          <div className={`flex flex-1 flex-col overflow-hidden ${isAdmin ? "" : ""}`}>
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
             {isAdmin ? (
-              <div className="grid h-full min-h-0 grid-cols-[240px_1fr]">
-                  <div className="border-r border-slate-700 bg-slate-900/70 p-2">
-                    <div className="mb-2 px-2 text-xs font-medium uppercase tracking-wide text-slate-400">ลูกค้า</div>
-                    <div className="space-y-1 overflow-y-auto pr-1">
+              <div className="grid min-h-0 min-w-0 flex-1 grid-cols-1 grid-rows-[minmax(5rem,25%)_minmax(0,1fr)] md:grid-cols-[240px_minmax(0,1fr)] md:grid-rows-1">
+                  <div className="flex min-h-0 min-w-0 flex-col border-b border-slate-700 bg-slate-900/70 p-2 md:border-b-0 md:border-r">
+                    <div className="mb-2 shrink-0 px-2 text-xs font-medium uppercase tracking-wide text-slate-400">ลูกค้า</div>
+                    <div className="min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-contain pr-1">
                       {adminThreads.length === 0 ? (
                         <p className="rounded-xl px-2 py-2 text-xs text-slate-500">ยังไม่มีบทสนทนา</p>
                       ) : null}
@@ -561,8 +561,8 @@ export function FeedbackWidget() {
                       ))}
                     </div>
                   </div>
-                  <div className="flex min-h-0 flex-col">
-                    <div className="border-b border-slate-700 px-3 py-2 text-xs text-slate-400">
+                  <div className="flex min-h-0 min-w-0 flex-col">
+                    <div className="shrink-0 border-b border-slate-700 px-3 py-2 text-xs text-slate-400">
                       {activeThreadUserId
                         ? `คุยกับ ${adminThreads.find((t) => t.userId === activeThreadUserId)?.userEmail || activeThreadUserId}`
                         : "เลือกลูกค้าจากด้านซ้าย"}
@@ -574,7 +574,7 @@ export function FeedbackWidget() {
                         if (!container) return;
                         scrollInteractionVersionRef.current += 1;
                       }}
-                      className="flex-1 overflow-y-auto p-3 space-y-3"
+                      className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 space-y-3"
                     >
                       {loadError ? <p className="text-xs text-amber-400">{loadError}</p> : null}
                       {chatMessages.length === 0 && !loadError ? (
@@ -605,7 +605,7 @@ export function FeedbackWidget() {
                       ) : null}
                       <div ref={chatEndRef} />
                     </div>
-                    <div className="border-t border-slate-700 p-3">
+                    <div className="shrink-0 border-t border-slate-700 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
                       <div className="flex gap-2">
                         <input
                           type="text"
@@ -630,7 +630,7 @@ export function FeedbackWidget() {
               </div>
             ) : tab === "chat" ? (
               <>
-                <div className="flex-1 overflow-y-auto p-3 space-y-3 min-h-[200px]">
+                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 space-y-3">
                   {loadError && <p className="text-xs text-amber-400">{loadError}</p>}
                   {chatMessages.length === 0 && !loadError && (
                     <p className="text-sm text-slate-500">
@@ -684,7 +684,7 @@ export function FeedbackWidget() {
                   ) : null}
                   <div ref={chatEndRef} />
                 </div>
-                <div className="border-t border-slate-700 p-3">
+                <div className="shrink-0 border-t border-slate-700 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
                   <div className="flex gap-2">
                     <input
                       type="text"

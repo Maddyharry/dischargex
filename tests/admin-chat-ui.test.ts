@@ -42,4 +42,13 @@ describe("admin customer inbox behavior", () => {
     expect(widget).toContain("formatAdminChatTimestamp(m.createdAt)");
     expect(widget).toContain("onScroll={() => {");
   });
+
+  it("keeps admin and customer chat composers visible inside a viewport-sized panel", () => {
+    const widget = readFileSync("app/components/FeedbackWidget.tsx", "utf8");
+    expect(widget).toContain("100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)");
+    expect(widget).toContain("grid-rows-[minmax(5rem,25%)_minmax(0,1fr)]");
+    expect(widget).toContain('className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 space-y-3"');
+    expect(widget.match(/shrink-0 border-t border-slate-700 p-3 pb-\[max\(0\.75rem,env\(safe-area-inset-bottom\)\)\]/g)).toHaveLength(2);
+    expect(widget).not.toContain("min-h-[200px]");
+  });
 });
