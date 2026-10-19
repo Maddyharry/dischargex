@@ -1,4 +1,5 @@
 import { prisma } from "./prisma";
+import type { Prisma } from "@prisma/client";
 import { ensureUserReferralCode } from "./bonus-credits";
 import { notifyUser } from "./notifications";
 import { REFERRAL_BONUS_FIRST_PURCHASE } from "./referral-constants";
@@ -60,17 +61,19 @@ export async function claimReferralCode(params: {
   referralCode: string;
   claimedIp?: string | null;
   claimedUserAgent?: string | null;
+  db?: typeof prisma | Prisma.TransactionClient;
 }) {
+  const db = params.db ?? prisma;
   const code = params.referralCode.trim().toUpperCase();
   if (!/^[A-Z0-9]{2,32}$/.test(code)) throw new Error("รหัสแนะนำเพื่อนไม่ถูกต้อง");
-  const referrer = await prisma.user.findFirst({
+  const referrer = await db.user.findFirst({
     where: { referralCode: code },
     select: { id: true },
   });
   if (!referrer) throw new Error("ไม่พบรหัสแนะนำเพื่อน");
   if (referrer.id === params.referredUserId) throw new Error("ไม่สามารถใช้รหัสของตัวเองได้");
 
-  const exists = await prisma.referral.findUnique({
+  const exists = await db.referral.findUnique({
     where: { referredUserId: params.referredUserId },
     select: { id: true },
   });
@@ -81,13 +84,13 @@ export async function claimReferralCode(params: {
 
   const recentSameIpCount =
     claimedIp != null
-      ? await prisma.referral.count({
+      ? await db.referral.count({
           where: { claimedIp, createdAt: { gte: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000) } },
         })
       : 0;
   const suspicious = claimedIp != null && recentSameIpCount >= 3;
 
-  await prisma.referral.create({
+  await db.referral.create({
     data: {
       referrerUserId: referrer.id,
       referredUserId: params.referredUserId,

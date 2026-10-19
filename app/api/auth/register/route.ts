@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import crypto from "crypto";
 import { sendAdminAlertEmail } from "@/lib/admin-alert";
 import { getTrustedAppOrigin } from "@/lib/app-origin";
+import { claimReferralCode } from "@/lib/referral";
 
 const emailSchema = z.string().trim().toLowerCase().email();
 
@@ -14,10 +15,15 @@ export async function POST(req: Request) {
       email?: string;
       password?: string;
       name?: string;
+      referralCode?: string;
     };
     const emailInput = body.email?.trim();
     const password = body.password;
     const name = body.name?.trim() || null;
+    if (body.referralCode !== undefined && typeof body.referralCode !== "string") {
+      return NextResponse.json({ ok: false, error: "รหัสแนะนำเพื่อนไม่ถูกต้อง" }, { status: 400 });
+    }
+    const referralCode = body.referralCode?.trim() ?? "";
     if (!emailInput || !password) {
       return NextResponse.json(
         { ok: false, error: "กรุณาระบุอีเมลและรหัสผ่าน" },
@@ -38,6 +44,16 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
+    if (referralCode && !/^[A-Za-z0-9]{2,32}$/.test(referralCode)) {
+      return NextResponse.json({ ok: false, error: "รหัสแนะนำเพื่อนไม่ถูกต้อง" }, { status: 400 });
+    }
+    const appOrigin = getTrustedAppOrigin(req);
+    if (!appOrigin) {
+      return NextResponse.json(
+        { ok: false, error: "ระบบยังไม่ได้ตั้งค่า APP_ORIGIN/NEXTAUTH_URL สำหรับลิงก์ยืนยันอีเมล" },
+        { status: 500 }
+      );
+    }
     const existing = await prisma.user.findUnique({
       where: { email },
       select: { id: true, emailVerified: true },
@@ -51,23 +67,36 @@ export async function POST(req: Request) {
     const passwordHash = await hash(password, 10);
     const verifyToken = crypto.randomBytes(32).toString("hex");
 
-    const user = await prisma.user.create({
-      data: {
-        email,
-        name: name || email.split("@")[0],
-        passwordHash,
-        emailVerifyToken: verifyToken,
-        plan: "trial",
-        role: "user",
-      },
-    });
-
-    const appOrigin = getTrustedAppOrigin(req);
-    if (!appOrigin) {
-      return NextResponse.json(
-        { ok: false, error: "ระบบยังไม่ได้ตั้งค่า APP_ORIGIN/NEXTAUTH_URL สำหรับลิงก์ยืนยันอีเมล" },
-        { status: 500 }
-      );
+    let user: { id: string };
+    try {
+      user = await prisma.$transaction(async (tx) => {
+        const created = await tx.user.create({
+          data: {
+            email,
+            name: name || email.split("@")[0],
+            passwordHash,
+            emailVerifyToken: verifyToken,
+            plan: "trial",
+            role: "user",
+          },
+        });
+        if (referralCode) {
+          const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || req.headers.get("x-real-ip") || null;
+          await claimReferralCode({
+            referredUserId: created.id,
+            referralCode,
+            claimedIp: clientIp,
+            claimedUserAgent: req.headers.get("user-agent"),
+            db: tx,
+          });
+        }
+        return created;
+      });
+    } catch (error) {
+      if (error instanceof Error && ["รหัสแนะนำเพื่อนไม่ถูกต้อง", "ไม่พบรหัสแนะนำเพื่อน", "ไม่สามารถใช้รหัสของตัวเองได้", "บัญชีนี้ถูกผูก referral แล้ว"].includes(error.message)) {
+        return NextResponse.json({ ok: false, error: error.message }, { status: 400 });
+      }
+      throw error;
     }
     const verifyUrl = `${appOrigin}/api/auth/verify-email?token=${verifyToken}`;
 

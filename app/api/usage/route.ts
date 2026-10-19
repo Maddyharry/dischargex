@@ -237,6 +237,9 @@ async function getUsage(req: Request) {
     periodAllowancePercentUsed: tokenUsagePercent,
     periodAllowanceReached: tokenBudgetReached,
     periodAllowanceResetAt: usagePolicy.resetAt,
+    periodAllowanceDisplayMode: plan.isPaid ? (usesRevenue5x ? "ai_cost" : "legacy_units") : "not_applicable",
+    periodAllowanceGrandfathered:
+      plan.isPaid && usagePolicy.status === "active" && usagePolicyPeriodStart !== null && !usesRevenue5x,
     usagePolicyKnown: usagePolicy.costEstimate.status === "known" && usagePolicy.costEstimate.safeForEnforcement,
     boostPurchaseAvailable: isActive && plan.isPaid && usagePolicy.costEstimate.status === "known" && usagePolicy.costEstimate.safeForEnforcement,
     baseUsagePercent,

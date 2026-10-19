@@ -20,9 +20,15 @@ export default function SignupPage() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [name, setName] = useState("");
+  const [referralCode, setReferralCode] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [verifyUrl, setVerifyUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    const value = new URLSearchParams(window.location.search).get("ref") ?? "";
+    if (/^[A-Za-z0-9]{2,32}$/.test(value)) setReferralCode(value.toUpperCase());
+  }, []);
 
   useEffect(() => {
     if (status === "authenticated") {
@@ -58,6 +64,7 @@ export default function SignupPage() {
           email: email.trim(),
           password,
           name: name.trim() || undefined,
+          referralCode: referralCode.trim() || undefined,
         }),
       });
       const data = (await res.json()) as { ok?: boolean; error?: string; message?: string; verifyUrl?: string; needVerify?: boolean };
@@ -137,6 +144,19 @@ export default function SignupPage() {
             onChange={(e) => setName(e.target.value)}
             className="w-full rounded-xl border border-white/10 bg-slate-800/80 px-4 py-3 text-slate-100 placeholder-slate-500 focus:border-cyan-500 focus:outline-none"
           />
+          <label className="block text-sm text-slate-300">
+            รหัสแนะนำ (ถ้ามี)
+            <input
+              type="text"
+              value={referralCode}
+              onChange={(e) => setReferralCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 32))}
+              maxLength={32}
+              autoComplete="off"
+              className="mt-1 w-full rounded-xl border border-white/10 bg-slate-800/80 px-4 py-3 font-mono text-slate-100 placeholder-slate-500 focus:border-cyan-500 focus:outline-none"
+              placeholder="กรอกรหัสจากเพื่อน"
+            />
+          </label>
+          <p className="text-xs leading-relaxed text-slate-400">ผู้แนะนำจะได้รับ Boost 10 สิทธิ์เมื่อคุณซื้อแพ็กเกจแบบชำระเงินครั้งแรกสำเร็จ การสมัครหรือทดลองใช้ฟรียังไม่ให้โบนัส</p>
           <input
             type="password"
             placeholder="รหัสผ่าน * (อย่างน้อย 6 ตัวอักษร)"

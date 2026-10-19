@@ -321,23 +321,20 @@ export default function AdminUsersPage() {
             ยังไม่มีผู้ใช้
           </div>
         ) : (
-          <div className="overflow-x-auto rounded-3xl border border-white/10 bg-white/[0.03]">
-            <table className="min-w-full text-sm">
+          <div className="max-w-full overflow-x-auto rounded-3xl border border-white/10 bg-white/[0.03]">
+            <table className="w-full min-w-[1320px] text-sm">
               <thead className="bg-slate-900/80 text-left text-xs uppercase tracking-wide text-slate-400">
                 <tr>
-                  <th className="px-4 py-3">อีเมล / ชื่อ</th>
-                  <th className="px-4 py-3">แผน</th>
-                  <th className="px-4 py-3">สิทธิ์</th>
-                  <th className="px-4 py-3">สรุปวันนี้ / เพดานต่อวัน · เดือนนี้ · สะสม</th>
-                  <th className="px-4 py-3">Boost · คงเหลือ / ซื้อ / ใช้</th>
-                  <th className="px-4 py-3" title="ประมาณต้นทุน API จาก model และ token ที่บันทึกไว้ ไม่ใช่ใบแจ้งหนี้จริง; model หรือข้อมูลที่ไม่รองรับจะแสดงเป็น unknown">ต้นทุน API ประเมิน / นโยบายเพดาน</th>
-                  <th className="px-4 py-3">เครดิต legacy</th>
-                  <th className="px-4 py-3" title="จำนวนวันจนถึงสิ้นรอบของแพ็กเกจ (30 วัน หรือ 365 วัน)">
-                    เหลืออีก (วัน)
+                  <th className="w-[240px] px-4 py-3">ผู้ใช้</th>
+                  <th className="w-[230px] px-4 py-3">แผน / สถานะ</th>
+                  <th className="w-[150px] px-4 py-3">ใช้วันนี้ / เพดานรายวัน</th>
+                  <th className="w-[205px] px-4 py-3">วงเงิน AI รอบแพ็กเกจ</th>
+                  <th className="w-[180px] px-4 py-3">Boost</th>
+                  <th className="w-[190px] px-4 py-3" title="ประมาณจาก model และ token ที่บันทึกไว้; ไม่ใช่ใบแจ้งหนี้ API จริง">
+                    ต้นทุน API ประเมิน
                   </th>
-                  <th className="px-4 py-3">อุปกรณ์</th>
-                  <th className="px-4 py-3">สมัครเมื่อ</th>
-                  <th className="px-4 py-3 text-right">จัดการ</th>
+                  <th className="w-[150px] px-4 py-3">วันจบรอบ</th>
+                  <th className="w-[300px] px-4 py-3 text-right">จัดการ</th>
                 </tr>
               </thead>
               <tbody>
@@ -346,9 +343,7 @@ export default function AdminUsersPage() {
                   const changed = e.plan !== u.plan || e.role !== u.role;
                   return (
                     <Fragment key={u.id}>
-                    <tr
-                      className="border-t border-slate-800/60 bg-slate-950/40 hover:bg-slate-900/60"
-                    >
+                    <tr className="border-t border-slate-800/60 bg-slate-950/40 align-top hover:bg-slate-900/60">
                       <td className="px-4 py-3">
                         <div className="font-medium text-slate-100">
                           {u.email || "-"}
@@ -356,72 +351,77 @@ export default function AdminUsersPage() {
                         {u.name ? (
                           <div className="text-xs text-slate-400">{u.name}</div>
                         ) : null}
+                        <details className="mt-2 text-xs text-slate-400">
+                          <summary className="w-fit cursor-pointer text-cyan-300 hover:text-cyan-200">ดูรายละเอียด</summary>
+                          <div className="mt-2 space-y-2 rounded-xl border border-slate-800 bg-black/20 p-3 leading-relaxed">
+                            <div>ใช้งานเดือนนี้ {u.summariesThisMonth} เคส · สะสม {u.lifetimeSummaries} เคส</div>
+                            <div>รีเซ็ตรายวัน {new Date(u.dailyUsageResetsAt).toLocaleString("th-TH", { timeZone: "Asia/Bangkok" })}</div>
+                            <div>รีเซ็ตรอบโควตา {new Date(u.monthlyUsageResetsAt).toLocaleString("th-TH", { timeZone: "Asia/Bangkok" })}</div>
+                            <div>อุปกรณ์ที่ลงทะเบียน {u.deviceCount} เครื่อง · สมัคร {new Date(u.createdAt).toLocaleDateString("th-TH", { timeZone: "Asia/Bangkok" })}</div>
+                            <div className="border-t border-slate-800 pt-2" title="ตัวนับ 120/420/1260 รุ่นก่อน ไม่ใช่จำนวนเคส; backend ปัจจุบันตัดสิทธิ์ด้วยเพดานรายวันและวงเงิน AI รอบแพ็กเกจ">
+                              <span className="font-medium text-slate-200">โควตารุ่นเดิม (ไม่ใช้ตัดสิทธิ์): </span>
+                              {u.usageCount} / {u.planTotal} หน่วย
+                              <p className="mt-1 text-slate-500">ตัวนับ 120/420/1260 รุ่นก่อน ไม่ใช่จำนวนเคส ปัจจุบันระบบใช้เพดานรายวันและวงเงิน AI รอบแพ็กเกจ</p>
+                            </div>
+                            <div className="border-t border-slate-800 pt-2">
+                              <div className="font-medium text-slate-200">รายละเอียดวงเงินและต้นทุน</div>
+                              <div>{u.currentApiCostWindow === "billing_period_to_date" ? "ตั้งแต่เริ่มรอบบิล" : u.currentApiCostWindow === "legacy_calendar_month_to_date" ? "เดือนปฏิทินนี้ (รอบเดิม)" : "เดือนปฏิทินนี้"}</div>
+                              <div>ต้นทุน API ประเมิน: {u.apiCostEstimateStatus === "known" && u.apiCostEstimateThb !== null ? `฿${u.apiCostEstimateThb.toFixed(4)} จาก ${u.apiCostRowCount} รายการ` : `ข้อมูลไม่ครบ · ประเมินได้ ฿${u.apiCostKnownSubtotalThb.toFixed(4)}`}; ไม่ใช่ใบแจ้งหนี้</div>
+                              {u.apiCostUnknownModelCount > 0 || u.apiCostInvalidRowCount > 0 ? <div className="text-amber-300">รุ่นที่ไม่รองรับ {u.apiCostUnknownModelCount} · ข้อมูลไม่ครบ {u.apiCostInvalidRowCount}</div> : null}
+                              {u.apiCostUncertainty.length > 0 ? <ul className="list-inside list-disc text-amber-300">{u.apiCostUncertainty.map((item) => <li key={item}>{item}</li>)}</ul> : null}
+                              <div>นโยบาย: {u.currentApiCostCapKind === "revenue_5x" ? `เพดานต้นทุน API รอบเต็ม ฿${u.currentApiCostCapThb === null ? "ไม่ทราบ" : u.currentApiCostCapThb.toFixed(2)}` : `วงเงินรุ่นเดิม ${u.currentApiCostCapThb === null ? "ไม่ทราบ" : u.currentApiCostCapThb.toFixed(2)} หน่วยภายใน / เดือน`}</div>
+                              {u.policySpendThb === null ? <div>ยอดใช้ตามนโยบาย: ไม่ทราบ (ledger อ่านไม่ได้หรือข้อมูลไม่ครบ)</div> : <div>ยอดใช้ตามนโยบาย: {u.usagePolicySpendBasis === "legacy_internal" ? `${u.policySpendThb.toFixed(4)} หน่วยภายในรุ่นเดิม` : `฿${u.policySpendThb.toFixed(4)} ต้นทุน API ประเมิน`}</div>}
+                              {u.policyRemainingThb !== null ? <div>เหลือในกรอบ: {u.usagePolicySpendBasis === "legacy_internal" ? `${u.policyRemainingThb.toFixed(4)} หน่วยภายในรุ่นเดิม` : `฿${u.policyRemainingThb.toFixed(4)}`}</div> : null}
+                              {u.policyStatus === "expired" ? <div className="text-amber-300">รอบนโยบายหมดอายุ</div> : null}
+                              {u.policyResetAt ? <div>รีเซ็ตนโยบาย {new Date(u.policyResetAt).toLocaleString("th-TH", { timeZone: "Asia/Bangkok" })}</div> : null}
+                              {u.nextRenewalCapForecastThb !== null && u.currentApiCostCapKind === "legacy_internal" ? <div>คาดการณ์เพดานรอบต่ออายุ ฿{u.nextRenewalCapForecastThb.toFixed(2)} (เริ่มได้ตั้งแต่ {new Date(u.revenue5xEffectiveFrom).toLocaleDateString("th-TH", { timeZone: "Asia/Bangkok" })}; ยังไม่ active)</div> : null}
+                            </div>
+                          </div>
+                        </details>
                       </td>
                       <td className="px-4 py-3">
-                        <select
-                          value={e.plan}
-                          onChange={(ev) => setEdit(u.id, "plan", ev.target.value)}
-                          className="rounded-xl border border-slate-700 bg-slate-950 px-2 py-1.5 text-slate-100 focus:border-cyan-500 focus:outline-none"
-                        >
-                          <option value="trial">trial</option>
-                          <option value="basic_monthly">basic_monthly</option>
-                          <option value="basic_yearly">basic_yearly</option>
-                          <option value="standard_monthly">standard_monthly</option>
-                          <option value="standard_yearly">standard_yearly</option>
-                          <option value="pro_monthly">pro_monthly</option>
-                          <option value="pro_yearly">pro_yearly</option>
+                        <div className="mb-2 flex flex-wrap gap-1.5">
+                          <span className="rounded-full border border-cyan-900/70 bg-cyan-950/60 px-2 py-0.5 text-[11px] text-cyan-200">{u.daysLeftInMonth > 0 ? "รอบสิทธิ์ยังไม่จบ" : "รอบสิทธิ์สิ้นสุด"}</span>
+                          <span className="rounded-full border border-slate-700 bg-slate-900 px-2 py-0.5 text-[11px] text-slate-300">{e.role === "admin" ? "Admin" : "User"}</span>
+                        </div>
+                        <select aria-label={`แผนของ ${u.email || u.name || u.id}`} value={e.plan} onChange={(ev) => setEdit(u.id, "plan", ev.target.value)} className="w-full rounded-xl border border-slate-700 bg-slate-950 px-2 py-1.5 text-slate-100 focus:border-cyan-500 focus:outline-none">
+                          <option value="trial">trial</option><option value="basic_monthly">basic_monthly</option><option value="basic_yearly">basic_yearly</option><option value="standard_monthly">standard_monthly</option><option value="standard_yearly">standard_yearly</option><option value="pro_monthly">pro_monthly</option><option value="pro_yearly">pro_yearly</option>
                         </select>
+                        <select aria-label={`สิทธิ์บัญชีของ ${u.email || u.name || u.id}`} value={e.role} onChange={(ev) => setEdit(u.id, "role", ev.target.value)} className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-2 py-1.5 text-slate-100 focus:border-cyan-500 focus:outline-none">
+                          <option value="user">user</option><option value="admin">admin</option>
+                        </select>
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3 text-slate-200">
+                        <div className="text-base font-semibold tabular-nums">{u.summariesToday} / {u.dailySummaryLimit} เคส</div>
+                        <span className="text-xs text-slate-500">วันนี้</span>
                       </td>
                       <td className="px-4 py-3">
-                        <select
-                          value={e.role}
-                          onChange={(ev) => setEdit(u.id, "role", ev.target.value)}
-                          className="rounded-xl border border-slate-700 bg-slate-950 px-2 py-1.5 text-slate-100 focus:border-cyan-500 focus:outline-none"
-                        >
-                          <option value="user">user</option>
-                          <option value="admin">admin</option>
-                        </select>
-                      </td>
-                      <td className="px-4 py-3 text-slate-300">
-                        <div>{u.summariesToday} / {u.dailySummaryLimit} · {u.summariesThisMonth} · {u.lifetimeSummaries}</div>
-                        <div className="text-xs text-slate-500">รีเซ็ตรายวัน {new Date(u.dailyUsageResetsAt).toLocaleString("th-TH", { timeZone: "Asia/Bangkok" })} · เดือน {new Date(u.monthlyUsageResetsAt).toLocaleString("th-TH", { timeZone: "Asia/Bangkok" })}</div>
+                        <div className="font-semibold tabular-nums text-slate-100">{u.policySpendThb === null ? "ยอดใช้ไม่ทราบ" : u.usagePolicySpendBasis === "legacy_internal" ? `${u.policySpendThb.toFixed(2)} / ${u.currentApiCostCapThb?.toFixed(2) ?? "?"} หน่วย` : `฿${u.policySpendThb.toFixed(2)} / ฿${u.currentApiCostCapThb?.toFixed(2) ?? "?"}`}</div>
+                        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
+                          <span className={`rounded-full px-2 py-0.5 ${u.policyStatus === "expired" ? "bg-amber-950/60 text-amber-200" : u.policyAllowed ? "bg-emerald-950/60 text-emerald-200" : "bg-red-950/60 text-red-200"}`}>{u.policyStatus === "expired" ? "รอบหมดอายุ" : u.policyAllowed ? "ยังอยู่ในวงเงิน" : "ถึงเพดาน"}</span>
+                          <span className="text-slate-500">{u.usagePolicySpendBasis === "legacy_internal" ? "วงเงินรอบเดิม" : "ต้นทุนประเมิน"}</span>
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-xs text-slate-300">
                         <div className="font-semibold text-cyan-100">เหลือ {u.boostPassesRemaining} สิทธิ์</div>
-                        <div>ซื้อ {u.boostPassesPurchased} ({u.boostPurchaseCount} ครั้ง, ฿{u.boostPurchaseRevenue}) · ใช้ {u.boostPassesConsumed}</div>
-                        <div className="text-slate-500">ซื้อ {u.boostLastPurchaseAt ? new Date(u.boostLastPurchaseAt).toLocaleString("th-TH", { timeZone: "Asia/Bangkok" }) : "—"} · ใช้ล่าสุด {u.boostLastUsedAt ? new Date(u.boostLastUsedAt).toLocaleString("th-TH", { timeZone: "Asia/Bangkok" }) : "—"}</div>
+                        <div className="text-slate-500">ซื้อ {u.boostPassesPurchased} · ใช้ {u.boostPassesConsumed}</div>
                       </td>
                       <td className="px-4 py-3 text-xs text-slate-300">
-                        <div>{u.apiCostEstimateStatus === "known" && u.apiCostSafeForEnforcement && u.apiCostEstimateThb !== null
-                          ? `ประเมิน ${u.apiCostRowCount} รายการ: ฿${u.apiCostEstimateThb.toFixed(4)}`
-                          : `ยอดประมาณยังไม่แน่นอน; คำนวณได้ ฿${u.apiCostKnownSubtotalThb.toFixed(4)} · unknown ${u.apiCostUnknownModelCount} · ข้อมูลไม่ครบ ${u.apiCostInvalidRowCount}`}</div>
-                        <div className="mt-1 text-slate-400">{u.currentApiCostWindow === "billing_period_to_date" ? "ตั้งแต่เริ่มรอบปัจจุบัน" : u.currentApiCostWindow === "legacy_calendar_month_to_date" ? "เดือนปฏิทินนี้ (รอบเดิม)" : "เดือนปฏิทินนี้"} · ไม่ใช่บิล API จริง</div>
-                        <div className="mt-1">นโยบายปัจจุบัน: {u.currentApiCostCapKind === "revenue_5x"
-                          ? `5× รอบเต็ม ฿${u.currentApiCostCapThb === null ? "ไม่ทราบ" : u.currentApiCostCapThb.toFixed(2)} (eligible; ยังไม่ยืนยัน enforcement)`
-                          : `legacy ฿${u.currentApiCostCapThb === null ? "ไม่ทราบ" : u.currentApiCostCapThb.toFixed(2)} / เดือน · หน่วยภายใน`}</div>
-                        {u.policySpendThb === null
-                          ? <div>ยอดใช้ตามนโยบาย: ไม่ทราบ (ข้อมูล ledger ใช้ไม่ได้/ไม่ครบ)</div>
-                          : <div>ยอดใช้ตามนโยบาย: ฿{u.policySpendThb.toFixed(4)}{u.usagePolicySpendBasis === "legacy_internal" ? " หน่วยภายใน legacy ไม่ใช่ต้นทุน API จริง" : " ต้นทุน API ประเมิน ไม่ใช่ใบแจ้งหนี้"}</div>}
-                        {u.policyRemainingThb !== null ? <div>เหลือในกรอบ: ฿{u.policyRemainingThb.toFixed(4)}</div> : null}
-                        {u.policyStatus === "expired" ? <div className="text-amber-300">รอบหมดอายุ</div> : null}
-                        {u.policyResetAt ? <div className="text-slate-500">รีเซ็ตนโยบาย {new Date(u.policyResetAt).toLocaleString("th-TH")}</div> : null}
-                        {u.nextRenewalCapForecastThb !== null && u.currentApiCostCapKind === "legacy_internal" ? <div>คาดการณ์เพดาน 5× รอบต่ออายุ: ฿{u.nextRenewalCapForecastThb.toFixed(2)} / รอบเต็ม (เริ่มได้ตั้งแต่ {new Date(u.revenue5xEffectiveFrom).toLocaleDateString("th-TH")}; ยังไม่ active)</div> : null}
-                        {u.apiCostUncertainty.length > 0 ? <div className="mt-1 text-amber-300">มีข้อไม่แน่นอนในข้อมูลต้นทุนที่บันทึก</div> : null}
+                        {u.apiCostEstimateStatus === "known" && u.apiCostSafeForEnforcement && u.apiCostEstimateThb !== null ? <>
+                          <div className="font-semibold tabular-nums text-slate-100">฿{u.apiCostEstimateThb.toFixed(2)}</div>
+                          <span className="text-emerald-300">ประเมินได้ · {u.apiCostRowCount} รายการ</span>
+                        </> : <>
+                          <div className="font-semibold tabular-nums text-amber-200">ประเมินได้บางส่วน ฿{u.apiCostKnownSubtotalThb.toFixed(2)}</div>
+                          <span className="text-amber-300">ข้อมูลไม่ครบ · ดูรายละเอียด</span>
+                        </>}
+                        <div className="text-[11px] text-slate-500">ไม่ใช่ใบแจ้งหนี้ API</div>
                       </td>
-                      <td className="px-4 py-3 text-xs text-slate-400" title="มิเตอร์เครดิตรุ่นเดิมอาจเป็นศูนย์เมื่อปิด ENFORCE_CREDIT_LIMIT; ไม่ใช่จำนวนสรุป">
-                        {u.usageCount} / {u.planTotal} เครดิต
-                      </td>
-                      <td className="px-4 py-3 text-slate-300" title="วันคงเหลือจนหมดอายุ subscription">
-                        เหลืออีก {u.daysLeftInMonth} วัน
-                      </td>
-                      <td className="px-4 py-3 text-slate-300">
-                        {u.deviceCount}
-                      </td>
-                      <td className="px-4 py-3 text-xs text-slate-400">
-                        {new Date(u.createdAt).toLocaleDateString("th-TH")}
+                      <td className="whitespace-nowrap px-4 py-3 text-slate-300">
+                        <div>{new Date(u.currentPeriodEndsAt).toLocaleDateString("th-TH", { timeZone: "Asia/Bangkok" })}</div>
+                        <div className="text-xs text-slate-500">เหลือ {u.daysLeftInMonth} วัน</div>
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <div className="flex items-center justify-end gap-2">
+                        <div className="flex flex-wrap items-center justify-end gap-2">
                           {changed ? (
                             <button
                               type="button"
@@ -461,7 +461,7 @@ export default function AdminUsersPage() {
                     </tr>
                     {expandedId === u.id ? (
                       <tr key={`${u.id}:activity`} className="border-t border-cyan-900/50 bg-slate-950/80">
-                        <td colSpan={11} className="px-5 py-4">
+                        <td colSpan={8} className="px-5 py-4">
                           <p className="mb-3 text-xs text-amber-200">สำหรับตรวจสอบการทำงานของระบบโดยผู้ดูแลเท่านั้น ข้อความสรุปยังอาจมีข้อมูลสุขภาพอ่อนไหวแม้ผ่านการปกปิดตัวระบุแล้ว; แสดงเมื่อขยายรายการเท่านั้น ไม่มีภาพหรือ raw payload</p>
                           {activityLoadingId === u.id ? <p className="text-sm text-slate-400">กำลังโหลดกิจกรรม...</p> : null}
                           {activityError ? <p role="alert" className="text-sm text-red-300">{activityError}</p> : null}

@@ -28,6 +28,9 @@ type UsageInfo = {
   periodAllowancePercentUsed?: number | null;
   periodAllowanceReached?: boolean;
   periodAllowanceResetAt?: string | null;
+  periodAllowanceGrandfathered?: boolean;
+  periodAllowanceDisplayMode?: "ai_cost" | "legacy_units" | "not_applicable";
+  periodEnd?: string | null;
   usagePolicyKnown?: boolean;
   boostPurchaseAvailable?: boolean;
   baseUsagePercent?: number;
@@ -233,6 +236,12 @@ export default function ProfilePage() {
             periodAllowancePercentUsed: typeof usageData.periodAllowancePercentUsed === "number" ? usageData.periodAllowancePercentUsed : null,
             periodAllowanceReached: usageData.periodAllowanceReached === true,
             periodAllowanceResetAt: typeof usageData.periodAllowanceResetAt === "string" ? usageData.periodAllowanceResetAt : null,
+            periodAllowanceGrandfathered: usageData.periodAllowanceGrandfathered === true,
+            periodAllowanceDisplayMode:
+              usageData.periodAllowanceDisplayMode === "ai_cost" || usageData.periodAllowanceDisplayMode === "legacy_units"
+                ? usageData.periodAllowanceDisplayMode
+                : "not_applicable",
+            periodEnd: typeof usageData.periodEnd === "string" ? usageData.periodEnd : null,
             baseUsagePercent:
               typeof usageData.baseUsagePercent === "number" ? usageData.baseUsagePercent : undefined,
             daysLeftInMonth:
@@ -280,6 +289,18 @@ export default function ProfilePage() {
       setReferralFeedback("คัดลอกรหัสแนะนำแล้ว");
     } catch {
       setReferralFeedback("คัดลอกไม่สำเร็จ กรุณาเลือกและคัดลอกรหัสด้วยตนเอง");
+    }
+  }
+
+  async function copyReferralLink() {
+    const code = referral?.referralCode;
+    if (!code) return;
+    const inviteUrl = `https://dischargex.net/signup?ref=${encodeURIComponent(code)}`;
+    try {
+      await navigator.clipboard.writeText(inviteUrl);
+      setReferralFeedback("คัดลอกลิงก์ชวนเพื่อนแล้ว ส่งให้เพื่อนได้หลายคน");
+    } catch {
+      setReferralFeedback(`คัดลอกไม่สำเร็จ กรุณาคัดลอกลิงก์นี้: ${inviteUrl}`);
     }
   }
 
@@ -702,8 +723,11 @@ export default function ProfilePage() {
                     summaryUsedToday={usage?.summaryUsedToday}
                     summaryDailyLimit={usage?.summaryDailyLimit}
                     summaryResetAt={usage?.nextDailyResetAt}
-                    periodEnd={usage?.periodAllowanceResetAt}
+                    periodAllowanceResetAt={usage?.periodAllowanceResetAt}
+                    periodEnd={usage?.periodEnd}
                     periodPercentUsed={usage?.periodAllowancePercentUsed}
+                    allowanceDisplayMode={usage?.periodAllowanceDisplayMode ?? "not_applicable"}
+                    grandfathered={usage?.periodAllowanceGrandfathered === true}
                     boostCredits={usage?.extraCredits ?? 0}
                     active={usage?.subscriptionStatus === "active" || usage?.subscriptionStatus === "pending_change"}
                     canPurchaseBoost={usage?.boostPurchaseAvailable === true}
@@ -726,7 +750,7 @@ export default function ProfilePage() {
 
             <section className="rounded-3xl border border-violet-500/20 bg-slate-900/60 p-6">
               <h2 className="text-lg font-semibold text-white">แนะนำเพื่อน</h2>
-              <p className="mt-2 text-sm text-slate-300">แชร์รหัสให้เพื่อนกรอกใน /app/profile ของบัญชีตนเอง คุณจะได้รับ Boost 10 สิทธิ์เมื่อเพื่อนซื้อแพ็กเกจแบบชำระเงินสำเร็จเป็นครั้งแรก การสมัครหรือใช้ฟรีครั้งแรกยังไม่มีโบนัส</p>
+              <p className="mt-2 text-sm text-slate-300">ใช้ปุ่มคัดลอกลิงก์ด้านล่างเพื่อให้รหัสติดไปกับหน้าสมัคร ส่งให้เพื่อนได้หลายคน คุณจะได้รับ Boost 10 สิทธิ์ต่อเพื่อนหนึ่งคนเมื่อเพื่อนซื้อแพ็กเกจแบบชำระเงินจริงครั้งแรกสำเร็จ การสมัคร ทดลองใช้ หรือกรอกรหัสอย่างเดียวยังไม่มีโบนัส</p>
               <p className="mt-1 text-xs text-slate-400">สิทธิ์ Boost ใช้ได้ขณะแพ็กเกจแบบชำระเงินของคุณยัง active หรือ pending_change</p>
 
               {referralLoading ? <p className="mt-4 text-sm text-slate-400">กำลังโหลดข้อมูลแนะนำเพื่อน…</p> : null}
@@ -734,8 +758,10 @@ export default function ProfilePage() {
                 <div className="mt-4 flex flex-wrap items-center gap-3">
                   <span className="rounded-xl border border-violet-400/30 bg-slate-950 px-4 py-2 font-mono text-lg tracking-wider text-violet-100">{referral.referralCode}</span>
                   <button type="button" onClick={() => void copyReferralCode()} className="rounded-xl border border-violet-400/40 px-3 py-2 text-sm text-violet-100 hover:bg-violet-950/40">คัดลอกรหัส</button>
+                  <button type="button" onClick={() => void copyReferralLink()} className="rounded-xl bg-violet-600 px-3 py-2 text-sm font-medium text-white hover:bg-violet-500">คัดลอกลิงก์ชวนเพื่อน</button>
                 </div>
               ) : null}
+              <p className="mt-3 text-sm leading-relaxed text-slate-300">แต่ละบัญชีรับโบนัสได้ครั้งเดียว คุณจะได้ Boost 10 สิทธิ์เมื่อเพื่อนคนนั้นซื้อแพ็กเกจแบบชำระเงินจริงครั้งแรกสำเร็จ การสมัคร ทดลองใช้ หรือกรอกรหัสอย่างเดียวยังไม่ให้โบนัส</p>
 
               {!referralLoading && !referralAlreadyClaimed ? (
                 <form onSubmit={submitReferralClaim} className="mt-5 flex flex-wrap items-end gap-3">

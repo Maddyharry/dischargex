@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useFeedbackContext } from "@/app/context/FeedbackContext";
 import { useSession } from "next-auth/react";
 import { usePathname } from "next/navigation";
+import { formatAdminChatTimestamp, isChatScrollNearBottom, shouldAutoScrollToLatest } from "@/lib/admin-chat-ui";
 
 type ChatMessage = {
   id: string;
@@ -88,6 +89,13 @@ export function FeedbackWidget() {
   const [chatLoading, setChatLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const adminChatScrollRef = useRef<HTMLDivElement>(null);
+  const lastLoadedAdminThreadRef = useRef("");
+  const adminMessageRequestRef = useRef(0);
+  const scrollInteractionVersionRef = useRef(0);
+  const shouldStickAfterMessagesRef = useRef(false);
+  const wasNearBottomAtRequestRef = useRef(true);
+  const interactionVersionAtRequestRef = useRef(0);
   const [adminThreads, setAdminThreads] = useState<AdminThread[]>([]);
   const [activeThreadUserId, setActiveThreadUserId] = useState("");
   const [chatNudgeVisible, setChatNudgeVisible] = useState(false);
@@ -162,6 +170,12 @@ export function FeedbackWidget() {
   const loadAdminThreadMessages = useCallback(
     async (userId: string) => {
       if (!userId) return;
+      const requestId = ++adminMessageRequestRef.current;
+      const forceScroll = lastLoadedAdminThreadRef.current !== userId;
+      wasNearBottomAtRequestRef.current = adminChatScrollRef.current
+        ? isChatScrollNearBottom(adminChatScrollRef.current)
+        : true;
+      interactionVersionAtRequestRef.current = scrollInteractionVersionRef.current;
       try {
         setLoadError(null);
         const res = await fetch(`/api/admin/chat/messages?userId=${encodeURIComponent(userId)}`);
@@ -170,6 +184,7 @@ export function FeedbackWidget() {
           setLoadError(data.error || "โหลดข้อความไม่สำเร็จ");
           return;
         }
+        if (requestId !== adminMessageRequestRef.current) return;
         const list: ChatMessage[] = (data.messages || []).map(
           (m: { id: string; message: string; createdAt: string; isBot?: boolean; source?: "user" | "ai" | "admin" }) => ({
             id: m.id,
@@ -178,6 +193,12 @@ export function FeedbackWidget() {
             isBot: m.isBot === true,
             source: m.source || (m.isBot ? "ai" : "user"),
           })
+        );
+        lastLoadedAdminThreadRef.current = userId;
+        shouldStickAfterMessagesRef.current = shouldAutoScrollToLatest(
+          forceScroll,
+          wasNearBottomAtRequestRef.current &&
+            interactionVersionAtRequestRef.current === scrollInteractionVersionRef.current
         );
         setChatMessages(list);
       } catch {
@@ -253,8 +274,11 @@ export function FeedbackWidget() {
   ]);
 
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [chatMessages]);
+    if (!isAdmin || shouldStickAfterMessagesRef.current) {
+      chatEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    }
+    shouldStickAfterMessagesRef.current = false;
+  }, [chatMessages, isAdmin]);
 
   useEffect(() => {
     if (open) {
@@ -334,6 +358,7 @@ export function FeedbackWidget() {
     const userMsgId = `user-${Date.now()}`;
     const botId = `bot-${Date.now()}`;
     const now = new Date().toISOString();
+    if (isAdmin) shouldStickAfterMessagesRef.current = true;
     setChatMessages((prev) => [
       ...prev,
       { id: userMsgId, message: text, createdAt: now, isBot: isAdmin, source: isAdmin ? "admin" : "user" },
@@ -542,7 +567,15 @@ export function FeedbackWidget() {
                         ? `คุยกับ ${adminThreads.find((t) => t.userId === activeThreadUserId)?.userEmail || activeThreadUserId}`
                         : "เลือกลูกค้าจากด้านซ้าย"}
                     </div>
-                    <div className="flex-1 overflow-y-auto p-3 space-y-3">
+                    <div
+                      ref={adminChatScrollRef}
+                      onScroll={() => {
+                        const container = adminChatScrollRef.current;
+                        if (!container) return;
+                        scrollInteractionVersionRef.current += 1;
+                      }}
+                      className="flex-1 overflow-y-auto p-3 space-y-3"
+                    >
                       {loadError ? <p className="text-xs text-amber-400">{loadError}</p> : null}
                       {chatMessages.length === 0 && !loadError ? (
                         <p className="text-sm text-slate-500">ยังไม่มีข้อความในห้องนี้</p>
@@ -560,6 +593,9 @@ export function FeedbackWidget() {
                           >
                             <div className="whitespace-pre-wrap leading-relaxed">{m.message}</div>
                           </div>
+                          <time dateTime={m.createdAt} className={`mt-1 block px-2 text-[11px] text-slate-400 ${m.source === "user" ? "text-right" : "text-left"}`}>
+                            {formatAdminChatTimestamp(m.createdAt)}
+                          </time>
                         </div>
                       ))}
                       {chatLoading ? (

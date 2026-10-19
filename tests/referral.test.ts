@@ -117,12 +117,14 @@ describe("referral reward policy", () => {
     expect(shouldAwardReferralForPaidInvoice("subscription_cycle", 10000)).toBe(false);
   });
 
-  it("claiming a code creates no immediate bonus", async () => {
+  it("allows one referrer to bind multiple distinct accounts, without immediate bonus", async () => {
     mocks.userFindFirst.mockResolvedValue({ id: "owner-1" });
     mocks.referralFindUnique.mockResolvedValue(null);
     mocks.referralCount.mockResolvedValue(0);
     mocks.referralCreate.mockResolvedValue({});
     await claimReferralCode({ referredUserId: "friend-1", referralCode: "dxabcdefgh" });
+    await claimReferralCode({ referredUserId: "friend-2", referralCode: "dxabcdefgh" });
+    expect(mocks.referralCreate).toHaveBeenCalledTimes(2);
     expect(mocks.referralCreate).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({ signupCreditGranted: 0, status: "active" }),
     }));
@@ -188,6 +190,13 @@ describe("referral reward policy", () => {
     const profile = readFileSync("app/app/profile/page.tsx", "utf8");
     expect(profile).toContain("Boost 10 สิทธิ์");
     expect(profile).toContain("คัดลอกรหัส");
-    expect(profile).toContain("เพื่อนกรอกใน /app/profile ของบัญชีตนเอง");
+    expect(profile).toContain("คัดลอกลิงก์ชวนเพื่อน");
+    expect(profile).toContain("https://dischargex.net/signup?ref=");
+    expect(profile).toContain("ส่งให้เพื่อนได้หลายคน");
+    const signup = readFileSync("app/signup/page.tsx", "utf8");
+    expect(signup).toContain('get("ref")');
+    expect(signup).toContain("รหัสแนะนำ (ถ้ามี)");
+    expect(signup).toContain("referralCode: referralCode.trim() || undefined");
+    expect(signup).toContain("สมัครหรือทดลองใช้ฟรียังไม่ให้โบนัส");
   });
 });
