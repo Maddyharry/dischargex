@@ -2,19 +2,8 @@
 
 import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
-import { useEffect, useMemo, useState, useRef } from "react";
-
-type UsageInfo = {
-  plan: string;
-  used: number;
-  total: number;
-  remaining: number;
-  extraCredits: number;
-  baseUsagePercent?: number;
-  tokenUsagePercent?: number;
-  nextCreditRefreshAt?: string | null;
-  daysLeftInMonth?: number;
-} | null;
+import { useCallback, useEffect, useState, useRef } from "react";
+import { fetchHeaderUsage, getHeaderUsageRows, type HeaderUsageInfo } from "@/lib/header-usage";
 
 function formatPlanName(plan: string): string {
   switch (plan) {
@@ -39,46 +28,43 @@ function formatPlanName(plan: string): string {
 
 export function Header() {
   const { data: session, status } = useSession();
-  const [usage, setUsage] = useState<UsageInfo>(null);
+  const [usage, setUsage] = useState<HeaderUsageInfo | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [logoutAllLoading, setLogoutAllLoading] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const moreMenuRef = useRef<HTMLDivElement>(null);
+  const usageRequestRef = useRef<Promise<void> | null>(null);
 
-  function refreshUsage() {
-    if (!session?.user) return;
-    fetch("/api/usage")
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.ok) {
-          setUsage({
-            plan: d.plan ?? (session?.user as { plan?: string })?.plan ?? "trial",
-            used: typeof d.used === "number" ? d.used : 0,
-            total: typeof d.total === "number" ? d.total : 0,
-            remaining: typeof d.remaining === "number" ? d.remaining : 0,
-            extraCredits: typeof d.extraCredits === "number" ? d.extraCredits : 0,
-            baseUsagePercent: typeof d.baseUsagePercent === "number" ? d.baseUsagePercent : undefined,
-            tokenUsagePercent: typeof d.tokenUsagePercent === "number" ? d.tokenUsagePercent : undefined,
-            nextCreditRefreshAt: typeof d.nextCreditRefreshAt === "string" ? d.nextCreditRefreshAt : null,
-            daysLeftInMonth: typeof d.daysLeftInMonth === "number" ? d.daysLeftInMonth : undefined,
-          });
-        }
-      })
-      .catch(() => setUsage(null));
-  }
+  const fallbackPlan = (session?.user as { plan?: string } | undefined)?.plan ?? "trial";
+  const refreshUsage = useCallback(() => {
+    if (!session?.user) return Promise.resolve();
+    if (usageRequestRef.current) return usageRequestRef.current;
+    const request = fetchHeaderUsage(fallbackPlan)
+      .then(setUsage)
+      .catch(() => setUsage(null))
+      .finally(() => {
+        if (usageRequestRef.current === request) usageRequestRef.current = null;
+      });
+    usageRequestRef.current = request;
+    return request;
+  }, [session?.user, fallbackPlan]);
 
   useEffect(() => {
-    refreshUsage();
-  }, [session?.user]);
+    void refreshUsage();
+  }, [refreshUsage]);
 
   useEffect(() => {
     function onUsageUpdated() {
-      refreshUsage();
+      void refreshUsage();
     }
     window.addEventListener("usage-updated", onUsageUpdated);
     return () => window.removeEventListener("usage-updated", onUsageUpdated);
-  });
+  }, [refreshUsage]);
+
+  useEffect(() => {
+    if (menuOpen) void refreshUsage();
+  }, [menuOpen, refreshUsage]);
 
   useEffect(() => {
     if (!menuOpen && !moreMenuOpen) return;
@@ -97,29 +83,7 @@ export function Header() {
 
   const displayName = session?.user?.name || session?.user?.email || "บัญชี";
   const isAdmin = (session?.user as { role?: string })?.role === "admin";
-  const usagePercent = useMemo(() => {
-    if (!usage) return 0;
-    if (typeof usage.baseUsagePercent === "number" && typeof usage.tokenUsagePercent === "number") {
-      return Math.max(0, Math.min(100, Math.max(usage.baseUsagePercent, usage.tokenUsagePercent)));
-    }
-    if (typeof usage.baseUsagePercent === "number") {
-      return Math.max(0, Math.min(100, usage.baseUsagePercent));
-    }
-    if (typeof usage.tokenUsagePercent === "number") {
-      return Math.max(0, Math.min(100, usage.tokenUsagePercent));
-    }
-    if (usage.total <= 0) return 0;
-    return Math.max(0, Math.min(100, Math.round((usage.used / usage.total) * 100)));
-  }, [usage]);
-  const displayDaysLeft = useMemo(() => {
-    if (!usage) return 0;
-    if (typeof usage.daysLeftInMonth === "number" && usage.daysLeftInMonth > 0) return usage.daysLeftInMonth;
-    if (!usage.nextCreditRefreshAt) return usage.daysLeftInMonth ?? 0;
-    const target = new Date(usage.nextCreditRefreshAt);
-    const diffMs = target.getTime() - Date.now();
-    if (!Number.isFinite(diffMs) || diffMs <= 0) return usage.daysLeftInMonth ?? 0;
-    return Math.max(1, Math.ceil(diffMs / (24 * 60 * 60 * 1000)));
-  }, [usage]);
+  const usageRows = getHeaderUsageRows(usage);
 
   async function handleSignOut() {
     try {
@@ -266,38 +230,20 @@ export function Header() {
               </button>
 
               {menuOpen && (
-                <div className="absolute right-0 top-full z-50 mt-1.5 w-56 overflow-hidden rounded-xl border border-slate-700 bg-slate-900 shadow-xl">
+                <div className="absolute right-0 top-full z-50 mt-1.5 w-72 overflow-hidden rounded-xl border border-slate-700 bg-slate-900 shadow-xl">
                   <div className="border-b border-slate-700/80 bg-slate-800/50 px-4 py-3">
                     <p className="truncate text-sm font-medium text-white" title={String(displayName)}>
                       {displayName}
                     </p>
-                    {usage && (
-                      <div className="mt-1.5 space-y-2 text-xs text-slate-400">
-                        <div className="flex items-center justify-between">
-                          <span className="text-slate-300">การใช้งานโควต้า</span>
-                          <span className="font-semibold text-cyan-200">{usagePercent}%</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-slate-300">เวลาในรอบ</span>
-                          <span className="font-semibold text-violet-200">เหลือ {displayDaysLeft} วัน</span>
-                        </div>
-                        <p>
-                          แผน <span className="text-slate-300">{formatPlanName(usage.plan)}</span>
-                          {usage.nextCreditRefreshAt && (
-                            <>
-                              {" · "}
-                              <span className="text-emerald-400">
-                                รีเซ็ตโควตาประมาณ{" "}
-                                {new Date(usage.nextCreditRefreshAt).toLocaleString("th-TH", {
-                                  dateStyle: "short",
-                                  timeStyle: "short",
-                                })}
-                              </span>
-                            </>
-                          )}
+                    <div className="mt-2 space-y-2 text-xs text-slate-400">
+                      <p>แผน <span className="text-slate-300">{formatPlanName(usage?.plan ?? fallbackPlan)}</span></p>
+                      {usageRows.map((row) => (
+                        <p key={row.label}>
+                          <span className="text-slate-300">{row.label}: </span>{row.value}
+                          {row.label === "วงเงิน AI รอบแพ็กเกจ" && usage?.periodAllowanceReached ? <span className="text-amber-300"> · ถึงวงเงินแล้ว</span> : null}
                         </p>
-                      </div>
-                    )}
+                      ))}
+                    </div>
                   </div>
                   <div className="py-1">
                     <Link

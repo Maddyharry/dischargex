@@ -13,6 +13,7 @@ import {
 } from "@/lib/billing-rules";
 import { getPlanTokenBudgetThb } from "@/lib/token-billing";
 import { getUsagePolicySnapshot, selectUsagePolicyLedgerRows, type UsagePolicyLedgerRow } from "@/lib/usage-policy";
+import { isStripeVerifiedBoostPayment } from "@/lib/stripe-boost-payment";
 import {
   EFFECTIVE_FROM,
   forecastRevenue5xPeriodCostCapThb,
@@ -58,10 +59,14 @@ export async function GET() {
     });
 
     type UserRow = (typeof users)[number];
-    const successfulAddonPayments = (await prisma.paymentRequest.findMany({
-      where: { type: "addon", entitlementAppliedAt: { not: null } },
-      select: { userId: true, addCredits: true, finalAmount: true, createdAt: true, entitlementAppliedAt: true },
-    })).filter((payment) => payment.entitlementAppliedAt !== null);
+    const allAddonPayments = await prisma.paymentRequest.findMany({
+      where: { type: "addon" },
+      select: { userId: true, addCredits: true, finalAmount: true, createdAt: true, entitlementAppliedAt: true, reviewedBy: true, stripePaymentIntentId: true, status: true },
+    });
+    const successfulAddonPayments = allAddonPayments.filter(isStripeVerifiedBoostPayment);
+    const pendingAddonPurchases = allAddonPayments.filter((payment) => !payment.entitlementAppliedAt && !["rejected", "cancelled", "expired"].includes(payment.status)).length;
+    const failedAddonPurchases = allAddonPayments.filter((payment) => ["rejected", "cancelled", "expired"].includes(payment.status)).length;
+    const unverifiedAppliedAddonPurchases = allAddonPayments.filter((payment) => payment.entitlementAppliedAt && !isStripeVerifiedBoostPayment(payment)).length;
     const addonUseTotals = await prisma.usageLog.aggregate({
       where: { addonCreditsUsed: { gt: 0 } },
       _sum: { addonCreditsUsed: true },
@@ -185,6 +190,9 @@ export async function GET() {
       revenueThb: successfulAddonPayments.reduce((sum, payment) => sum + (payment.finalAmount ?? 0), 0),
       passesRemaining: users.reduce((sum: number, row: UserRow) => sum + row.extraCredits, 0),
       passesConsumed: addonUseTotals._sum.addonCreditsUsed ?? 0,
+      pendingPurchases: pendingAddonPurchases,
+      failedPurchases: failedAddonPurchases,
+      unverifiedAppliedPurchases: unverifiedAppliedAddonPurchases,
     };
     return NextResponse.json({ ok: true, users: list, boostOverview }, { headers: PRIVATE_NO_STORE });
   } catch (err: unknown) {

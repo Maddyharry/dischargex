@@ -51,7 +51,7 @@ type UserRow = {
   boostLastUsedAt: string | null;
 };
 
-type BoostOverview = { successfulPurchases: number; passesSold: number; revenueThb: number; passesRemaining: number; passesConsumed: number };
+type BoostOverview = { successfulPurchases: number; passesSold: number; revenueThb: number; passesRemaining: number; passesConsumed: number; pendingPurchases: number; failedPurchases: number; unverifiedAppliedPurchases: number };
 
 type Activity = Record<string, string | number | boolean | string[] | null | undefined> & {
   id: string; kind: string; createdAt: string;
@@ -290,11 +290,14 @@ export default function AdminUsersPage() {
           </div>
         ) : null}
 
-        {!loading && boostOverview ? <section aria-label="ภาพรวม Boost" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        {!loading && boostOverview ? <section aria-label="ภาพรวม Boost" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {[
-            ["ซื้อสำเร็จ", boostOverview.successfulPurchases.toLocaleString("th-TH") + " รายการ"],
+            ["ชำระแล้ว (Stripe ยืนยัน)", boostOverview.successfulPurchases.toLocaleString("th-TH") + " รายการ"],
             ["สิทธิ์ขายแล้ว", boostOverview.passesSold.toLocaleString("th-TH")],
-            ["รายรับ Boost", "฿" + boostOverview.revenueThb.toLocaleString("th-TH")],
+            ["รายรับที่ยืนยันแล้ว", "฿" + boostOverview.revenueThb.toLocaleString("th-TH")],
+            ["รอชำระ / ยืนยัน", boostOverview.pendingPurchases.toLocaleString("th-TH") + " รายการ"],
+            ["ไม่สำเร็จ / ยกเลิก / หมดอายุ", boostOverview.failedPurchases.toLocaleString("th-TH") + " รายการ"],
+            ["บันทึกสิทธิ์แต่ไม่มีหลักฐาน Stripe", boostOverview.unverifiedAppliedPurchases.toLocaleString("th-TH") + " รายการ"],
             ["สิทธิ์คงเหลือ", boostOverview.passesRemaining.toLocaleString("th-TH")],
             ["สิทธิ์ใช้แล้ว", boostOverview.passesConsumed.toLocaleString("th-TH")],
           ].map(([label, value]) => <div key={label} className="rounded-xl border border-cyan-900/60 bg-slate-950/70 p-3"><p className="text-xs text-slate-400">{label}</p><p className="mt-1 text-lg font-semibold text-cyan-100">{value}</p></div>)}

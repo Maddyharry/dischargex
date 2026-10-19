@@ -39,7 +39,7 @@ beforeEach(() => {
     return Promise.resolve(55);
   });
   mocks.ledgerFindMany.mockResolvedValue([{ createdAt: new Date("2026-10-12T00:00:00Z"), model: "gpt-5.4", inputTokens: 1_000, outputTokens: 1_000, totalTokens: 2_000, estimatedCostThb: 1 }]);
-  mocks.paymentFindMany.mockResolvedValue([{ userId: "user-1", addCredits: 5, finalAmount: 109, createdAt: new Date("2026-10-13T00:00:00Z"), entitlementAppliedAt: new Date("2026-10-13T00:00:01Z") }]);
+  mocks.paymentFindMany.mockResolvedValue([{ userId: "user-1", addCredits: 5, finalAmount: 109, createdAt: new Date("2026-10-13T00:00:00Z"), entitlementAppliedAt: new Date("2026-10-13T00:00:01Z"), reviewedBy: "stripe_webhook", stripePaymentIntentId: "pi_test" }]);
 });
 
 describe("admin user usage counters", () => {
@@ -55,20 +55,20 @@ describe("admin user usage counters", () => {
       boostPassesRemaining: 3, boostPassesPurchased: 5, boostPurchaseCount: 1, boostPurchaseRevenue: 109, boostPassesConsumed: 2,
     });
     expect(body.boostOverview).toMatchObject({ successfulPurchases: 1, passesSold: 5, revenueThb: 109, passesRemaining: 3, passesConsumed: 2 });
-    expect(mocks.paymentFindMany.mock.calls[0][0].where).toEqual({ type: "addon", entitlementAppliedAt: { not: null } });
+    expect(mocks.paymentFindMany.mock.calls[0][0].where).toEqual({ type: "addon" });
     expect(mocks.ledgerFindMany.mock.calls[0][0].where).not.toHaveProperty("source");
   });
 
-  it("counts only addon requests whose entitlement was applied, independent of status text", async () => {
+  it("counts only Stripe-verified paid addon requests, and reports pending and unverified separately", async () => {
     mocks.paymentFindMany.mockResolvedValue([
-      { userId: "user-1", addCredits: 5, finalAmount: 109, createdAt: new Date("2026-10-13T00:00:00Z"), entitlementAppliedAt: new Date("2026-10-13T00:00:01Z") },
-      { userId: "user-1", addCredits: 15, finalAmount: 329, createdAt: new Date("2026-10-14T00:00:00Z"), entitlementAppliedAt: null },
-      { userId: "user-1", addCredits: 5, finalAmount: 109, createdAt: new Date("2026-10-15T00:00:00Z"), entitlementAppliedAt: new Date("2026-10-15T00:00:01Z") },
+      { userId: "user-1", addCredits: 5, finalAmount: 109, createdAt: new Date("2026-10-13T00:00:00Z"), entitlementAppliedAt: new Date("2026-10-13T00:00:01Z"), reviewedBy: "stripe_webhook", stripePaymentIntentId: "pi_paid1", status: "approved" },
+      { userId: "user-1", addCredits: 15, finalAmount: 329, createdAt: new Date("2026-10-14T00:00:00Z"), entitlementAppliedAt: null, reviewedBy: null, stripePaymentIntentId: null, status: "awaiting_review" },
+      { userId: "user-1", addCredits: 5, finalAmount: 109, createdAt: new Date("2026-10-15T00:00:00Z"), entitlementAppliedAt: new Date("2026-10-15T00:00:01Z"), reviewedBy: "admin", stripePaymentIntentId: null, status: "approved" },
     ]);
     const response = await getUsers();
     const body = await response.json();
-    expect(body.boostOverview).toMatchObject({ successfulPurchases: 2, passesSold: 10, revenueThb: 218 });
-    expect(body.users[0]).toMatchObject({ boostPassesPurchased: 10, boostPurchaseCount: 2, boostPurchaseRevenue: 218 });
+    expect(body.boostOverview).toMatchObject({ successfulPurchases: 1, passesSold: 5, revenueThb: 109, pendingPurchases: 1, failedPurchases: 0, unverifiedAppliedPurchases: 1 });
+    expect(body.users[0]).toMatchObject({ boostPassesPurchased: 5, boostPurchaseCount: 1, boostPurchaseRevenue: 109 });
   });
 
   it("keeps unsupported model cost unknown instead of reporting zero", async () => {
@@ -132,17 +132,17 @@ describe("admin per-user activity", () => {
     mocks.ledgerFindMany.mockResolvedValue([]);
     mocks.feedbackFindMany.mockResolvedValue([]);
     mocks.paymentFindMany.mockResolvedValue([
-      { type: "addon", status: "approved", addCredits: 5, finalAmount: 109, createdAt: new Date("2026-10-13T00:00:00Z"), entitlementAppliedAt: new Date("2026-10-13T00:00:01Z"), phone: "DO_NOT_RETURN_PHONE", hospitalName: "DO_NOT_RETURN_HOSPITAL", slipData: "DO_NOT_RETURN_SLIP", stripeSessionId: "DO_NOT_RETURN_STRIPE" },
-      { type: "addon", status: "rejected", addCredits: 15, finalAmount: 329, createdAt: new Date("2026-10-12T00:00:00Z"), entitlementAppliedAt: null },
+      { type: "addon", status: "approved", addCredits: 5, finalAmount: 109, createdAt: new Date("2026-10-13T00:00:00Z"), entitlementAppliedAt: new Date("2026-10-13T00:00:01Z"), reviewedBy: "stripe_webhook", stripePaymentIntentId: "pi_paid", phone: "DO_NOT_RETURN_PHONE", hospitalName: "DO_NOT_RETURN_HOSPITAL", slipData: "DO_NOT_RETURN_SLIP", stripeSessionId: "DO_NOT_RETURN_STRIPE" },
+      { type: "addon", status: "rejected", addCredits: 15, finalAmount: 329, createdAt: new Date("2026-10-12T00:00:00Z"), entitlementAppliedAt: null, reviewedBy: null, stripePaymentIntentId: null },
     ]);
     const response = await getActivity(new Request("https://example.test/api/admin/users/user-1/activity"), { params: Promise.resolve({ id: "user-1" }) });
     const body = await response.json();
     expect(response.status).toBe(200);
     expect(response.headers.get("Cache-Control")).toContain("no-store");
-    expect(mocks.paymentFindMany.mock.calls[0][0].select).toEqual({ type: true, status: true, addCredits: true, finalAmount: true, createdAt: true, entitlementAppliedAt: true });
+    expect(mocks.paymentFindMany.mock.calls[0][0].select).toEqual({ type: true, status: true, addCredits: true, finalAmount: true, createdAt: true, entitlementAppliedAt: true, reviewedBy: true, stripePaymentIntentId: true });
     expect(body.activities.filter((event: { kind: string }) => event.kind === "boost_purchase")).toMatchObject([
-      { type: "addon", status: "applied", addCredits: 5, finalAmount: 109 },
-      { type: "addon", status: "rejected", addCredits: 15, finalAmount: 329 },
+      { type: "addon", status: "ชำระแล้ว · Stripe ยืนยัน", addCredits: 5, finalAmount: 109 },
+      { type: "addon", status: "ไม่อนุมัติ", addCredits: 15, finalAmount: 329 },
     ]);
     expect(JSON.stringify(body)).not.toMatch(/DO_NOT_RETURN_(PHONE|HOSPITAL|SLIP|STRIPE)/);
   });

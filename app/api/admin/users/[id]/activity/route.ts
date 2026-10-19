@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { deidentify } from "@/lib/deidentify";
 import { estimateActualApiCostThbFromLedgerRows } from "@/lib/api-cost";
+import { getBoostAdminStatus } from "@/lib/stripe-boost-payment";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -60,7 +61,7 @@ export async function GET(req: Request, context: { params: Promise<{ id: string 
       }),
       prisma.paymentRequest.findMany({
         where: { userId, type: "addon" }, orderBy: { createdAt: "desc" }, take: limit,
-        select: { type: true, status: true, addCredits: true, finalAmount: true, createdAt: true, entitlementAppliedAt: true },
+        select: { type: true, status: true, addCredits: true, finalAmount: true, createdAt: true, entitlementAppliedAt: true, reviewedBy: true, stripePaymentIntentId: true },
       }),
     ]);
 
@@ -129,7 +130,7 @@ export async function GET(req: Request, context: { params: Promise<{ id: string 
         kind: "boost_purchase" as const,
         createdAt: row.createdAt.toISOString(),
         type: row.type,
-        status: row.entitlementAppliedAt ? "applied" : row.status,
+        status: getBoostAdminStatus(row),
         addCredits: row.addCredits,
         finalAmount: row.finalAmount,
       })),

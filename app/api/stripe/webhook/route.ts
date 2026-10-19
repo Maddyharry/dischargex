@@ -7,6 +7,7 @@ import { notifyUser } from "@/lib/notifications";
 import { markReferralFirstPurchase, shouldAwardReferralForCheckout, shouldAwardReferralForPaidInvoice } from "@/lib/referral";
 import { sendAdminAlertEmail } from "@/lib/admin-alert";
 import type Stripe from "stripe";
+import { getVerifiedBoostPaymentIntent } from "@/lib/stripe-boost-payment";
 import {
   APP_MANAGED_SCHEDULE_MARKER,
   APP_MANAGED_SCHEDULE_SUBSCRIPTION_KEY,
@@ -181,7 +182,7 @@ export async function POST(req: Request) {
     const rawBody = await req.text();
     const event = stripe.webhooks.constructEvent(rawBody, signature, getStripeWebhookSecret());
 
-    if (event.type === "checkout.session.completed") {
+    if (event.type === "checkout.session.completed" || event.type === "checkout.session.async_payment_succeeded") {
       const session = event.data.object;
       if (session.payment_status !== "paid" && session.payment_status !== "no_payment_required") {
         return NextResponse.json({ ok: true, ignored: true });
@@ -191,6 +192,13 @@ export async function POST(req: Request) {
         where: { stripeSessionId },
       });
       if (!payment || payment.entitlementAppliedAt) return NextResponse.json({ ok: true, ignored: true });
+
+      const boostPaymentIntentId = payment.type === "addon"
+        ? getVerifiedBoostPaymentIntent(session, payment)
+        : null;
+      if (payment.type === "addon" && !boostPaymentIntentId) {
+        return NextResponse.json({ ok: true, ignored: true });
+      }
 
       const user = await prisma.user.findUnique({
         where: { id: payment.userId || "" },
@@ -211,13 +219,13 @@ export async function POST(req: Request) {
         entitlementAppliedAt: now,
         reviewedAt: now,
         reviewedBy: "stripe_webhook",
-        stripePaymentIntentId: typeof session.payment_intent === "string" ? session.payment_intent : null,
+        stripePaymentIntentId: boostPaymentIntentId ?? (typeof session.payment_intent === "string" ? session.payment_intent : null),
         stripeInvoiceId: typeof session.invoice === "string" ? session.invoice : null,
       };
       let paymentClaimed = false;
       let addonLogCreated = false;
 
-      if (session.mode === "payment" && payment.type === "addon" && payment.addCredits) {
+      if (session.mode === "payment" && payment.type === "addon" && payment.addCredits && boostPaymentIntentId) {
         const appliedAddon = await prisma.$transaction(async (tx) => {
           const claim = await tx.paymentRequest.updateMany({
             where: { id: payment.id, entitlementAppliedAt: null },
