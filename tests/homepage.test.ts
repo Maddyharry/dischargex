@@ -29,7 +29,7 @@ describe("homepage conversion content", () => {
 
   it("keeps verifiable impact stats and avoids AI Chat marketing copy", () => {
     expect(page).toContain("<ImpactStats />");
-    expect(readFileSync("app/components/ImpactStats.tsx", "utf8")).toContain("รวมผู้ดูแลระบบโดยไม่หักโควตา");
+    expect(readFileSync("app/components/ImpactStats.tsx", "utf8")).toContain("รวมงานของผู้ดูแลระบบโดยไม่หักโควตา");
     expect(page).not.toMatch(/AI\s*Chat|AI\s*แชท|แชท\s*AI/i);
   });
 });
