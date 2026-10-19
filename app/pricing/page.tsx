@@ -312,23 +312,21 @@ function PricingPageContent() {
             เลือกแพ็กเกจตามปริมาณงาน
           </h1>
           <div className="mt-4 rounded-xl border border-amber-300/40 bg-amber-950/40 p-4 text-sm leading-relaxed text-amber-50 md:p-5">
-            <p className="font-semibold">โปรดทราบ: จำนวนเคสที่ระบุ “ต่อวัน” คือเพดานสูงสุดต่อวันเท่านั้น ไม่ได้รับประกันว่าจะใช้ได้จำนวนนั้นทุกวัน</p>
-            <p className="mt-2">แพ็กเกจที่ชำระเงินมีวงเงิน AI แยกต่อรอบบิล ซึ่งเป็นตัวกำหนดจำนวนเคสที่ทำได้จริง เคสมาตรฐานโดยประมาณต่อรอบ: Basic 15–18 · Standard 30–35 · Pro 55–65 เคส</p>
-            <p className="mt-2">ข้อมูลยาวหรือแนบหลายภาพใช้วงเงินมากขึ้น จึงอาจทำเคสได้น้อยกว่าค่าประมาณ เมื่อวงเงินหมดให้รอวันรีเซ็ตหรือซื้อ Boost ซึ่งเพิ่มสิทธิ์หลังยืนยันชำระเงินสำเร็จ และตรวจยอดจริงได้ที่ “ข้อมูลของฉัน”</p>
+            <p className="font-semibold">โควตามี 2 ส่วน</p>
+            <ul className="mt-2 list-disc space-y-1 pl-5">
+              <li>เพดานรายวันคือจำนวนครั้งสูงสุดที่กดสรุปได้ ไม่ใช่จำนวนเคสที่รับประกัน</li>
+              <li>วงเงิน AI ต่อรอบบิลเป็นตัวกำหนดจำนวนเคสจริง: โดยประมาณ Basic 15–18, Standard 30–35, Pro 55–65 เคสมาตรฐาน</li>
+              <li>ข้อมูลยาวหรือหลายภาพใช้วงเงินมากขึ้น ตรวจยอดและวันรีเซ็ตได้ที่ <Link href="/app/profile" className="underline underline-offset-2">ข้อมูลของฉัน</Link>; เมื่อวงเงินหมด รอรีเซ็ตหรือซื้อ Boost</li>
+            </ul>
           </div>
-          <p className="mt-2 text-xs text-slate-500">
-            ราคาอัปเดตล่าสุดในหน้านี้เสมอ — หากมีแคมเปญใหม่ ระบบจะแสดงที่หน้านี้ก่อนช่องทางอื่น
-          </p>
 
           <div className="mt-8 rounded-2xl border border-cyan-500/20 bg-cyan-950/15 p-5 md:p-6">
-            <h2 className="text-lg font-semibold text-cyan-100">มากกว่าการสรุปข้อความ</h2>
+            <h2 className="text-lg font-semibold text-cyan-100">ตัวช่วยจัดร่างและทบทวน coding</h2>
             <p className="mt-3 text-sm leading-relaxed text-slate-300">
-              ทุกแพ็กเกจช่วยให้คุณสรุปเคสได้เร็วขึ้น พร้อมตัวช่วยค้นหา diagnosis/procedure ที่อาจตกหล่น
-              และแสดงจุดที่ควรทบทวนก่อนนำไปใช้จริง
+              จัดร่าง discharge summary และชี้ diagnosis/procedure ที่ควรตรวจทาน
             </p>
             <p className="mt-2 text-xs leading-relaxed text-slate-500">
-              หมายเหตุ: DischargeX เป็นเครื่องมือช่วยทบทวนและประเมินเชิงสนับสนุน ไม่ใช่การรับรองผลการเบิกจ่าย
-              และควรมีผู้ใช้งานตรวจสอบข้อมูลก่อนเสมอ
+              ผลลัพธ์เป็นร่างเพื่อช่วยทบทวน ไม่รับรองผลการเบิกจ่าย โปรดตรวจสอบกับเวชระเบียนก่อนใช้
             </p>
           </div>
 
@@ -366,7 +364,7 @@ function PricingPageContent() {
               onChange={applyPlanFromPicker}
             />
             <p className="mt-1 text-[11px] text-slate-500">
-              เลือกแพ็กจากรายการนี้ได้ทันที — ไม่ต้องเลื่อนลงไปที่ชำระเงิน
+              เลือกแพ็กเกจที่นี่ แล้วเลื่อนลงไปชำระเงิน
             </p>
           </div>
 
@@ -682,7 +680,7 @@ function PricingPageContent() {
                     data-telemetry-click="pricing_stripe_checkout"
                     className="rounded-xl bg-indigo-500 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-400 disabled:opacity-60"
                   >
-                    {stripeLoading ? "กำลังเชื่อม Stripe..." : "ไปหน้า Stripe"}
+                    {stripeLoading ? "กำลังเปิดหน้าชำระเงิน..." : "ชำระเงินต่อ"}
                   </button>
                 </div>
               </div>

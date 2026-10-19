@@ -32,10 +32,10 @@ describe("homepage usage statistics display", () => {
 describe("pricing quota clarity", () => {
   it("clearly distinguishes daily maximums, period budget, and Trial total on the pricing page", () => {
     const source = readFileSync("app/pricing/page.tsx", "utf8");
-    expect(source).toContain("คือเพดานสูงสุดต่อวันเท่านั้น ไม่ได้รับประกันว่าจะใช้ได้จำนวนนั้นทุกวัน");
-    expect(source).toContain("วงเงิน AI แยกต่อรอบบิล");
+    expect(source).toContain("จำนวนครั้งสูงสุดที่กดสรุปได้ ไม่ใช่จำนวนเคสที่รับประกัน");
+    expect(source).toContain("วงเงิน AI ต่อรอบบิลเป็นตัวกำหนดจำนวนเคสจริง");
     expect(source).toContain("รวม 5 เคสตลอดช่วงทดลอง สูงสุดวันละ 2 เคส");
-    expect(source).toContain("Standard 30–35 · Pro 55–65 เคส");
+    expect(source).toContain("Basic 15–18, Standard 30–35, Pro 55–65 เคสมาตรฐาน");
     expect(source).not.toContain(">15 เคส</td>");
     expect(source).not.toContain(">40 เคส</td>");
   });

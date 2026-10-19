@@ -766,8 +766,8 @@ export default function ProfilePage() {
 
             <section className="rounded-3xl border border-violet-500/20 bg-slate-900/60 p-6">
               <h2 className="text-lg font-semibold text-white">แนะนำเพื่อน</h2>
-              <p className="mt-2 text-sm text-slate-300">ใช้ปุ่มคัดลอกลิงก์ด้านล่างเพื่อให้รหัสติดไปกับหน้าสมัคร ส่งให้เพื่อนได้หลายคน คุณจะได้รับ Boost 10 สิทธิ์ต่อเพื่อนหนึ่งคนเมื่อเพื่อนซื้อแพ็กเกจแบบชำระเงินจริงครั้งแรกสำเร็จ การสมัคร ทดลองใช้ หรือกรอกรหัสอย่างเดียวยังไม่มีโบนัส</p>
-              <p className="mt-1 text-xs text-slate-400">สิทธิ์ Boost ใช้ได้ขณะแพ็กเกจแบบชำระเงินของคุณยัง active หรือ pending_change</p>
+              <p className="mt-2 text-sm text-slate-300">ส่งลิงก์นี้ให้เพื่อนได้หลายคน รับ Boost 10 สิทธิ์ต่อเพื่อน เมื่อเพื่อนซื้อแพ็กเกจครั้งแรกสำเร็จ (สมัครหรือทดลองฟรียังไม่ได้โบนัส)</p>
+              <p className="mt-1 text-xs text-slate-400">ใช้ Boost ได้ขณะแพ็กเกจแบบชำระเงินยังใช้งานอยู่</p>
 
               {referralLoading ? <p className="mt-4 text-sm text-slate-400">กำลังโหลดข้อมูลแนะนำเพื่อน…</p> : null}
               {!referralLoading && referral?.referralCode ? (
@@ -777,7 +777,6 @@ export default function ProfilePage() {
                   <button type="button" onClick={() => void copyReferralLink()} className="rounded-xl bg-violet-600 px-3 py-2 text-sm font-medium text-white hover:bg-violet-500">คัดลอกลิงก์ชวนเพื่อน</button>
                 </div>
               ) : null}
-              <p className="mt-3 text-sm leading-relaxed text-slate-300">แต่ละบัญชีรับโบนัสได้ครั้งเดียว คุณจะได้ Boost 10 สิทธิ์เมื่อเพื่อนคนนั้นซื้อแพ็กเกจแบบชำระเงินจริงครั้งแรกสำเร็จ การสมัคร ทดลองใช้ หรือกรอกรหัสอย่างเดียวยังไม่ให้โบนัส</p>
 
               {!referralLoading && !referralAlreadyClaimed ? (
                 <form onSubmit={submitReferralClaim} className="mt-5 flex flex-wrap items-end gap-3">
@@ -807,7 +806,7 @@ export default function ProfilePage() {
             </section>
 
             <section className="rounded-3xl border border-cyan-500/20 bg-slate-900/60 p-6">
-              <h2 className="text-lg font-semibold text-white">Billing / จัดการแพ็กเกจ</h2>
+              <h2 className="text-lg font-semibold text-white">แพ็กเกจและการต่ออายุ</h2>
               {billingLoading ? (
                 <p className="mt-3 text-sm text-slate-400">กำลังโหลดสถานะจาก Stripe…</p>
               ) : billingState ? (

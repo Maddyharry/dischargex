@@ -4,7 +4,7 @@ import Link from "next/link";
 const PAGE_URL = "https://dischargex.net/icd10-review";
 const PAGE_TITLE = "ทบทวน ICD-10 ก่อนลงสรุปชาร์จ: checklist และแนวทาง | DischargeX";
 const PAGE_DESCRIPTION =
-  "คู่มือทบทวน ICD-10 สำหรับงานเวชระเบียนไทย: หลักฐานที่ควรมี, การจับคู่ diagnosis กับรหัส, และการใช้ AI เป็นเครื่องมือช่วยทบทวน — ไม่ใช่การจัดกลุ่มอย่างเป็นทางการ.";
+  "เช็กลิสต์ทบทวนรหัส ICD-10 กับหลักฐานในเวชระเบียน ก่อนนำไปใช้จริง";
 
 export const metadata: Metadata = {
   title: { absolute: PAGE_TITLE },
@@ -102,11 +102,10 @@ export default function Icd10ReviewPage() {
             คู่มือทบทวน ICD-10 สำหรับงาน IPD
           </p>
           <h1 className="mt-5 text-3xl font-bold tracking-tight text-white md:text-4xl">
-            ทบทวน ICD-10 ก่อนลงสรุปชาร์จ: checklist และแนวทางใช้งานจริง
+            ทบทวน ICD-10 ก่อนลงสรุปชาร์จ
           </h1>
           <p className="mt-4 max-w-3xl text-base leading-relaxed text-slate-300">
-            หน้านี้เชื่อมกับ workflow สรุปชาร์จ: เน้นหลักฐานใน chart, การแยกบทบาทโรค, และการใช้เครื่องมือช่วยทบทวนอย่างมี accountability
-            — ผลลัพธ์ยังต้องผ่านการตรวจทานโดยผู้รับผิดชอบเสมอ.
+            ตรวจว่ารหัสสอดคล้องกับหลักฐานและบทบาทของโรคในเวชระเบียน ก่อนยืนยันโดยผู้รับผิดชอบ
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
             <Link
@@ -119,7 +118,7 @@ export default function Icd10ReviewPage() {
               href="/knowledge"
               className="rounded-xl border border-violet-500/50 bg-violet-500/10 px-5 py-2.5 text-sm font-semibold text-violet-100 transition hover:bg-violet-500/20"
             >
-              Clinical Knowledge
+              คลังความรู้ทางคลินิก
             </Link>
           </div>
         </div>

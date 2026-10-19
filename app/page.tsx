@@ -71,9 +71,7 @@ export default function Home() {
           <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row sm:flex-wrap">
             <Link href={demoHref} className={primary}>ลองใช้ข้อมูลตัวอย่าง ไม่ต้องสมัคร <span aria-hidden="true" className="ml-2">→</span></Link>
             <Link href="/pricing" className="inline-flex items-center justify-center rounded-xl border border-white/20 bg-white/[.04] px-6 py-3.5 font-medium text-slate-100 transition hover:border-cyan-200/50 hover:bg-white/[.08] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-cyan-300">ดูแพ็กเกจและราคา</Link>
-            <Link href="/learn" className="inline-flex items-center justify-center rounded-xl px-5 py-3.5 font-medium text-cyan-100 underline decoration-cyan-300/40 underline-offset-4 transition hover:text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-cyan-300">ดูวิธีทำงาน</Link>
           </div>
-          <p className="mt-4 text-sm text-slate-400">เริ่มดูขั้นตอนด้วยข้อมูลตัวอย่างได้ทันที · ผลสรุปทุกครั้งต้องตรวจทาน</p>
         </div>
       </section>
 
@@ -81,7 +79,7 @@ export default function Home() {
         <div className="mx-auto mb-7 max-w-2xl text-center">
           <p className="text-sm font-medium tracking-wide text-cyan-300">เห็นภาพก่อนเริ่ม</p>
           <h2 id="video-heading" className="mt-2 text-2xl font-semibold tracking-tight text-white sm:text-3xl">ดูตัวอย่างการใช้งาน DischargeX</h2>
-          <p className="mt-3 leading-relaxed text-slate-400">ชมขั้นตอน แล้วลองทำตามด้วยข้อมูลตัวอย่างได้เลย</p>
+          <p className="mt-3 leading-relaxed text-slate-400">ดูวิธีใช้ แล้วลองกับข้อมูลตัวอย่างได้ทันที</p>
         </div>
         <div className="relative mx-auto w-full max-w-4xl">
           <div className="absolute -inset-3 rounded-[1.7rem] bg-gradient-to-br from-cyan-400/15 via-blue-500/10 to-teal-300/10 blur-xl" aria-hidden="true" />
@@ -107,7 +105,7 @@ export default function Home() {
         <div className="mx-auto max-w-2xl text-center">
           <p className="text-sm font-medium tracking-wide text-cyan-300">เริ่มจากเคสตัวอย่าง</p>
           <h2 id="steps-heading" className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">เห็นงานตั้งแต่ต้นจนจบ</h2>
-          <p className="mt-4 leading-relaxed text-slate-400">ลองดูหน้าจอและรูปแบบผลลัพธ์ก่อนตัดสินใจใช้งาน</p>
+          <p className="mt-4 leading-relaxed text-slate-400">ทดลองขั้นตอนและดูรูปแบบผลลัพธ์ก่อนสมัคร</p>
         </div>
         <div className="mt-10 grid gap-4 md:grid-cols-3">
           {steps.map((step) => <article key={step.number} className="rounded-2xl border border-white/10 bg-gradient-to-b from-white/[.055] to-white/[.02] p-6 shadow-lg shadow-black/10">
@@ -126,22 +124,25 @@ export default function Home() {
         <article className="rounded-2xl border border-white/10 bg-slate-900/60 p-6 sm:p-8">
           <p className="text-sm font-medium text-cyan-300">ตรวจทานเป็นขั้นตอน</p>
           <h2 className="mt-3 text-2xl font-semibold">ร่างช่วยจัดข้อมูล<br />ผู้ใช้เป็นคนยืนยัน</h2>
-          <p className="mt-4 leading-relaxed text-slate-300">ตรวจความครบถ้วนและความถูกต้องเทียบกับบันทึกต้นทางก่อนนำผลไปใช้ทุกครั้ง</p>
+          <p className="mt-4 leading-relaxed text-slate-300">ตรวจผลกับเวชระเบียนต้นทางก่อนนำไปใช้ทุกครั้ง</p>
           <Link href="/learn" className="mt-6 inline-flex text-cyan-200 underline underline-offset-4">อ่านคู่มือการเริ่มต้น →</Link>
         </article>
         <article className="rounded-2xl border border-cyan-200/15 bg-gradient-to-br from-cyan-950/60 to-slate-900/80 p-6 sm:p-8">
           <p className="text-sm font-medium text-cyan-300">เลือกตามจังหวะงาน</p>
           <h2 className="mt-3 text-2xl font-semibold">เริ่มทดลอง แล้วค่อยเลือกแพ็กเกจ</h2>
-          <p className="mt-4 leading-relaxed text-slate-300">ดูราคา โควตา และรายละเอียดสิทธิ์ของแต่ละแพ็กเกจก่อนเริ่มใช้งานกับบัญชีของคุณ</p>
-          <div className="mt-6 flex flex-wrap gap-3"><Link href="/pricing" className="rounded-lg border border-cyan-200/30 px-4 py-2.5 text-cyan-100 hover:bg-cyan-100/10">ดูแพ็กเกจ</Link><Link href="/knowledge" className="rounded-lg border border-white/15 px-4 py-2.5 text-slate-200 hover:bg-white/5">คลังความรู้</Link></div>
+          <p className="mt-4 leading-relaxed text-slate-300">เทียบราคาและสิทธิ์ก่อนเลือกแพ็กเกจ</p>
+          <div className="mt-6"><Link href="/pricing" className="rounded-lg border border-cyan-200/30 px-4 py-2.5 text-cyan-100 hover:bg-cyan-100/10">ดูแพ็กเกจและราคา</Link></div>
         </article>
       </section>
 
       <section className="border-t border-white/10 bg-[radial-gradient(ellipse_at_center,_rgba(8,145,178,.14),_transparent_65%)] px-5 py-16 text-center sm:px-8">
         <p className="text-sm font-medium text-cyan-300">พร้อมลองหรือยัง</p>
         <h2 className="mx-auto mt-3 max-w-2xl text-3xl font-semibold tracking-tight sm:text-4xl">ลองดูขั้นตอนและผลตัวอย่างด้วยตัวเอง</h2>
-        <p className="mx-auto mt-4 max-w-xl leading-relaxed text-slate-300">เริ่มด้วยข้อมูลตัวอย่างได้ทันที ไม่ต้องสมัคร</p>
-        <Link href={demoHref} className={`${primary} mt-7`}>ลองตัวอย่างทันที ไม่ต้องสมัคร <span aria-hidden="true" className="ml-2">→</span></Link>
+        <p className="mx-auto mt-4 max-w-xl leading-relaxed text-slate-300">ทดลองฟรี 14 วัน · รวม 5 เคส · สูงสุดวันละ 2 เคส</p>
+        <div className="mt-7 flex flex-wrap justify-center gap-3">
+          <Link href="/signup" className={primary}>สมัครทดลองฟรี <span aria-hidden="true" className="ml-2">→</span></Link>
+          <Link href={demoHref} className="inline-flex items-center justify-center rounded-xl border border-white/20 px-6 py-3.5 font-medium text-slate-100 hover:bg-white/5">ลองข้อมูลตัวอย่าง</Link>
+        </div>
       </section>
     </main>
   );

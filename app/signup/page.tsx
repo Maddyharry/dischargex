@@ -90,7 +90,7 @@ export default function SignupPage() {
       <div className="w-full max-w-md rounded-3xl border border-white/10 bg-slate-900/80 p-6 shadow-2xl">
         <h1 className="text-2xl font-semibold">สมัครสมาชิก DischargeX</h1>
         <p className="mt-2 text-sm text-slate-400">
-          สมัครด้วยอีเมลและรหัสผ่าน เพื่อทดลองใช้ฟรี 14 วัน
+          ทดลองฟรี 14 วัน รวม 5 เคส สูงสุดวันละ 2 เคส
         </p>
 
         {error && (

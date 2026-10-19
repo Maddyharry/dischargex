@@ -105,8 +105,7 @@ export default function SummaryChargePage() {
             สรุปชาร์จ คืออะไร และทำอย่างไรให้เร็วขึ้นแต่ยังครบถ้วน
           </h1>
           <p className="mt-4 max-w-3xl text-base leading-relaxed text-slate-300">
-            หน้านี้สรุปหลักคิดการทำสรุปชาร์จแบบใช้งานจริงในโรงพยาบาลไทย พร้อม checklist และแนวทางลดจุดตกหล่นของ diagnosis/ICD-10
-            ก่อนนำไปใช้ในงานเวชระเบียน.
+            เช็กลิสต์ช่วยจัดข้อมูลและทบทวน diagnosis/ICD-10 ก่อนนำผลไปใช้จริง
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
             <Link
@@ -119,14 +118,14 @@ export default function SummaryChargePage() {
               href="/app/guest?tutorial=1"
               className="rounded-xl border border-cyan-500/50 bg-cyan-500/10 px-5 py-2.5 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-500/20"
             >
-              ลองใช้แบบสาธิต (ไม่ต้องสมัคร)
+              ทดลองด้วยข้อมูลตัวอย่าง ไม่ต้องสมัคร
             </Link>
           </div>
         </div>
       </section>
 
       <section className="mx-auto max-w-5xl px-4 py-10">
-        <h2 className="text-xl font-semibold text-white md:text-2xl">Checklist การสรุปชาร์จที่ควรมี</h2>
+        <h2 className="text-xl font-semibold text-white md:text-2xl">เช็กลิสต์สรุปชาร์จ</h2>
         <ul className="mt-4 list-disc space-y-2 pl-5 text-slate-200">
           <li>Principal diagnosis ที่สอดคล้องกับข้อมูลใน chart</li>
           <li>Comorbidity/Complication ที่มีหลักฐานสนับสนุน</li>
@@ -144,8 +143,8 @@ export default function SummaryChargePage() {
               <p className="mt-1">ต่างในเป้าหมายหลัก โดยสรุปชาร์จจะเน้นความครบถ้วนด้าน coding และข้อมูลที่ใช้ทบทวนรหัส.</p>
             </div>
             <div>
-              <h3 className="font-semibold text-slate-100">เครื่องมือ AI ช่วยอะไรได้บ้าง?</h3>
-              <p className="mt-1">ช่วยจัดโครงสรุป, ชี้จุดข้อมูลที่อาจตกหล่น, และเสนอแนวทางทบทวน ICD-10 อย่างเป็นระบบ.</p>
+              <h3 className="font-semibold text-slate-100">DischargeX ช่วยอะไร?</h3>
+              <p className="mt-1">ช่วยจัดโครงสรุป ชี้ข้อมูลที่อาจตกหล่น และช่วยทบทวน ICD-10 โดยผู้ใช้ต้องตรวจผลกับเวชระเบียน</p>
             </div>
             <div>
               <h3 className="font-semibold text-slate-100">ต้องตรวจทานโดยคนอีกไหม?</h3>

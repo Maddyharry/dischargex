@@ -28,16 +28,16 @@ describe("UsagePolicyCard", () => {
       periodPercentUsed: 20, boostCredits: 3, active: true, canPurchaseBoost: true,
     }));
     expect(markup).toContain("รีเซ็ตรายวัน:");
-    expect(markup).toContain("ใช้ไป 20%");
-    expect(markup).toContain("ไม่ใช่จำนวนเคสหรือยอดเรียกเก็บจริง");
-    expect(markup).not.toContain("1260");
+    expect(markup).toContain("ใช้สิทธิ์ไป 20%");
+    expect(markup).toContain("หน่วยนี้เป็นโควตาภายในของแพ็กเกจเดิม ไม่ใช่จำนวนเคสหรือยอดค่า API");
+    expect(markup).toContain("เหลือ 1260 จาก 1260 หน่วย");
     expect(markup).toContain("สิ้นสุดรอบแพ็กเกจ:");
     expect(markup).toContain("เงื่อนไขใหม่จึงเริ่มเมื่อรอบต่ออายุ");
-    expect(markup).toContain("โควตารายวัน");
-    expect(markup).toContain("2 / 5 เคส");
+    expect(markup).toContain("เพดานต่อวัน");
+    expect(markup).toContain("2 / 5 ครั้ง");
     expect(markup).toContain("เวลาไทย");
-    expect(markup).toContain("฿109");
-    expect(markup).toContain("฿299");
+    expect(markup).toContain("109 บาท");
+    expect(markup).toContain("299 บาท");
     expect(markup).toContain("Boost คงเหลือ");
   });
 
@@ -64,7 +64,7 @@ describe("UsagePolicyCard", () => {
       used: 0, remaining: 1260, total: 1260, allowanceDisplayMode: "ai_cost",
       periodPercentUsed: 0, boostCredits: 0, active: true, canPurchaseBoost: false,
     }));
-    expect(markup).toContain("วงเงิน AI รอบนี้ (ประเมินตามปริมาณประมวลผล)");
+    expect(markup).toContain("วงเงิน AI รอบแพ็กเกจ");
     expect(markup).toContain("ใช้วงเงิน AI ไปแล้ว 0%");
     expect(markup).not.toContain("1260");
     expect(markup).not.toContain("หน่วยสิทธิ์รอบเดิม");

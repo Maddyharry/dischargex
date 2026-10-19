@@ -28,8 +28,9 @@ export default function BoostPurchaseButton({ credits = 5, compact = false }: { 
   return <div className="space-y-1">
     <button type="button" onClick={() => void beginCheckout()} disabled={loading}
       className={`rounded-xl bg-cyan-600 px-4 py-2 text-sm font-semibold text-white hover:bg-cyan-500 disabled:opacity-50 ${compact ? "text-xs" : ""}`}>
-      {loading ? "กำลังเปิด Stripe…" : `ซื้อ Boost ${credits} สิทธิ์ · ฿${credits === 5 ? 109 : 299}`}
+      {loading ? "กำลังเปิดหน้าชำระเงิน…" : `ซื้อ Boost ${credits} สิทธิ์ · ${credits === 5 ? "109" : "299"} บาท`}
     </button>
+    {!compact ? <p className="text-xs text-slate-400">ใช้ได้เมื่อระบบยืนยันการชำระเงินแล้ว</p> : null}
     {error ? <p role="alert" className="text-xs text-rose-300">{error}</p> : null}
   </div>;
 }

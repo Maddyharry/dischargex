@@ -160,10 +160,7 @@ function LoginForm() {
       <div className="w-full max-w-md rounded-3xl border border-white/10 bg-slate-900/80 p-6 shadow-2xl">
         <h1 className="text-2xl font-semibold">เข้าสู่ระบบ DischargeX</h1>
         <p className="mt-2 text-sm text-slate-400">
-          ทดลองใช้งานฟรี 14 วัน หลังจากนั้นสามารถเลือกแพ็กเกจได้
-        </p>
-        <p className="mt-2 rounded-xl border border-cyan-500/25 bg-cyan-500/10 px-3 py-2 text-xs text-cyan-100">
-          นี่คือหน้าล็อกอินอย่างเป็นทางการของ DischargeX (secure login)
+          สมาชิกใหม่ทดลองฟรี 14 วัน · รวม 5 เคส · สูงสุดวันละ 2 เคส
         </p>
 
         {registered && (
