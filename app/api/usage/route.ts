@@ -216,6 +216,16 @@ async function getUsage(req: Request) {
           },
         })
       : 0;
+  const trialSummaryUsed = normalizedPlanId === "trial" && dbUser?.id != null
+    ? await prisma.usageLog.count({
+        where: {
+          userId: dbUser.id,
+          reason: { in: ["generate", "long_case_generate", "token_generate"] },
+          createdAt: { gte: periodStart, lt: periodEnd },
+        },
+      })
+    : null;
+  const trialSummaryLimit = normalizedPlanId === "trial" ? 5 : null;
   const isAdminUser = dbUser?.role === "admin";
   const chatDailyLimitReached = !isAdminUser && chatUsedToday >= dailyApprox.chatPerDay;
   const summaryDailyLimitReached = !isAdminUser && summaryUsedToday >= dailyApprox.summaryPerDay;
@@ -249,6 +259,11 @@ async function getUsage(req: Request) {
     chatDailyLimitReached,
     summaryUsedToday,
     summaryDailyLimit: dailyApprox.summaryPerDay,
+    trialSummaryUsed,
+    trialSummaryLimit,
+    trialSummaryRemaining: trialSummaryLimit === null || trialSummaryUsed === null
+      ? null
+      : Math.max(0, trialSummaryLimit - trialSummaryUsed),
     approxSummaryCasesPerMonth: usesRevenue4x ? getApproxMonthlySummaryCases(normalizedPlanId) : null,
     summaryDailyLimitReached,
     tokenBudgetReached,

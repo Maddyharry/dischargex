@@ -42,6 +42,9 @@ type UsageInfo = {
   nextPlanEffectiveDate?: string | null;
   summaryUsedToday?: number;
   summaryDailyLimit?: number;
+  trialSummaryUsed?: number | null;
+  trialSummaryLimit?: number | null;
+  trialSummaryRemaining?: number | null;
   nextDailyResetAt?: string;
 };
 
@@ -259,6 +262,9 @@ export default function ProfilePage() {
             nextPlanEffectiveDate: usageData.nextPlanEffectiveDate ?? null,
             summaryUsedToday: typeof usageData.summaryUsedToday === "number" ? usageData.summaryUsedToday : undefined,
             summaryDailyLimit: typeof usageData.summaryDailyLimit === "number" ? usageData.summaryDailyLimit : undefined,
+            trialSummaryUsed: typeof usageData.trialSummaryUsed === "number" ? usageData.trialSummaryUsed : null,
+            trialSummaryLimit: typeof usageData.trialSummaryLimit === "number" ? usageData.trialSummaryLimit : null,
+            trialSummaryRemaining: typeof usageData.trialSummaryRemaining === "number" ? usageData.trialSummaryRemaining : null,
             nextDailyResetAt: typeof usageData.nextDailyResetAt === "string" ? usageData.nextDailyResetAt : null,
           });
         }
@@ -728,6 +734,9 @@ export default function ProfilePage() {
                     total={usage?.total ?? 0}
                     summaryUsedToday={usage?.summaryUsedToday}
                     summaryDailyLimit={usage?.summaryDailyLimit}
+                    trialSummaryUsed={usage?.trialSummaryUsed}
+                    trialSummaryLimit={usage?.trialSummaryLimit}
+                    trialSummaryRemaining={usage?.trialSummaryRemaining}
                     summaryResetAt={usage?.nextDailyResetAt}
                     periodAllowanceResetAt={usage?.periodAllowanceResetAt}
                     periodEnd={usage?.periodEnd}

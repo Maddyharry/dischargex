@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { ImpactStatsPanel } from "../app/components/ImpactStats";
 import { ValueCalculator } from "../app/components/ValueCalculator";
 import { calculateDailyTimeDifferenceMinutes, formatMinutesAsThaiDuration } from "../lib/value-calculator";
+import { readFileSync } from "node:fs";
 
 describe("homepage usage statistics display", () => {
   it("keeps the panel and explicitly shows zero when there are no recorded jobs", () => {
@@ -25,6 +26,18 @@ describe("homepage usage statistics display", () => {
     expect(markup).toContain("0 นาที 9 วินาที");
     expect(markup).toContain("สมมติฐานทำเอง 10 นาที/เคส");
     expect(markup).toContain("ข้อมูลล่าสุด");
+  });
+});
+
+describe("pricing quota clarity", () => {
+  it("clearly distinguishes daily maximums, period budget, and Trial total on the pricing page", () => {
+    const source = readFileSync("app/pricing/page.tsx", "utf8");
+    expect(source).toContain("คือเพดานสูงสุดต่อวันเท่านั้น ไม่ได้รับประกันว่าจะใช้ได้จำนวนนั้นทุกวัน");
+    expect(source).toContain("วงเงิน AI แยกต่อรอบบิล");
+    expect(source).toContain("รวม 5 เคสตลอดช่วงทดลอง สูงสุดวันละ 2 เคส");
+    expect(source).toContain("Standard 30–35 · Pro 55–65 เคส");
+    expect(source).not.toContain(">15 เคส</td>");
+    expect(source).not.toContain(">40 เคส</td>");
   });
 });
 

@@ -311,10 +311,11 @@ function PricingPageContent() {
           <h1 className="text-3xl font-semibold tracking-tight text-white md:text-4xl">
             เลือกแพ็กเกจตามปริมาณงาน
           </h1>
-          <p className="mt-3 max-w-2xl text-sm text-slate-400 md:text-base">
-            จำกัดจำนวนเคสสูงสุดต่อวัน และมีวงเงิน AI แยกตามรอบแพ็กเกจ · โดยเฉลี่ยประมาณ 4 บาทต่อเคสมาตรฐาน เคสข้อมูลยาวหรือมีหลายภาพอาจใช้วงเงินมากขึ้น
-          </p>
-          <p className="mt-2 max-w-3xl text-xs text-slate-500">จำนวนเคสต่อเดือนเป็นเพียงค่าประมาณจากวงเงิน AI ไม่ใช่จำนวนรับประกัน · แพ็กเกจรายปีใช้วงเงินรวมตลอดรอบปีตามวันที่ต่ออายุ · ลูกค้าที่มีรอบชำระอยู่คงเงื่อนไขเดิมจนจบรอบ · ดูยอดและวันรีเซ็ตจริงได้ที่ ข้อมูลของฉัน</p>
+          <div className="mt-4 rounded-xl border border-amber-300/40 bg-amber-950/40 p-4 text-sm leading-relaxed text-amber-50 md:p-5">
+            <p className="font-semibold">โปรดทราบ: จำนวนเคสที่ระบุ “ต่อวัน” คือเพดานสูงสุดต่อวันเท่านั้น ไม่ได้รับประกันว่าจะใช้ได้จำนวนนั้นทุกวัน</p>
+            <p className="mt-2">แพ็กเกจที่ชำระเงินมีวงเงิน AI แยกต่อรอบบิล ซึ่งเป็นตัวกำหนดจำนวนเคสที่ทำได้จริง เคสมาตรฐานโดยประมาณต่อรอบ: Basic 15–18 · Standard 30–35 · Pro 55–65 เคส</p>
+            <p className="mt-2">ข้อมูลยาวหรือแนบหลายภาพใช้วงเงินมากขึ้น จึงอาจทำเคสได้น้อยกว่าค่าประมาณ เมื่อวงเงินหมดให้รอวันรีเซ็ตหรือซื้อ Boost ซึ่งเพิ่มสิทธิ์หลังยืนยันชำระเงินสำเร็จ และตรวจยอดจริงได้ที่ “ข้อมูลของฉัน”</p>
+          </div>
           <p className="mt-2 text-xs text-slate-500">
             ราคาอัปเดตล่าสุดในหน้านี้เสมอ — หากมีแคมเปญใหม่ ระบบจะแสดงที่หน้านี้ก่อนช่องทางอื่น
           </p>
@@ -377,8 +378,8 @@ function PricingPageContent() {
               <p className="text-xs text-slate-400">ทดลองใช้ฟรี 14 วัน สำหรับฟีเจอร์ที่เปิดให้บริการ</p>
               <ul className="mt-4 space-y-2 text-sm text-slate-200">
                 <li>- ไม่มีผูกมัด</li>
-                <li>- ใช้ได้ 1 ครั้งต่อบัญชี</li>
-                <li>- โควตารายวัน 2 เคส และมีโควตารวมในรอบทดลอง</li>
+                <li>- ทดลองได้ 1 ช่วงต่อบัญชี นาน 14 วัน</li>
+                <li>- รวม 5 เคสตลอดช่วงทดลอง สูงสุดวันละ 2 เคส</li>
               </ul>
             </div>
 
@@ -520,10 +521,10 @@ function PricingPageContent() {
               </thead>
               <tbody className="divide-y divide-white/10 text-slate-300 [&>tr]:transition [&>tr:hover]:bg-white/[0.03]">
                 <tr>
-                  <td className="px-4 py-3">โควตารายวัน</td>
+                  <td className="px-4 py-3">เพดานสูงสุดต่อวัน</td>
                   <td className={`px-4 py-3 ${selectedPlanTier === "basic" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>5 เคส</td>
-                  <td className={`px-4 py-3 ${selectedPlanTier === "standard" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>15 เคส</td>
-                  <td className={`px-4 py-3 ${selectedPlanTier === "pro" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>40 เคส</td>
+                  <td className={`px-4 py-3 ${selectedPlanTier === "standard" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>10 เคส</td>
+                  <td className={`px-4 py-3 ${selectedPlanTier === "pro" ? "bg-cyan-500/5 text-cyan-100" : ""}`}>20 เคส</td>
                 </tr>
                 <tr>
                   <td className="px-4 py-3">ช่วยคิด Principal / Comorbidity / Complication</td>

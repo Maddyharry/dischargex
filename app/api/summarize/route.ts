@@ -1240,6 +1240,16 @@ export async function POST(req: Request) {
             },
           })
         : 0;
+    const trialSummaryCount = plan === "trial" && userId != null
+      ? await prisma.usageLog.count({
+          where: {
+            userId,
+            reason: { in: ["generate", "long_case_generate", "token_generate"] },
+            createdAt: { gte: periodStart, lt: periodEnd },
+          },
+        })
+      : 0;
+    const trialSummaryLimit = 5;
     const summaryApproxLimit = getDailyApproxLimit(plan, dbUser?.periodStartedAt).summaryPerDay;
     const nextDailyResetAt = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
 
@@ -1316,8 +1326,21 @@ export async function POST(req: Request) {
     const revenue4xMode = planDefinition.isPaid && isRevenue4xEligible(dbUser?.periodStartedAt);
     const tokenBudgetThb = getPlanTokenBudgetThb(plan);
     const dailyLimitReached = mode === "generate" && !isAdminUser && todaySummaryCount >= summaryApproxLimit;
+    const trialPeriodLimitReached = !isAdminUser && plan === "trial" && trialSummaryCount >= trialSummaryLimit;
     const legacyCreditsBlocked = mode === "generate" && !revenue4xMode && enforceCreditLimit &&
       !isAdminUser && baseRemaining < estimatedCreditsForCase;
+
+    // Trial success allowance is checked before OCR/provider/recalc work. Only committed
+    // successful Generate rows count, so failed attempts do not consume a trial case.
+    if (trialPeriodLimitReached) {
+      return json({
+        error: "ใช้ครบ 5 เคสของช่วงทดลองใช้ฟรีแล้ว อัปเกรดแพ็กเกจเพื่อใช้งานต่อได้เลย",
+        errorCode: "TRIAL_GENERATION_LIMIT_REACHED",
+        resetAt: periodEnd.toISOString(),
+        trialSummaryUsed: trialSummaryCount,
+        trialSummaryLimit,
+      }, 402);
+    }
 
     const policyRangeStart = new Date(Math.min(monthStart.getTime(), periodStart.getTime()));
     const policyRangeEnd = new Date(Math.max(new Date(now.getFullYear(), now.getMonth() + 1, 1).getTime(), periodEnd.getTime()));

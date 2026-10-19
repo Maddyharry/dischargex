@@ -28,7 +28,7 @@ describe("customer support guidance and deterministic outage fallback", () => {
     expect(knowledge).toContain("QR code และ barcode");
     expect(knowledge).toContain("ระบบไม่สามารถตรวจยืนยันได้ว่าพิกเซล");
     expect(knowledge).toContain("ไม่ยกเลิกหน้าที่ด้านกฎหมาย");
-    expect(knowledge).toContain("Trial จำกัด 2 เคสปกติต่อวัน");
+    expect(knowledge).toContain("Trial ทดลองได้ 1 ช่วงต่อบัญชีเป็นเวลา 14 วัน รวมสำเร็จได้ 5 เคสตลอดช่วง และจำกัดสูงสุด 2 เคสต่อวัน");
     expect(knowledge).toContain("Basic 5, Standard 10, Pro 20");
     expect(knowledge).toContain("Basic 15–18, Standard 30–35, Pro 55–65");
     expect(knowledge).toContain("5 สิทธิ์ ฿109");
@@ -65,8 +65,8 @@ describe("customer support guidance and deterministic outage fallback", () => {
     ["รีเฟอร์รัลเพื่อนได้อะไร", "Boost 10 สิทธิ์", "ไม่มีโบนัสตอนสมัคร"],
     ["How do I invite a friend with my referral code?", "/app/profile", "/signup?ref=CODE", "Boost 10 สิทธิ์", "ทดลองใช้"],
     ["เพื่อนกรอกรหัส referral ที่ไหน", "รหัสแนะนำ (ถ้ามี)", "/signup?ref=CODE", "ไม่มีโบนัสทันที"],
-    ["Trial ได้วันละกี่เคส", "Trial 2", "Basic 5", "Standard 10", "Pro 20", "วงเงิน AI", "ซื้อ Boost"],
-    ["What is the daily quota per day?", "Trial 2", "Basic 5", "Pro 20", "AI", "Boost"],
+    ["Trial ได้วันละกี่เคส", "รวม 5 เคส", "14 วัน", "สูงสุดวันละ 2 เคส", "Basic 5", "Standard 10", "Pro 20", "วงเงิน AI", "ซื้อ Boost"],
+    ["What is the daily quota per day?", "รวม 5 เคส", "14 วัน", "สูงสุดวันละ 2 เคส", "Basic 5", "Pro 20", "AI", "Boost"],
     ["ทำไมโควตาแพ็กเกจขึ้น 0 / 1260", "จำนวนครั้ง/เคส", "หน่วยสิทธิ์", "ไม่ใช่จำนวนเคส", "ลูกค้าเก่า", "Boost"],
     ["รอบบิล reset เมื่อไหร่", "วันสิ้นสุดรอบ", "/app/profile"],
     ["ถ้าสรุป error จะหักโควตาไหม", "ล้มเหลวก่อนระบบบันทึกผลสำเร็จ", "จะไม่ตัดโควตา", "ต้นทุน"],

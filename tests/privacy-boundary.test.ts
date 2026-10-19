@@ -79,6 +79,24 @@ beforeEach(() => {
 });
 
 describe("AI privacy request boundaries", () => {
+  it("blocks trial work after five successful trial generations before OCR or provider calls", async () => {
+    process.env.OPENAI_API_KEY = "test-key";
+    configureSummaryUser({
+      plan: "trial",
+      periodStartedAt: new Date("2026-10-19T00:00:00.000Z"),
+      subscriptionExpiresAt: new Date("2026-11-02T00:00:00.000Z"),
+    });
+    mocks.usageCount.mockResolvedValue(5);
+    const response = await summarizePost(request("https://app.test/api/summarize", {
+      mode: "generate", inputs: { order_sheet: "short synthetic case" }, imageInputs: [image], imagesRedactedConfirmed: true,
+      settings: { fast: true, model: "gpt-5-mini" },
+    }));
+    expect(response.status).toBe(402);
+    expect(await response.json()).toMatchObject({ errorCode: "TRIAL_GENERATION_LIMIT_REACHED", trialSummaryUsed: 5, trialSummaryLimit: 5 });
+    expect(mocks.openaiConstruct).not.toHaveBeenCalled();
+    expect(mocks.openaiCreate).not.toHaveBeenCalled();
+  });
+
   it("does not auto-activate a stored pass at the daily cap, but returns the explicit offer", async () => {
     process.env.OPENAI_API_KEY = "test-key";
     configureSummaryUser({ extraCredits: 1 });

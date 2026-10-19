@@ -6,6 +6,9 @@ type UsagePolicyCardProps = {
   total: number;
   summaryUsedToday: number | null | undefined;
   summaryDailyLimit: number | null | undefined;
+  trialSummaryUsed?: number | null;
+  trialSummaryLimit?: number | null;
+  trialSummaryRemaining?: number | null;
   summaryResetAt: string | null | undefined;
   periodAllowanceResetAt: string | null | undefined;
   periodEnd: string | null | undefined;
@@ -36,6 +39,7 @@ export default function UsagePolicyCard(props: UsagePolicyCardProps) {
         <div>
           <p className="text-slate-300">โควตารายวัน: <span className="font-semibold text-white">{props.summaryUsedToday ?? "ไม่ทราบ"} / {props.summaryDailyLimit ?? "ไม่ทราบ"} เคส</span></p>
           <p className="text-xs text-slate-400">รีเซ็ตรายวัน: {formatUsageReset(props.summaryResetAt)} (เวลาไทย)</p>
+          {typeof props.trialSummaryLimit === "number" ? <p className="mt-1 text-slate-300">โควตารวมช่วงทดลอง: <span className="font-semibold text-white">ใช้แล้ว {props.trialSummaryUsed ?? "ไม่ทราบ"} · เหลือ {props.trialSummaryRemaining ?? "ไม่ทราบ"} จาก {props.trialSummaryLimit} เคส</span></p> : null}
         </div>
         <div className="border-t border-slate-800 pt-3">
           {props.allowanceDisplayMode === "legacy_units" ? <>
