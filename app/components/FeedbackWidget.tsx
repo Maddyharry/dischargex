@@ -5,6 +5,7 @@ import { useFeedbackContext } from "@/app/context/FeedbackContext";
 import { useSession } from "next-auth/react";
 import { usePathname } from "next/navigation";
 import { formatAdminChatTimestamp, isChatScrollNearBottom, shouldAutoScrollToLatest } from "@/lib/admin-chat-ui";
+import { parseChatMessage } from "@/lib/chat-message-format";
 
 type ChatMessage = {
   id: string;
@@ -53,6 +54,26 @@ type Tab = "chat" | "report";
 const GUEST_FEEDBACK_CHAT_STORAGE_KEY = "dischargex_feedback_widget_guest_v1";
 const GUEST_CHAT_MAX_MESSAGES = 50;
 
+function ChatMessageBody({ message }: { message: string }) {
+  const lines = parseChatMessage(message);
+  return (
+    <div className="whitespace-pre-wrap leading-relaxed">
+      {lines.map((parts, lineIndex) => (
+        <React.Fragment key={lineIndex}>
+          {lineIndex > 0 ? <br /> : null}
+          {parts.map((part, partIndex) =>
+            part.bold ? (
+              <strong key={partIndex} className="font-semibold">{part.text}</strong>
+            ) : (
+              <React.Fragment key={partIndex}>{part.text}</React.Fragment>
+            )
+          )}
+        </React.Fragment>
+      ))}
+    </div>
+  );
+}
+
 function parseGuestChatMessages(raw: string | null): ChatMessage[] {
   if (!raw) return [];
   try {
@@ -86,6 +107,8 @@ export function FeedbackWidget() {
 
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState("");
+  const adminComposerRef = useRef<HTMLTextAreaElement>(null);
+  const customerComposerRef = useRef<HTMLTextAreaElement>(null);
   const [chatLoading, setChatLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -347,14 +370,20 @@ export function FeedbackWidget() {
   }
 
   async function sendChat() {
-    const text = chatInput.trim();
-    if (!text || chatLoading) return;
+    const text = chatInput;
+    if (!text.trim() || chatLoading) return;
     if (isAdmin && !activeThreadUserId) {
       setLoadError("เลือกห้องแชทลูกค้าก่อนส่งข้อความ");
       return;
     }
     setChatLoading(true);
     setChatInput("");
+    for (const composer of [adminComposerRef.current, customerComposerRef.current]) {
+      if (composer) {
+        composer.style.height = "auto";
+        composer.style.overflowY = "hidden";
+      }
+    }
     const userMsgId = `user-${Date.now()}`;
     const botId = `bot-${Date.now()}`;
     const now = new Date().toISOString();
@@ -591,7 +620,7 @@ export function FeedbackWidget() {
                                 : "ml-2 mr-10 bg-slate-700/80 text-slate-200"
                             }`}
                           >
-                            <div className="whitespace-pre-wrap leading-relaxed">{m.message}</div>
+                            <ChatMessageBody message={m.message} />
                           </div>
                           <time dateTime={m.createdAt} className={`mt-1 block px-2 text-[11px] text-slate-400 ${m.source === "user" ? "text-right" : "text-left"}`}>
                             {formatAdminChatTimestamp(m.createdAt)}
@@ -607,13 +636,25 @@ export function FeedbackWidget() {
                     </div>
                     <div className="shrink-0 border-t border-slate-700 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
                       <div className="flex gap-2">
-                        <input
-                          type="text"
+                        <textarea
+                          ref={adminComposerRef}
+                          rows={1}
                           value={chatInput}
-                          onChange={(e) => setChatInput(e.target.value)}
-                          onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendChat()}
+                          onChange={(e) => {
+                            setChatInput(e.target.value);
+                            e.currentTarget.style.height = "auto";
+                            const nextHeight = Math.min(e.currentTarget.scrollHeight, 160);
+                            e.currentTarget.style.height = `${nextHeight}px`;
+                            e.currentTarget.style.overflowY = e.currentTarget.scrollHeight > 160 ? "auto" : "hidden";
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+                              e.preventDefault();
+                              void sendChat();
+                            }
+                          }}
                           placeholder={activeThreadUserId ? "พิมพ์ข้อความตอบลูกค้า..." : "เลือกลูกค้าก่อน"}
-                          className="flex-1 rounded-xl border border-slate-600 bg-slate-800 px-4 py-2 text-sm text-white placeholder-slate-500 outline-none focus:border-cyan-500"
+                          className="min-h-10 max-h-40 min-w-0 flex-1 resize-none overflow-y-hidden rounded-xl border border-slate-600 bg-slate-800 px-4 py-2 text-sm leading-6 text-white placeholder-slate-500 outline-none focus:border-cyan-500"
                           disabled={!activeThreadUserId}
                         />
                         <button
@@ -642,7 +683,7 @@ export function FeedbackWidget() {
                       <div
                         className={`rounded-2xl px-4 py-2 text-sm ${m.isBot ? "ml-4 mr-8 bg-slate-700/80 text-slate-200" : "ml-8 mr-4 bg-cyan-600/80 text-white"}`}
                       >
-                        <div className="whitespace-pre-wrap leading-relaxed">{m.message}</div>
+                        <ChatMessageBody message={m.message} />
                       </div>
                       {m.isBot && botReplyAsksForAttachment(m.message) ? (
                         <div className="ml-4 mr-8 flex flex-wrap gap-2 pl-1">
@@ -686,13 +727,25 @@ export function FeedbackWidget() {
                 </div>
                 <div className="shrink-0 border-t border-slate-700 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
                   <div className="flex gap-2">
-                    <input
-                      type="text"
+                    <textarea
+                      ref={customerComposerRef}
+                      rows={1}
                       value={chatInput}
-                      onChange={(e) => setChatInput(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendChat()}
+                      onChange={(e) => {
+                        setChatInput(e.target.value);
+                        e.currentTarget.style.height = "auto";
+                        const nextHeight = Math.min(e.currentTarget.scrollHeight, 160);
+                        e.currentTarget.style.height = `${nextHeight}px`;
+                        e.currentTarget.style.overflowY = e.currentTarget.scrollHeight > 160 ? "auto" : "hidden";
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+                          e.preventDefault();
+                          void sendChat();
+                        }
+                      }}
                       placeholder="พิมพ์ข้อความ..."
-                      className="flex-1 rounded-xl border border-slate-600 bg-slate-800 px-4 py-2 text-sm text-white placeholder-slate-500 outline-none focus:border-cyan-500"
+                      className="min-h-10 max-h-40 min-w-0 flex-1 resize-none overflow-y-hidden rounded-xl border border-slate-600 bg-slate-800 px-4 py-2 text-sm leading-6 text-white placeholder-slate-500 outline-none focus:border-cyan-500"
                     />
                     <button
                       type="button"

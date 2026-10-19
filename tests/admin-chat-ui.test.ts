@@ -5,6 +5,7 @@ import {
   isChatScrollNearBottom,
   shouldAutoScrollToLatest,
 } from "../lib/admin-chat-ui";
+import { parseChatMessage } from "../lib/chat-message-format";
 
 describe("admin customer inbox behavior", () => {
   it("keeps the inbox APIs available when the separate AI chat feature is disabled", async () => {
@@ -50,5 +51,31 @@ describe("admin customer inbox behavior", () => {
     expect(widget).toContain('className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 space-y-3"');
     expect(widget.match(/shrink-0 border-t border-slate-700 p-3 pb-\[max\(0\.75rem,env\(safe-area-inset-bottom\)\)\]/g)).toHaveLength(2);
     expect(widget).not.toContain("min-h-[200px]");
+  });
+
+  it("parses bold markers and preserves every newline as separate text lines", () => {
+    expect(parseChatMessage("สวัสดี **คุณหมอ**\n\nบรรทัดสอง")).toEqual([
+      [
+        { text: "สวัสดี ", bold: false },
+        { text: "คุณหมอ", bold: true },
+      ],
+      [{ text: "", bold: false }],
+      [{ text: "บรรทัดสอง", bold: false }],
+    ]);
+    expect(parseChatMessage("<img src=x onerror=alert(1)> **ไม่ปิด")).toEqual([
+      [{ text: "<img src=x onerror=alert(1)> **ไม่ปิด", bold: false }],
+    ]);
+  });
+
+  it("uses one safe formatted renderer and multiline composers on both chat sides", () => {
+    const widget = readFileSync("app/components/FeedbackWidget.tsx", "utf8");
+    expect(widget.match(/<ChatMessageBody message={m\.message} \/>/g)).toHaveLength(2);
+    expect(widget.match(/<textarea\s+ref=\{(?:admin|customer)ComposerRef\}/g)).toHaveLength(2);
+    expect(widget.match(/e\.key === "Enter" && \(e\.ctrlKey \|\| e\.metaKey\)/g)).toHaveLength(2);
+    expect(widget).toContain("Math.min(e.currentTarget.scrollHeight, 160)");
+    expect(widget).toContain('message: text,');
+    expect(widget).not.toContain("dangerouslySetInnerHTML");
+    expect(widget).toContain("<strong key={partIndex}");
+    expect(widget).toContain("<br />");
   });
 });
