@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ImpactStats } from "./components/ImpactStats";
-import { ValueCalculator } from "./components/ValueCalculator";
 
 export const metadata: Metadata = {
   title: { absolute: "DischargeX — สรุปชาร์จและทบทวน coding สำหรับงาน IPD" },
@@ -118,7 +117,6 @@ export default function Home() {
       </section>
 
       <div className="border-y border-white/10 bg-white/[.025]"><ImpactStats /></div>
-      <ValueCalculator />
 
       <section className="mx-auto grid max-w-7xl gap-5 px-5 py-14 sm:px-8 md:grid-cols-2 lg:py-16">
         <article className="rounded-2xl border border-white/10 bg-slate-900/60 p-6 sm:p-8">

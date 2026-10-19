@@ -29,7 +29,11 @@ describe("homepage conversion content", () => {
 
   it("keeps verifiable impact stats and avoids AI Chat marketing copy", () => {
     expect(page).toContain("<ImpactStats />");
-    expect(readFileSync("app/components/ImpactStats.tsx", "utf8")).toContain("รวมงานของผู้ดูแลระบบโดยไม่หักโควตา");
+    expect(page).not.toContain("ValueCalculator");
+    expect(page).not.toContain("ลองคำนวณกับเวลางานของคุณ");
+    const stats = readFileSync("app/components/ImpactStats.tsx", "utf8");
+    expect(stats).toContain("จากทุกบัญชี");
+    expect(stats).not.toMatch(/ประหยัด|ทำเอง|10 นาที|แพทย์ใช้ตรวจทาน/);
     expect(page).not.toMatch(/AI\s*Chat|AI\s*แชท|แชท\s*AI/i);
   });
 });

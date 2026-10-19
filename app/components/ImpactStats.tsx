@@ -1,15 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { formatSavedDuration } from "@/lib/summary-impact";
 
 type Stats = {
   available: boolean;
   completedJobs: number;
   timedJobs?: number;
   averageGenerationSeconds: number | null;
-  manualMinutesPerCase?: number;
-  estimatedSavedMinutes?: number | null;
   updatedAt?: string;
 };
 
@@ -28,8 +25,9 @@ export function ImpactStatsPanel({ stats, failed }: ImpactStatsPanelProps) {
 
   return (
     <section className="mx-auto max-w-6xl px-6 py-14" aria-labelledby="impact-stats-heading">
-      <p className="text-sm font-medium text-cyan-300">ข้อมูลจริงจากผู้ใช้งานทุกบัญชี</p>
+      <p className="text-sm font-medium text-cyan-300">ภาพรวมจากผู้ใช้งานทุกบัญชี</p>
       <h2 id="impact-stats-heading" className="mt-2 text-2xl font-semibold">สถิติการสร้างสรุปในระบบ</h2>
+      <p className="mt-2 text-sm text-slate-400">ดูภาพรวมงานที่ระบบสร้างสำเร็จ จากประวัติที่เซิร์ฟเวอร์ยังเก็บไว้</p>
 
       {isLoading ? (
         <p className="mt-5 text-slate-300" role="status">กำลังโหลดสถิติการใช้งาน…</p>
@@ -38,34 +36,35 @@ export function ImpactStatsPanel({ stats, failed }: ImpactStatsPanelProps) {
           ตอนนี้ยังเชื่อมต่อข้อมูลสถิติไม่ได้ กรุณาลองใหม่ภายหลัง
         </p>
       ) : (
-        <div className="mt-6 grid gap-6 sm:grid-cols-3" aria-live="polite">
-          <div>
-            <strong className="text-4xl">{stats.completedJobs.toLocaleString("th-TH")}</strong>
-            <p className="mt-2 text-slate-300">งานสร้างสรุปที่สำเร็จจากประวัติที่ระบบบันทึกไว้</p>
+        <div className="mt-6 grid gap-4 sm:grid-cols-2" aria-live="polite">
+          <div className="rounded-2xl border border-cyan-300/15 bg-slate-900/70 p-5 sm:p-6">
+            <div className="flex items-start gap-4">
+              <span aria-hidden="true" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-cyan-300/10 text-xl text-cyan-200">✓</span>
+              <div>
+                <p className="text-sm text-slate-300">สรุปที่สร้างสำเร็จ</p>
+                <strong className="mt-1 block text-3xl font-semibold text-white">{stats.completedJobs.toLocaleString("th-TH")} <span className="text-base font-normal text-slate-400">งาน</span></strong>
+              </div>
+            </div>
             {stats.completedJobs === 0 && (
-              <p className="mt-2 text-sm text-slate-400">ยังไม่มีงานสำเร็จที่บันทึกไว้</p>
+              <p className="mt-3 text-sm text-slate-400">ยังไม่มีงานสำเร็จในประวัติที่เก็บอยู่</p>
             )}
           </div>
-          <div>
-            <strong className="text-4xl">
+          <div className="rounded-2xl border border-blue-300/15 bg-slate-900/70 p-5 sm:p-6">
+            <div className="flex items-start gap-4">
+              <span aria-hidden="true" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-300/10 text-xl text-blue-200">◷</span>
+              <div>
+                <p className="text-sm text-slate-300">เวลา Generate เฉลี่ย</p>
+                <strong className="mt-1 block text-2xl font-semibold text-white sm:text-3xl">
+                  {stats.averageGenerationSeconds === null
+                    ? "—"
+                    : formatGenerationDuration(stats.averageGenerationSeconds)}
+                </strong>
+              </div>
+            </div>
+            <p className="mt-3 text-sm text-slate-400">
               {stats.averageGenerationSeconds === null
-                ? "—"
-                : formatGenerationDuration(stats.averageGenerationSeconds)}
-            </strong>
-            <p className="mt-2 text-slate-300">เวลา Generate เฉลี่ยต่อเคส</p>
-            <p className="mt-1 text-sm text-slate-400">
-              {stats.averageGenerationSeconds === null
-                ? "ยังไม่มีข้อมูลเวลาเฉลี่ยเพียงพอ"
-                : `คำนวณจาก ${stats.timedJobs ?? 0} เคสที่มีเวลาบันทึก`}
-            </p>
-          </div>
-          <div>
-            <strong className="text-4xl">
-              {typeof stats.estimatedSavedMinutes === "number" ? formatSavedDuration(stats.estimatedSavedMinutes) : "—"}
-            </strong>
-            <p className="mt-2 text-slate-300">เวลาที่อาจประหยัดได้โดยประมาณ</p>
-            <p className="mt-1 text-sm text-slate-400">
-              เทียบกับสมมติฐานทำเอง {stats.manualMinutesPerCase ?? 10} นาที/เคส เฉพาะ {stats.timedJobs ?? 0} เคสที่มีเวลา Generate บันทึก
+                ? "ยังไม่มีข้อมูลเวลาเพียงพอสำหรับคำนวณค่าเฉลี่ย"
+                : `ต่อเคส · คำนวณจาก ${stats.timedJobs ?? 0} งานที่มีข้อมูลเวลา`}
             </p>
           </div>
           {stats.updatedAt && (
@@ -79,9 +78,7 @@ export function ImpactStatsPanel({ stats, failed }: ImpactStatsPanelProps) {
       <details className="mt-5 text-sm text-slate-400">
         <summary className="cursor-pointer">สถิตินี้นับอย่างไร</summary>
         <p className="mt-2">
-          นับงานสร้างสรุปที่สำเร็จจากประวัติฝั่งเซิร์ฟเวอร์ที่ยังเก็บอยู่ของผู้ใช้งานทุกบัญชี รวมงานของผู้ดูแลระบบโดยไม่หักโควตา และนับงานเดิมครั้งเดียว
-          ไม่นับงานที่ล้มเหลวหรือการคำนวณซ้ำ ตัวเลขนี้ไม่ใช่จำนวนผู้ป่วยที่ไม่ซ้ำกัน
-          เวลาเฉลี่ยเป็นเวลา Generate ฝั่งเซิร์ฟเวอร์ของงานที่มีข้อมูลเวลาเท่านั้น เวลาที่ประหยัดเป็นการประมาณโดยเทียบกับสมมติฐานทำเอง 10 นาทีต่อเคส ไม่ใช่การจับเวลาการทำงานจริง และไม่รวมเวลาตรวจทานหรือแก้ไขโดยแพทย์
+          นับงานสรุปที่สร้างสำเร็จและบันทึกบนเซิร์ฟเวอร์จากทุกบัญชี ไม่นับงานล้มเหลว การคำนวณซ้ำ หรือการลองซ้ำ เวลาเฉลี่ยเป็นเวลา Generate ฝั่งเซิร์ฟเวอร์ เฉพาะงานที่มีข้อมูลเวลาบันทึก
         </p>
       </details>
     </section>
