@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import ReferralClaimOnLogin from "./ReferralClaimOnLogin";
 
 /** Authenticated app (/app): do not index clinical/product UI in search engines. */
 export const metadata: Metadata = {
@@ -10,5 +11,8 @@ export const metadata: Metadata = {
 };
 
 export default function AppWorkspaceLayout({ children }: { children: React.ReactNode }) {
-  return children;
+  return <>
+    <ReferralClaimOnLogin />
+    {children}
+  </>;
 }

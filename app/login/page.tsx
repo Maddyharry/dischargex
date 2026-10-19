@@ -41,6 +41,12 @@ function LoginForm() {
   const [devVerifyUrl, setDevVerifyUrl] = useState<string | null>(null);
   const [rememberUser, setRememberUser] = useState(true);
   const [authError, setAuthError] = useState<string>("");
+  const [referralCode, setReferralCode] = useState("");
+
+  useEffect(() => {
+    const fromQuery = (searchParams.get("ref") || "").trim();
+    if (fromQuery) setReferralCode((previous) => previous || fromQuery);
+  }, [searchParams]);
 
   useEffect(() => {
     if (status === "authenticated") {
@@ -106,6 +112,14 @@ function LoginForm() {
     } finally {
       setLoading(false);
     }
+  }
+
+  function handleGoogleSignIn() {
+    const code = referralCode.trim();
+    if (code && typeof window !== "undefined") {
+      window.sessionStorage.setItem("dischargex_pending_referral_code", code);
+    }
+    void signIn("google", { callbackUrl: postLoginUrl });
   }
 
   async function handleResendVerification() {
@@ -275,9 +289,22 @@ function LoginForm() {
         <p className="mt-4 text-center text-xs text-slate-500">หรือ</p>
 
         <div className="mt-4 space-y-3">
+          <label htmlFor="login-referral-code" className="block text-xs text-slate-300">
+            รหัสผู้แนะนำ (ถ้ามี)
+          </label>
+          <input
+            id="login-referral-code"
+            type="text"
+            value={referralCode}
+            onChange={(event) => setReferralCode(event.target.value)}
+            placeholder="กรอกรหัสจากเพื่อน"
+            autoComplete="off"
+            maxLength={32}
+            className="w-full rounded-xl border border-white/10 bg-slate-800/80 px-4 py-3 text-slate-100 placeholder-slate-500 focus:border-cyan-500 focus:outline-none"
+          />
           <button
             type="button"
-            onClick={() => signIn("google", { callbackUrl: postLoginUrl })}
+            onClick={handleGoogleSignIn}
             className="w-full rounded-2xl bg-white px-4 py-3 text-sm font-medium text-slate-900 shadow hover:bg-slate-100"
           >
             เข้าสู่ด้วย Google
@@ -286,7 +313,7 @@ function LoginForm() {
 
         <p className="mt-4 text-center text-sm text-slate-500">
           ยังไม่มีบัญชี?{" "}
-          <Link href="/signup" className="text-cyan-400 hover:underline">
+          <Link href={referralCode.trim() ? `/signup?ref=${encodeURIComponent(referralCode.trim())}` : "/signup"} className="text-cyan-400 hover:underline">
             สมัครสมาชิก
           </Link>
         </p>
