@@ -78,4 +78,15 @@ describe("admin customer inbox behavior", () => {
     expect(widget).toContain("<strong key={partIndex}");
     expect(widget).toContain("<br />");
   });
+
+  it("exposes message editing only in the admin thread and only for admin-origin messages", () => {
+    const widget = readFileSync("app/components/FeedbackWidget.tsx", "utf8");
+    const adminView = widget.split(") : tab === \"chat\" ? (")[0];
+    expect(adminView).toContain('m.source === "admin" ? (');
+    expect(adminView).toContain("setEditingAdminMessageId(m.id)");
+    expect(adminView).toContain('method: "PATCH"');
+    expect(adminView).toContain("aria-label=\"แก้ไขข้อความที่ส่งให้ลูกค้า\"");
+    expect(adminView).toContain("onClick={() => void saveAdminMessage(m.id)}");
+    expect(widget.match(/<ChatMessageBody message={m\.message} \/>/g)).toHaveLength(2);
+  });
 });

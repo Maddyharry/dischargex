@@ -107,6 +107,10 @@ export function FeedbackWidget() {
 
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState("");
+  const [editingAdminMessageId, setEditingAdminMessageId] = useState<string | null>(null);
+  const [editingAdminMessage, setEditingAdminMessage] = useState("");
+  const [savingAdminMessage, setSavingAdminMessage] = useState(false);
+  const [editMessageError, setEditMessageError] = useState<string | null>(null);
   const adminComposerRef = useRef<HTMLTextAreaElement>(null);
   const customerComposerRef = useRef<HTMLTextAreaElement>(null);
   const [chatLoading, setChatLoading] = useState(false);
@@ -495,6 +499,33 @@ export function FeedbackWidget() {
     }
   }
 
+  async function saveAdminMessage(messageId: string) {
+    const message = editingAdminMessage;
+    if (!message.trim() || savingAdminMessage) return;
+    setSavingAdminMessage(true);
+    setEditMessageError(null);
+    try {
+      const res = await fetch("/api/admin/chat/messages", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messageId, message }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        setEditMessageError(data.error || "บันทึกข้อความไม่สำเร็จ");
+        return;
+      }
+      setEditingAdminMessageId(null);
+      setEditingAdminMessage("");
+      await loadAdminThreadMessages(activeThreadUserId);
+      await loadAdminThreads();
+    } catch {
+      setEditMessageError("บันทึกข้อความไม่สำเร็จ กรุณาลองใหม่");
+    } finally {
+      setSavingAdminMessage(false);
+    }
+  }
+
   if (isChatPage) return null;
 
   return (
@@ -611,17 +642,73 @@ export function FeedbackWidget() {
                       ) : null}
                       {chatMessages.map((m) => (
                         <div key={m.id}>
-                          <div
-                            className={`rounded-2xl px-4 py-2 text-sm ${
-                              m.source === "user"
-                                ? "ml-10 mr-2 bg-cyan-600/80 text-white"
-                                : m.source === "admin"
-                                ? "ml-2 mr-10 bg-emerald-700/80 text-white"
-                                : "ml-2 mr-10 bg-slate-700/80 text-slate-200"
-                            }`}
-                          >
-                            <ChatMessageBody message={m.message} />
-                          </div>
+                          {editingAdminMessageId === m.id && m.source === "admin" ? (
+                            <div className="ml-2 mr-10 space-y-2 rounded-2xl bg-emerald-950/70 p-3">
+                              <label htmlFor={`edit-admin-message-${m.id}`} className="sr-only">
+                                แก้ไขข้อความที่ส่งให้ลูกค้า
+                              </label>
+                              <textarea
+                                id={`edit-admin-message-${m.id}`}
+                                aria-label="แก้ไขข้อความที่ส่งให้ลูกค้า"
+                                value={editingAdminMessage}
+                                onChange={(event) => setEditingAdminMessage(event.target.value)}
+                                rows={Math.min(8, Math.max(3, editingAdminMessage.split("\n").length))}
+                                className="w-full resize-y rounded-xl border border-emerald-600 bg-slate-900 px-3 py-2 text-sm leading-relaxed text-white outline-none focus:border-cyan-500"
+                                disabled={savingAdminMessage}
+                              />
+                              {editMessageError ? <p role="alert" className="text-xs text-rose-300">{editMessageError}</p> : null}
+                              <div className="flex justify-end gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingAdminMessageId(null);
+                                    setEditingAdminMessage("");
+                                    setEditMessageError(null);
+                                  }}
+                                  className="rounded-lg border border-slate-600 px-3 py-1.5 text-xs text-slate-200 hover:bg-slate-800"
+                                  disabled={savingAdminMessage}
+                                  aria-label="ยกเลิกการแก้ไขข้อความ"
+                                >
+                                  ยกเลิก
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => void saveAdminMessage(m.id)}
+                                  className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
+                                  disabled={savingAdminMessage || !editingAdminMessage.trim()}
+                                  aria-label="บันทึกข้อความที่แก้ไข"
+                                >
+                                  {savingAdminMessage ? "กำลังบันทึก..." : "บันทึก"}
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div
+                              className={`rounded-2xl px-4 py-2 text-sm ${
+                                m.source === "user"
+                                  ? "ml-10 mr-2 bg-cyan-600/80 text-white"
+                                  : m.source === "admin"
+                                  ? "ml-2 mr-10 bg-emerald-700/80 text-white"
+                                  : "ml-2 mr-10 bg-slate-700/80 text-slate-200"
+                              }`}
+                            >
+                              <ChatMessageBody message={m.message} />
+                              {m.source === "admin" ? (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingAdminMessageId(m.id);
+                                    setEditingAdminMessage(m.message);
+                                    setEditMessageError(null);
+                                  }}
+                                  className="mt-2 rounded-md border border-white/25 px-2 py-1 text-xs text-emerald-50 hover:bg-white/10"
+                                  aria-label={`แก้ไขข้อความที่ส่งให้ลูกค้า ${formatAdminChatTimestamp(m.createdAt)}`}
+                                >
+                                  แก้ไข
+                                </button>
+                              ) : null}
+                            </div>
+                          )}
                           <time dateTime={m.createdAt} className={`mt-1 block px-2 text-[11px] text-slate-400 ${m.source === "user" ? "text-right" : "text-left"}`}>
                             {formatAdminChatTimestamp(m.createdAt)}
                           </time>
