@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { normalizePlanId } from "@/lib/billing-rules";
 
 export const runtime = "nodejs";
 
@@ -34,9 +35,13 @@ export async function GET(req: Request) {
     },
   });
 
+  const plan = normalizePlanId(user.plan ?? "basic");
+  const canViewSnapshots = plan === "pro_monthly" || plan === "pro_yearly";
+
   return NextResponse.json({
     ok: true,
-    plan: user.plan ?? "basic",
+    plan,
+    canViewSnapshots,
     logs: logs.map((l: { id: string; createdAt: Date; creditsUsed?: number; summarySnapshot?: string | null }) => ({
       id: l.id,
       createdAt: l.createdAt.toISOString(),

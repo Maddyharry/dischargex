@@ -16,6 +16,17 @@ describe("summary persistence and quota boundary", () => {
     expect(route).toContain("...(summarySnapshot ? { summarySnapshot } : {})");
   });
 
+  it("persists snapshots for every plan while the view API gates access separately", () => {
+    expect(route).toContain("...(summarySnapshot ? { summarySnapshot } : {})");
+    const history = readFileSync("app/api/usage/history/route.ts", "utf8");
+    expect(history).toContain("canViewSnapshots");
+    expect(history).not.toContain("summarySnapshot: l.summarySnapshot");
+    const snapshot = readFileSync("app/api/usage/snapshot/route.ts", "utf8");
+    expect(snapshot).toContain('plan !== "pro_monthly" && plan !== "pro_yearly"');
+    expect(snapshot).toContain("export async function DELETE");
+    expect(snapshot).toContain("where: { id: logId, userId: user.id }");
+  });
+
   it("uses a stable client job id and checks existing committed usage inside the transaction", () => {
     expect(route).toContain("body.summaryJobId");
     expect(route).toContain("where: { userId, caseId: summaryJobId }");

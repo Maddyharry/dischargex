@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 
 const ERROR_MESSAGES: Record<string, string> = {
@@ -29,6 +29,18 @@ function LoginForm() {
   const errorMsg = ERROR_MESSAGES[error] || (error ? ERROR_MESSAGES.Default : null);
   const callbackUrl = (searchParams.get("callbackUrl") || "").trim();
   const postLoginUrl = callbackUrl || "/app";
+  const referralCodeFromQuery = (searchParams.get("claimRef") || searchParams.get("ref") || "")
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "")
+    .slice(0, 32);
+  const [referralCode, setReferralCode] = useState(referralCodeFromQuery);
+  const validReferralCode = /^[A-Z0-9]{2,32}$/.test(referralCode) ? referralCode : "";
+  const referralClaimStarted = useRef(false);
+  const referralClaimReturnUrl = validReferralCode
+    ? `/login?claimRef=${encodeURIComponent(validReferralCode)}&callbackUrl=${encodeURIComponent(postLoginUrl)}`
+    : postLoginUrl;
+  const googleCallbackUrl = validReferralCode ? referralClaimReturnUrl : postLoginUrl;
   const registered = searchParams.get("registered") === "1";
   const reset = searchParams.get("reset") === "1";
   const verified = searchParams.get("verified") === "1";
@@ -43,10 +55,31 @@ function LoginForm() {
   const [authError, setAuthError] = useState<string>("");
 
   useEffect(() => {
-    if (status === "authenticated") {
+    setReferralCode(referralCodeFromQuery);
+  }, [referralCodeFromQuery]);
+
+  useEffect(() => {
+    if (status !== "authenticated") return;
+    if (!validReferralCode) {
       router.replace(postLoginUrl);
+      return;
     }
-  }, [postLoginUrl, router, status]);
+    if (referralClaimStarted.current) return;
+    referralClaimStarted.current = true;
+    void (async () => {
+      try {
+        await fetch("/api/referral/claim", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ referralCode: validReferralCode }),
+        });
+      } catch {
+        // Referral is optional; never block login if claiming fails.
+      } finally {
+        router.replace(postLoginUrl);
+      }
+    })();
+  }, [postLoginUrl, router, status, validReferralCode]);
 
   useEffect(() => {
     if (!emailFromQuery) return;
@@ -94,7 +127,7 @@ function LoginForm() {
       const res = await signIn("credentials", {
         email: email.trim(),
         password,
-        callbackUrl: postLoginUrl,
+        callbackUrl: referralClaimReturnUrl,
         redirect: false,
       });
       if (res?.error) {
@@ -275,9 +308,26 @@ function LoginForm() {
         <p className="mt-4 text-center text-xs text-slate-500">หรือ</p>
 
         <div className="mt-4 space-y-3">
+          <label htmlFor="login-referral-code" className="block text-xs text-slate-300">
+            รหัสแนะนำ (ถ้ามี)
+          </label>
+          <input
+            id="login-referral-code"
+            type="text"
+            value={referralCode}
+            onChange={(e) => setReferralCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 32))}
+            maxLength={32}
+            autoComplete="off"
+            aria-describedby="login-referral-hint"
+            className="w-full rounded-xl border border-white/10 bg-slate-800/80 px-4 py-3 font-mono text-slate-100 placeholder-slate-500 focus:border-cyan-500 focus:outline-none"
+            placeholder="กรอกรหัสจากเพื่อน"
+          />
+          <p id="login-referral-hint" className="text-xs text-slate-500">
+            {referralCode && !validReferralCode ? "รหัสต้องมี 2–32 ตัวอักษรภาษาอังกฤษหรือตัวเลข" : "ใส่หรือแก้ไขรหัสได้ก่อนเข้าสู่ระบบ Google"}
+          </p>
           <button
             type="button"
-            onClick={() => signIn("google", { callbackUrl: postLoginUrl })}
+            onClick={() => signIn("google", { callbackUrl: googleCallbackUrl })}
             className="w-full rounded-2xl bg-white px-4 py-3 text-sm font-medium text-slate-900 shadow hover:bg-slate-100"
           >
             เข้าสู่ด้วย Google

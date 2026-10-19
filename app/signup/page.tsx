@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
+import { signIn, useSession } from "next-auth/react";
 import { useEffect } from "react";
 
 function isValidEmail(value: string): boolean {
@@ -184,9 +184,28 @@ export default function SignupPage() {
           </button>
         </form>
 
+        {!verifyUrl ? (
+          <>
+            <p className="mt-4 text-center text-xs text-slate-500">หรือสมัครด้วย</p>
+            <button
+              type="button"
+              onClick={() => {
+                const code = /^[A-Z0-9]{2,32}$/.test(referralCode.trim().toUpperCase()) ? referralCode.trim().toUpperCase() : "";
+                const callbackUrl = code
+                  ? `/login?claimRef=${encodeURIComponent(code)}&callbackUrl=%2Fapp`
+                  : "/app";
+                void signIn("google", { callbackUrl });
+              }}
+              className="mt-3 w-full rounded-2xl bg-white px-4 py-3 text-sm font-medium text-slate-900 shadow hover:bg-slate-100"
+            >
+              สมัครด้วย Google
+            </button>
+          </>
+        ) : null}
+
         <p className="mt-4 text-center text-sm text-slate-500">
           มีบัญชีอยู่แล้ว?{" "}
-          <Link href="/login" className="text-cyan-400 hover:underline">
+          <Link href={referralCode ? `/login?ref=${encodeURIComponent(referralCode)}` : "/login"} className="text-cyan-400 hover:underline">
             เข้าสู่ระบบ
           </Link>
         </p>

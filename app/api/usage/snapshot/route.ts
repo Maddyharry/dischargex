@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { normalizePlanId } from "@/lib/billing-rules";
 
 export const runtime = "nodejs";
 
@@ -20,10 +21,14 @@ export async function GET(req: Request) {
 
   const user = await prisma.user.findUnique({
     where: { email: session.user.email },
-    select: { id: true },
+    select: { id: true, plan: true },
   });
   if (!user) {
     return NextResponse.json({ ok: false, error: "User not found" }, { status: 404 });
+  }
+  const plan = normalizePlanId(user.plan ?? "basic");
+  if (plan !== "pro_monthly" && plan !== "pro_yearly") {
+    return NextResponse.json({ ok: false, error: "การดูประวัติสรุปเป็นสิทธิ์ของแพ็กเกจ Pro", plan }, { status: 403 });
   }
   const log = await prisma.usageLog.findFirst({
     where: { id: logId, userId: user.id },

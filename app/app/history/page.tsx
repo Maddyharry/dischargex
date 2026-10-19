@@ -16,6 +16,7 @@ export default function HistoryPage() {
   const [error, setError] = useState<string | null>(null);
   const [modal, setModal] = useState<{ logId: string; text: string } | null>(null);
   const [snapshotLoading, setSnapshotLoading] = useState<string | null>(null);
+  const [canViewSnapshots, setCanViewSnapshots] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -28,6 +29,7 @@ export default function HistoryPage() {
           throw new Error(data.error || "โหลดประวัติไม่สำเร็จ");
         }
         setLogs(data.logs || []);
+        setCanViewSnapshots(data.canViewSnapshots === true);
       } catch (err) {
         setError(err instanceof Error ? err.message : "โหลดข้อมูลล้มเหลว");
       } finally {
@@ -94,7 +96,7 @@ export default function HistoryPage() {
             <h1 className="text-2xl font-semibold text-white">ประวัติการใช้งาน</h1>
             <p className="mt-1 text-sm text-slate-300">
               รายการ Generate Summary ย้อนหลัง (เรียงจากล่าสุด)
-              {" — ดู/export ข้อความที่ผ่านการปกปิดแบบ best-effort หรือเลือกลบข้อความที่บันทึกไว้ได้"}
+              {" — ระบบเก็บข้อความที่ผ่านการปกปิดแบบ best-effort สำหรับทุกแพ็กเกจ; ดู/export ได้เฉพาะ Pro และทุกคนลบข้อความที่บันทึกไว้ได้"}
             </p>
           </div>
           <Link
@@ -108,6 +110,12 @@ export default function HistoryPage() {
         {error ? (
           <div className="rounded-2xl border border-red-900/60 bg-red-950/40 px-4 py-3 text-sm text-red-200">
             {error}
+          </div>
+        ) : null}
+
+        {!loading && logs.some((entry) => entry.hasSnapshot) && !canViewSnapshots ? (
+          <div className="rounded-2xl border border-cyan-500/30 bg-cyan-950/30 px-4 py-3 text-sm text-cyan-100">
+            ต้องใช้แพ็กเกจ Pro เพื่อดูหรือ export ข้อความย้อนหลัง <Link href="/pricing" className="font-semibold underline">ดูแพ็กเกจ Pro</Link>
           </div>
         ) : null}
 
@@ -147,14 +155,14 @@ export default function HistoryPage() {
                     <td className="px-4 py-3">
                         {entry.hasSnapshot ? (
                           <>
-                            <button
+                            {canViewSnapshots ? <button
                               type="button"
                               onClick={() => fetchSnapshot(entry.id)}
                               disabled={snapshotLoading === entry.id}
                               className="rounded-xl border border-cyan-500/50 bg-cyan-500/10 px-3 py-1.5 text-xs font-medium text-cyan-200 transition hover:bg-cyan-500/20 disabled:opacity-50"
                             >
                               {snapshotLoading === entry.id ? "กำลังโหลด..." : "ดู / Export"}
-                            </button>
+                            </button> : <span className="text-xs text-slate-500">Pro เท่านั้น</span>}
                             <button
                               type="button"
                               onClick={() => void deleteSnapshot(entry.id)}

@@ -38,7 +38,9 @@ describe("customer support guidance and deterministic outage fallback", () => {
     expect(knowledge).toContain("ไม่ใช่จำนวนเคส");
     expect(knowledge).toContain("ประเมินต้นทุน API จากปริมาณ token");
     expect(knowledge).toContain("วงเงินเดิม 3600 เป็นหน่วยภายใน");
-    expect(knowledge).toContain("ข้อความต้นทางเมื่อผ่านการปกปิด/ตรวจเบื้องต้นแบบ best-effort");
+    expect(knowledge).toContain("snapshot ข้อความที่ผ่านการปกปิดแบบ best-effort ทุกแพ็กเกจ");
+    expect(knowledge).toContain("ดูหรือ export ที่ /app/history ได้เฉพาะ Pro");
+    expect(knowledge).toContain("ทุกแพ็กเกจลบข้อความที่เก็บไว้ได้");
     expect(knowledge).toContain("หากการสร้างสรุปล้มเหลวก่อนบันทึกสำเร็จ");
     expect(knowledge).toContain("ผลิตภัณฑ์ AI Chat ยุติให้บริการแล้ว และ /chat จะนำไปยัง /app");
     expect(knowledge).toContain("ห้ามแนะนำ AI Chat หรือ /chat ให้ลูกค้า");
@@ -65,7 +67,7 @@ describe("customer support guidance and deterministic outage fallback", () => {
     ["ทำไมโควตาแพ็กเกจขึ้น 0 / 1260", "จำนวนครั้ง/เคส", "หน่วยสิทธิ์", "ไม่ใช่จำนวนเคส", "ลูกค้าเก่า", "Boost"],
     ["รอบบิล reset เมื่อไหร่", "วันสิ้นสุดรอบ", "/app/profile"],
     ["ถ้าสรุป error จะหักโควตาไหม", "ล้มเหลวก่อนระบบบันทึกผลสำเร็จ", "จะไม่ตัดโควตา", "ต้นทุน"],
-    ["ปิดหน้าเว็บแล้วจะดูผลสรุปเก่าได้ไหม", "/app/history", "ตรวจเบื้องต้นแบบ best-effort", "ลบ"],
+    ["ปิดหน้าเว็บแล้วจะดูผลสรุปเก่าได้ไหม", "/app/history", "เฉพาะ Pro", "snapshot", "ทุกแพ็กเกจ", "best-effort", "ไม่รับประกัน", "ลบ"],
     ["AI error, service is down", "บริการ AI ขัดข้องชั่วคราว", "ไม่ส่งข้อมูลผู้ป่วย"],
     ["Can I paste patient data in support chat?", "อย่าส่งข้อมูลผู้ป่วย", "QR code", "/app"],
   ])("answers support intent without LLM: %s", async (message, ...phrases) => {

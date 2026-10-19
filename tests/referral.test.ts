@@ -198,5 +198,17 @@ describe("referral reward policy", () => {
     expect(signup).toContain("รหัสแนะนำ (ถ้ามี)");
     expect(signup).toContain("referralCode: referralCode.trim() || undefined");
     expect(signup).toContain("สมัครหรือทดลองใช้ฟรียังไม่ให้โบนัส");
+    expect(signup).toContain('signIn("google", { callbackUrl })');
+    const login = readFileSync("app/login/page.tsx", "utf8");
+    expect(login).toContain('searchParams.get("claimRef") || searchParams.get("ref")');
+    expect(login).toContain('id="login-referral-code"');
+    expect(login).toContain("const [referralCode, setReferralCode] = useState(referralCodeFromQuery)");
+    expect(login).toContain(".toUpperCase()");
+    expect(login).toContain("/^[A-Z0-9]{2,32}$/");
+    expect(login).toContain('setReferralCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 32))');
+    expect(login).toContain("referralClaimReturnUrl");
+    expect(login).toContain('fetch("/api/referral/claim"');
+    expect(login).toContain('signIn("google", { callbackUrl: googleCallbackUrl })');
+    expect(login).toContain("router.replace(postLoginUrl)");
   });
 });

@@ -4,11 +4,14 @@ import { readFileSync } from "node:fs";
 describe("homepage conversion content", () => {
   const page = readFileSync("app/page.tsx", "utf8");
 
-  it("keeps a prominent no-signup sample CTA and restores the getting-started video", () => {
+  it("keeps a prominent no-signup sample CTA and uses the privacy-enhanced YouTube embed", () => {
     expect(page).toContain('const demoHref = "/app/guest?tutorial=1"');
     expect(page).toContain("ลองตัวอย่างทันที ไม่ต้องสมัคร");
-    expect(page).toContain('src="/media/getting-started.mp4"');
-    expect(page).toContain("controls playsInline preload=\"metadata\"");
+    expect(page).toContain('src="https://www.youtube-nocookie.com/embed/_mIpiKuYrV4"');
+    expect(page).toContain('title="วิดีโอแนะนำวิธีเริ่มใช้ DischargeX"');
+    expect(page).toContain('referrerPolicy="strict-origin-when-cross-origin"');
+    expect(page).toContain("allowFullScreen");
+    expect(page).toContain("https://youtu.be/_mIpiKuYrV4?si=6-msUGWTH_9h4lQV");
   });
 
   it("restores the centered DischargeX brand hero and the original product explanation", () => {
@@ -26,7 +29,7 @@ describe("homepage conversion content", () => {
 
   it("keeps verifiable impact stats and avoids AI Chat marketing copy", () => {
     expect(page).toContain("<ImpactStats />");
-    expect(readFileSync("app/components/ImpactStats.tsx", "utf8")).toContain("ทุกงานสรุป มีผลลัพธ์ที่ตรวจสอบได้");
+    expect(readFileSync("app/components/ImpactStats.tsx", "utf8")).toContain("รวมผู้ดูแลระบบโดยไม่หักโควตา");
     expect(page).not.toMatch(/AI\s*Chat|AI\s*แชท|แชท\s*AI/i);
   });
 });

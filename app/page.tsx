@@ -86,12 +86,17 @@ export default function Home() {
         <div className="relative mx-auto w-full max-w-4xl">
           <div className="absolute -inset-3 rounded-[1.7rem] bg-gradient-to-br from-cyan-400/15 via-blue-500/10 to-teal-300/10 blur-xl" aria-hidden="true" />
           <div className="relative overflow-hidden rounded-2xl border border-white/15 bg-slate-950 shadow-2xl shadow-black/40">
-            <video controls playsInline preload="metadata" muted className="aspect-video w-full bg-black object-contain" aria-label="วิดีโอแนะนำวิธีเริ่มใช้ DischargeX ไม่มีเสียง">
-              <source src="/media/getting-started.mp4" type="video/mp4" />
-              เบราว์เซอร์นี้ไม่รองรับวิดีโอ สามารถ <a href="/media/getting-started.mp4" className="underline">เปิดไฟล์วิดีโอ</a> ได้
-            </video>
+            <iframe
+              className="aspect-video w-full bg-black"
+              src="https://www.youtube-nocookie.com/embed/_mIpiKuYrV4"
+              title="วิดีโอแนะนำวิธีเริ่มใช้ DischargeX"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              referrerPolicy="strict-origin-when-cross-origin"
+              allowFullScreen
+            />
             <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-5">
-              <p className="text-sm text-slate-400">วิดีโอแนะนำแบบไม่มีเสียง · ใช้ข้อมูลตัวอย่างในโหมดทดลอง</p>
+              <p className="text-sm text-slate-400">วิดีโอแนะนำการใช้งาน</p>
+              <a href="https://youtu.be/_mIpiKuYrV4?si=6-msUGWTH_9h4lQV" target="_blank" rel="noreferrer" className="text-sm text-cyan-200 underline">เปิดวิดีโอใน YouTube</a>
               <Link href={demoHref} className="text-sm font-medium text-cyan-200 underline decoration-cyan-300/40 underline-offset-4 hover:text-white">ลองด้วยตัวเอง →</Link>
             </div>
           </div>

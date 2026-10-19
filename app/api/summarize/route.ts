@@ -2249,11 +2249,12 @@ export async function POST(req: Request) {
     }));
 
     const generationDurationMs = Math.round(performance.now() - requestStarted);
-    if (summaryJobId && userId && !isAdminUser) {
+    if (summaryJobId && userId && mode === "generate") {
       await runBestEffortSideEffect(() => prisma.feedback.create({ data: { id: `summary_${summaryJobId}`, userId, type: "summary_job", message: "Summary generated", status: "completed",
           payload: JSON.stringify({
             durationMs: generationDurationMs,
             production: process.env.VERCEL_ENV === "production",
+            mode,
             warningCount: finalWarnings.length,
             warnings: finalWarnings.slice(0, 10).map((warning) => deidentify(String(warning)).slice(0, 240)),
             diagnosisConfidence: diagnosis_confidence,
