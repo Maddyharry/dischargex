@@ -336,7 +336,7 @@ function LoginForm() {
 
         <p className="mt-4 text-center text-sm text-slate-500">
           ยังไม่มีบัญชี?{" "}
-          <Link href="/signup" className="text-cyan-400 hover:underline">
+          <Link href={referralCode.trim() ? `/signup?ref=${encodeURIComponent(referralCode.trim())}` : "/signup"} className="text-cyan-400 hover:underline">
             สมัครสมาชิก
           </Link>
         </p>

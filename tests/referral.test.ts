@@ -186,7 +186,7 @@ describe("referral reward policy", () => {
     expect(response.headers.get("cache-control")).toContain("no-store");
   });
 
-  it("shows the +10 rule and copy-code control in profile", () => {
+  it("supports referral signup and claim-after-login across email and Google flows", () => {
     const profile = readFileSync("app/app/profile/page.tsx", "utf8");
     expect(profile).toContain("Boost 10 สิทธิ์");
     expect(profile).toContain("คัดลอกรหัส");
@@ -207,8 +207,13 @@ describe("referral reward policy", () => {
     expect(login).toContain("/^[A-Z0-9]{2,32}$/");
     expect(login).toContain('setReferralCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 32))');
     expect(login).toContain("referralClaimReturnUrl");
+    expect(login).toContain('callbackUrl: referralClaimReturnUrl');
+    expect(login).toContain("referralClaimStarted.current");
     expect(login).toContain('fetch("/api/referral/claim"');
     expect(login).toContain('signIn("google", { callbackUrl: googleCallbackUrl })');
     expect(login).toContain("router.replace(postLoginUrl)");
+    expect(login).not.toContain("sessionStorage");
+    expect(login).not.toContain("handleGoogleSignIn");
+    expect(readFileSync("app/app/layout.tsx", "utf8")).not.toContain("ReferralClaimOnLogin");
   });
 });
