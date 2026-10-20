@@ -14,26 +14,32 @@ describe("homepage conversion content", () => {
     expect(page).toContain("https://youtu.be/_mIpiKuYrV4?si=6-msUGWTH_9h4lQV");
   });
 
-  it("restores the centered DischargeX brand hero and the original product explanation", () => {
-    expect(page).toContain("Discharge<span className=\"bg-gradient-to-br from-cyan-300 to-sky-500 bg-clip-text text-transparent\">X</span>");
-    expect(page).toContain("AI สำหรับสรุปชาร์จ · เวชระเบียน IPD · ทบทวน ICD-10");
-    expect(page).toContain("สรุปชาร์จไวขึ้น");
-    expect(page).toContain("จัดโครง coding เป็นระบบมากขึ้น");
+  it("presents the approved product hero, sample CTA, and product visual", () => {
+    expect(page).toContain("ผู้ช่วยจัดร่างสรุปชาร์จและทบทวน coding สำหรับ IPD");
+    expect(page).toContain("จัดร่างให้เป็นระบบ");
+    expect(page).toContain("ตรวจทานได้ชัดเจน");
+    expect(page).toContain("ลองตัวอย่างทันที ไม่ต้องสมัคร");
+    expect(page).toContain('href={demoHref}');
+    expect(page).toContain('src="/landing/dischargex-real-app.png"');
+    expect(page).toContain('alt="ตัวอย่างหน้าจอ DischargeX สำหรับจัดร่างสรุปและตรวจทาน"');
+    expect(page).toContain("<LandingPricingPreview />");
+    expect(page).toContain('from "./components/LandingPricingPreview"');
     expect(page).toContain("discharge summary");
     expect(page).toContain("diagnosis");
-    expect(page).toContain("procedure");
-    expect(page).toContain("AdjRW");
-    expect(page).toContain("ผลลัพธ์เป็นร่าง ข้อเสนอ หรือค่าประมาณ");
-    expect(page).toContain("ไม่ใช่การรับรองผลการเบิกจ่าย");
+    expect(page).toContain("coding");
   });
 
-  it("keeps verifiable impact stats and avoids AI Chat marketing copy", () => {
-    expect(page).toContain("<ImpactStats />");
-    expect(page).not.toContain("ValueCalculator");
-    expect(page).not.toContain("ลองคำนวณกับเวลางานของคุณ");
-    const stats = readFileSync("app/components/ImpactStats.tsx", "utf8");
-    expect(stats).toContain("จากทุกบัญชี");
-    expect(stats).not.toMatch(/ประหยัด|ทำเอง|10 นาที|แพทย์ใช้ตรวจทาน/);
+  it("does not market discontinued features or unreconciled impact stats, and keeps disclaimers", () => {
     expect(page).not.toMatch(/AI\s*Chat|AI\s*แชท|แชท\s*AI/i);
+    expect(page).not.toMatch(/Auto\s*(?:Chat|จ่าย|สรุป)|อัตโนมัติ(?:ทั้งหมด|ทุกขั้นตอน)/i);
+    expect(page).not.toContain("<ImpactStats />");
+    expect(page).not.toContain('import ImpactStats');
+    expect(page).toContain("ผลลัพธ์เป็นร่างสำหรับตรวจทาน");
+    expect(page).toContain("ไม่ใช่การวินิจฉัย");
+    expect(page).toContain("การรับรอง DRG อย่างเป็นทางการ");
+    expect(page).toContain("หรือการรับประกันผลเบิกจ่าย");
+    expect(page).toContain("ตรวจสอบความถูกต้องกับเวชระเบียนต้นทาง");
+    expect(page).toContain("ไม่ได้รับรองการลบข้อมูลระบุตัวตน");
+    expect(page).toContain("การรับรอง PDPA");
   });
 });
