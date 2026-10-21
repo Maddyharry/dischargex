@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 describe("homepage conversion content", () => {
   const page = readFileSync("app/page.tsx", "utf8");
 
-  it("keeps a prominent no-signup sample CTA and uses the privacy-enhanced YouTube embed", () => {
+  it("places the privacy-enhanced tutorial video in the hero with a fallback link", () => {
     expect(page).toContain('const demoHref = "/app/guest?tutorial=1"');
     expect(page).toContain("ลองตัวอย่างทันที ไม่ต้องสมัคร");
     expect(page).toContain('src="https://www.youtube-nocookie.com/embed/_mIpiKuYrV4"');
@@ -12,16 +12,21 @@ describe("homepage conversion content", () => {
     expect(page).toContain('referrerPolicy="strict-origin-when-cross-origin"');
     expect(page).toContain("allowFullScreen");
     expect(page).toContain("https://youtu.be/_mIpiKuYrV4?si=6-msUGWTH_9h4lQV");
+    expect(page).toContain("ดูวิธีใช้งานก่อนเริ่มทดลอง");
+    expect(page).not.toContain('id="video"');
   });
 
-  it("presents the approved product hero, sample CTA, and product visual", () => {
+  it("presents the approved product hero using the bundled Prompt font and keeps pricing", () => {
+    expect(page).toContain('import { Prompt } from "next/font/google"');
+    expect(page).toContain('subsets: ["latin", "thai"]');
+    expect(page).toContain("prompt.className");
     expect(page).toContain("ผู้ช่วยจัดร่างสรุปชาร์จและทบทวน coding สำหรับ IPD");
     expect(page).toContain("จัดร่างให้เป็นระบบ");
     expect(page).toContain("ตรวจทานได้ชัดเจน");
     expect(page).toContain("ลองตัวอย่างทันที ไม่ต้องสมัคร");
     expect(page).toContain('href={demoHref}');
-    expect(page).toContain('src="/landing/dischargex-real-app.png"');
-    expect(page).toContain('alt="ตัวอย่างหน้าจอ DischargeX สำหรับจัดร่างสรุปและตรวจทาน"');
+    expect(page).not.toContain("dischargex-real-app.png");
+    expect(page).not.toContain("ภาพตัวอย่างหน้าจอผลิตภัณฑ์");
     expect(page).toContain("<LandingPricingPreview />");
     expect(page).toContain('from "./components/LandingPricingPreview"');
     expect(page).toContain("discharge summary");

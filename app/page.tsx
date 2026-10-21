@@ -1,7 +1,13 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
+import { Prompt } from "next/font/google";
 import LandingPricingPreview from "./components/LandingPricingPreview";
+
+const prompt = Prompt({
+  subsets: ["latin", "thai"],
+  weight: ["300", "400", "500", "600", "700", "800"],
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: { absolute: "DischargeX — สรุปชาร์จและทบทวน coding สำหรับงาน IPD" },
@@ -29,7 +35,7 @@ const steps = [
 
 export default function Home() {
   return (
-    <main className="min-h-screen overflow-hidden bg-[#07111f] text-slate-100 motion-reduce:[&_*]:transition-none">
+    <main className={`${prompt.className} min-h-screen overflow-hidden bg-[#041427] text-slate-100 motion-reduce:[&_*]:transition-none`}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
         "@context": "https://schema.org", "@type": "SoftwareApplication", name: "DischargeX", url: "https://dischargex.net",
         applicationCategory: "HealthApplication", operatingSystem: "Web", description: "ผู้ช่วยสร้างร่างสรุปชาร์จให้ผู้ใช้ตรวจทาน",
@@ -38,7 +44,7 @@ export default function Home() {
       <section className="relative isolate overflow-hidden border-b border-white/10 bg-[radial-gradient(ellipse_at_50%_0%,_rgba(8,145,178,.23),_transparent_48%),linear-gradient(180deg,#0a1728_0%,#07111f_75%,#091a28_100%)]">
         <div aria-hidden="true" className="pointer-events-none absolute -right-40 top-20 h-96 w-96 rounded-full bg-cyan-400/[.08] blur-3xl" />
         <div className="relative mx-auto max-w-7xl px-5 pb-14 pt-8 sm:px-8 sm:pb-20 sm:pt-10">
-          <div className="grid items-center gap-11 pt-14 lg:grid-cols-[.88fr_1.12fr] lg:gap-12 lg:pt-16">
+          <div className="grid items-center gap-11 pt-14 lg:grid-cols-[.8fr_1.2fr] lg:gap-12 lg:pt-16">
             <div className="relative z-10 text-center lg:text-left">
               <p className="mx-auto inline-flex items-center gap-2 rounded-full border border-cyan-300/25 bg-cyan-300/[.07] px-4 py-2 text-xs font-medium tracking-wide text-cyan-100 sm:text-sm lg:mx-0">
                 <span aria-hidden="true" className="h-2 w-2 rounded-full bg-cyan-300 shadow-[0_0_12px_rgba(103,232,249,.8)]" />
@@ -54,12 +60,12 @@ export default function Home() {
             </div>
 
             <div className="relative mx-auto w-full max-w-3xl lg:pl-2">
-              <div className="absolute -inset-5 rounded-[2rem] bg-cyan-400/[.12] blur-2xl" aria-hidden="true" />
-              <div className="relative overflow-hidden rounded-2xl border border-cyan-200/30 bg-[#0b1d31] p-2.5 shadow-2xl shadow-black/50 sm:rounded-3xl sm:p-3">
-                <div className="flex h-9 items-center gap-2 border-b border-white/10 px-2 sm:h-10"><span className="h-2.5 w-2.5 rounded-full bg-rose-400/80"/><span className="h-2.5 w-2.5 rounded-full bg-amber-300/80"/><span className="h-2.5 w-2.5 rounded-full bg-emerald-300/80"/><span className="ml-2 truncate rounded-md bg-slate-950/70 px-3 py-1 text-[10px] text-slate-500 sm:text-xs">app.dischargex.net · ตัวอย่างหน้าจอ</span></div>
-                <Image src="/landing/dischargex-real-app.png" alt="ตัวอย่างหน้าจอ DischargeX สำหรับจัดร่างสรุปและตรวจทาน" width={1600} height={1000} priority sizes="(max-width: 1024px) 100vw, 58vw" className="mt-2 h-auto w-full rounded-lg object-cover object-top sm:rounded-xl" />
+              <div className="absolute -inset-5 rounded-[2rem] bg-cyan-400/[.16] blur-2xl" aria-hidden="true" />
+              <div className="relative overflow-hidden rounded-2xl border-2 border-cyan-300/60 bg-[#0b2544] p-2 shadow-2xl shadow-black/50 ring-4 ring-blue-500/10 sm:rounded-3xl sm:p-3">
+                <div className="flex h-8 items-center justify-between border-b border-white/10 px-2 sm:h-9"><div className="flex items-center gap-1.5" aria-hidden="true"><span className="h-2 w-2 rounded-full bg-rose-400/80"/><span className="h-2 w-2 rounded-full bg-amber-300/80"/><span className="h-2 w-2 rounded-full bg-emerald-300/80"/></div><span className="truncate rounded-md bg-slate-950/70 px-3 py-1 text-[10px] text-slate-400 sm:text-xs">DischargeX · วิดีโอแนะนำการใช้งาน</span><span className="w-10" aria-hidden="true" /></div>
+                <iframe className="mt-2 aspect-video w-full rounded-lg bg-black sm:rounded-xl" src="https://www.youtube-nocookie.com/embed/_mIpiKuYrV4" title="วิดีโอแนะนำวิธีเริ่มใช้ DischargeX" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerPolicy="strict-origin-when-cross-origin" allowFullScreen />
+                <div className="flex flex-wrap items-center justify-between gap-2 px-2 pt-3 text-xs sm:px-3 sm:text-sm"><span className="text-slate-400">ดูวิธีใช้งานก่อนเริ่มทดลอง</span><a href="https://youtu.be/_mIpiKuYrV4?si=6-msUGWTH_9h4lQV" target="_blank" rel="noreferrer" className="text-cyan-200 underline decoration-cyan-300/40 underline-offset-4 hover:text-white">เปิดวิดีโอใน YouTube ↗</a></div>
               </div>
-              <p className="mt-3 text-center text-xs text-slate-500">ภาพตัวอย่างหน้าจอผลิตภัณฑ์</p>
             </div>
           </div>
         </div>
@@ -69,13 +75,6 @@ export default function Home() {
         <div className="mx-auto max-w-2xl text-center"><p className="text-sm font-medium tracking-wide text-cyan-300">เครื่องมือช่วยจัดและทบทวน</p><h2 id="features-heading" className="mt-3 text-3xl font-semibold tracking-tight text-white sm:text-4xl">เห็นข้อมูลสำคัญในรูปแบบที่อ่านง่าย</h2><p className="mt-4 leading-relaxed text-slate-400">ใช้ข้อเสนอจากระบบเป็นจุดเริ่มต้น แล้วตรวจทานให้ตรงกับเอกสารและบริบทของผู้ป่วย</p></div>
         <div className="mt-9 grid gap-4 md:grid-cols-3">{features.map((feature) => <article key={feature.title} className="rounded-2xl border border-white/10 bg-gradient-to-b from-white/[.055] to-white/[.02] p-6 shadow-lg shadow-black/10"><span aria-hidden="true" className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-cyan-200/15 bg-cyan-300/10 text-xl text-cyan-200">{feature.icon}</span><h3 className="mt-5 text-lg font-semibold text-white">{feature.title}</h3><p className="mt-2 text-sm leading-7 text-slate-400">{feature.text}</p></article>)}</div>
         <div className="mt-5 grid gap-3 sm:grid-cols-2">{["ช่วยจัดโครงสร้างร่างสรุปชาร์จ", "แสดงข้อมูลสำคัญเพื่อให้ผู้ใช้พิจารณา", "เสนอ ICD เพื่อให้ตรวจทาน", "แสดงจุดประกอบการทบทวนก่อนนำไปใช้"].map((item) => <p key={item} className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[.025] px-4 py-3 text-sm text-slate-300"><span aria-hidden="true" className="text-cyan-300">✓</span>{item}</p>)}</div>
-      </section>
-
-      <section id="video" className="border-y border-white/10 bg-white/[.02]" aria-labelledby="video-heading">
-        <div className="mx-auto grid max-w-7xl items-center gap-8 px-5 py-14 sm:px-8 lg:grid-cols-[.7fr_1.3fr] lg:py-16">
-          <div><p className="text-sm font-medium tracking-wide text-cyan-300">เห็นภาพก่อนเริ่ม</p><h2 id="video-heading" className="mt-3 text-2xl font-semibold tracking-tight text-white sm:text-3xl">ดูตัวอย่างการใช้งาน DischargeX</h2><p className="mt-3 leading-relaxed text-slate-400">ทำความรู้จักขั้นตอน แล้วลองด้วยข้อมูลตัวอย่างได้ทันที</p><Link href={demoHref} className="mt-6 inline-flex text-sm font-medium text-cyan-200 underline decoration-cyan-300/40 underline-offset-4 hover:text-white">ลองตัวอย่าง ไม่ต้องสมัคร →</Link></div>
-          <div className="relative"><div className="absolute -inset-3 rounded-[1.7rem] bg-gradient-to-br from-cyan-400/15 via-blue-500/10 to-teal-300/10 blur-xl" aria-hidden="true"/><div className="relative overflow-hidden rounded-2xl border border-white/15 bg-slate-950 shadow-2xl shadow-black/40"><iframe className="aspect-video w-full bg-black" src="https://www.youtube-nocookie.com/embed/_mIpiKuYrV4" title="วิดีโอแนะนำวิธีเริ่มใช้ DischargeX" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerPolicy="strict-origin-when-cross-origin" allowFullScreen/><div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-5"><p className="text-sm text-slate-400">วิดีโอแนะนำการใช้งาน</p><a href="https://youtu.be/_mIpiKuYrV4?si=6-msUGWTH_9h4lQV" target="_blank" rel="noreferrer" className="text-sm text-cyan-200 underline">เปิดวิดีโอใน YouTube</a></div></div></div>
-        </div>
       </section>
 
       <section id="how-it-works" className="mx-auto max-w-7xl scroll-mt-8 px-5 py-16 sm:px-8 lg:py-20" aria-labelledby="steps-heading"><div className="mx-auto max-w-2xl text-center"><p className="text-sm font-medium tracking-wide text-cyan-300">เริ่มจากเคสตัวอย่าง</p><h2 id="steps-heading" className="mt-3 text-3xl font-semibold tracking-tight text-white sm:text-4xl">เริ่มต้นได้ใน 3 ขั้นตอน</h2><p className="mt-4 leading-relaxed text-slate-400">ทดลองขั้นตอนและดูรูปแบบผลลัพธ์ก่อนสมัคร</p></div><div className="mt-10 grid gap-4 md:grid-cols-3">{steps.map((step) => <article key={step.number} className="rounded-2xl border border-white/10 bg-gradient-to-b from-white/[.055] to-white/[.02] p-6 shadow-lg shadow-black/10"><span className="text-sm font-semibold tracking-widest text-cyan-300">{step.number}</span><h3 className="mt-4 text-xl font-semibold text-white">{step.title}</h3><p className="mt-3 leading-relaxed text-slate-400">{step.text}</p></article>)}</div></section>
