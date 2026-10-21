@@ -28,6 +28,8 @@ describe("homepage matches the approved landing mockup", () => {
     expect(page).toContain('aria-label="ภาพรวมการใช้งาน"');
     expect(page).toContain("<LandingPricingPreview />");
     expect(page).toContain("ผลลัพธ์เป็นร่างสำหรับตรวจทานก่อนใช้งานจริง");
+    expect(page).toContain("<LandingImpactStats />");
+    expect(page).not.toContain("แสดงจากข้อมูลฝั่งเซิร์ฟเวอร์เมื่อเชื่อมระบบจริง");
   });
 
   it("keeps the approved trial, pricing, monthly/yearly toggle, and live destinations", () => {

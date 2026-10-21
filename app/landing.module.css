@@ -68,7 +68,7 @@
 .stepArrow{width:16px;height:16px;border-right:2px solid #77bcf9;border-top:2px solid #77bcf9;transform:rotate(45deg)}
 .stats{display:grid;grid-template-columns:1fr 1fr;gap:0;margin-top:30px;border:1px solid #1b659e;border-radius:14px;min-height:145px;background:linear-gradient(120deg,rgba(9,63,111,.68),rgba(3,28,53,.73));box-shadow:inset 0 0 35px rgba(4,73,146,.13)}
 .stat{display:flex;gap:24px;align-items:center;justify-content:center;position:relative}.stat:first-child:after{content:"";position:absolute;right:0;top:28%;height:44%;width:1px;background:#265b86}
-.stat svg{width:49px;height:49px;stroke:var(--cyan);stroke-width:2}.statLabel{font-size:14px;color:#98cbf3;font-weight:500}.statValue{font-size:29px;line-height:1.3;font-weight:600;letter-spacing:-1px;color:#39e3f4}.statDetail{font-size:11px;color:#9bbad5}
+.stat svg{width:49px;height:49px;stroke:var(--cyan);stroke-width:2}.statLabel{font-size:14px;color:#98cbf3;font-weight:500}.statValue{font-size:29px;line-height:1.3;font-weight:600;letter-spacing:-1px;color:#39e3f4}.statValue span{font-size:16px;font-weight:500;letter-spacing:0}.statDetail{font-size:11px;color:#9bbad5}.statsUpdated{grid-column:1/-1;margin:0;padding:0 14px 8px;text-align:center;color:#789cba;font-size:10px}
 .pricing{padding:14px 0 22px}
 .pricingHeader{text-align:center}
 .billingToggle{display:flex;align-items:center;justify-content:center;width:max-content;margin:22px auto 24px;padding:5px;border:1px solid #2a6b96;border-radius:12px;background:#071b31;gap:5px}

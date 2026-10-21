@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Prompt } from "next/font/google";
 import LandingPricingPreview from "./components/LandingPricingPreview";
+import LandingImpactStats from "./components/LandingImpactStats";
 import styles from "./landing.module.css";
 
 const prompt = Prompt({
@@ -86,8 +87,7 @@ export default function Home() {
       </section>
 
       <section className={`${styles.stats} ${styles.container}`} aria-label="ภาพรวมการใช้งาน">
-        <div className={styles.stat}><svg viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true"><rect x="3" y="14" width="4" height="7" rx="1"/><rect x="10" y="9" width="4" height="12" rx="1"/><rect x="17" y="3" width="4" height="18" rx="1"/></svg><div><div className={styles.statLabel}>ผลการใช้งานจริง</div><div className={styles.statValue}>ภาพรวมการสร้างสรุป</div><div className={styles.statDetail}>แสดงจากข้อมูลฝั่งเซิร์ฟเวอร์เมื่อเชื่อมระบบจริง</div></div></div>
-        <div className={styles.stat}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 5v7l4 3"/></svg><div><div className={styles.statLabel}>ระยะเวลา Generate</div><div className={styles.statValue}>วัดจากงานที่สำเร็จ</div><div className={styles.statDetail}>ไม่นับงานล้มเหลวหรือการคำนวณซ้ำ</div></div></div>
+        <LandingImpactStats />
       </section>
 
       <div className={styles.pricing}><LandingPricingPreview /></div>
