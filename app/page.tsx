@@ -2,16 +2,18 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Prompt } from "next/font/google";
 import LandingPricingPreview from "./components/LandingPricingPreview";
+import styles from "./landing.module.css";
 
 const prompt = Prompt({
   subsets: ["latin", "thai"],
   weight: ["300", "400", "500", "600", "700", "800"],
   display: "swap",
+  variable: "--font-prompt",
 });
 
 export const metadata: Metadata = {
   title: { absolute: "DischargeX — สรุปชาร์จและทบทวน coding สำหรับงาน IPD" },
-  description: "ตัวช่วยจัดร่าง discharge summary เสนอ diagnosis และ procedure ให้ทบทวน พร้อมประมาณผลต่อ coding review และ AdjRW ด้วยข้อมูลตัวอย่างให้ลองได้ทันที",
+  description: "DischargeX ผู้ช่วยจัดร่าง Discharge Summary และตรวจทานรหัส ICD-10 สำหรับบุคลากรทางการแพทย์",
   alternates: { canonical: "/" },
   openGraph: {
     title: "DischargeX — สรุปชาร์จและทบทวน coding สำหรับงาน IPD",
@@ -21,72 +23,75 @@ export const metadata: Metadata = {
 };
 
 const demoHref = "/app/guest?tutorial=1";
-const primaryCta = "inline-flex min-h-12 items-center justify-center rounded-xl bg-cyan-300 px-6 py-3 font-semibold text-slate-950 shadow-lg shadow-cyan-950/30 transition hover:-translate-y-0.5 hover:bg-cyan-200 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-cyan-300 motion-reduce:transform-none";
-const features = [
-  { icon: "✳", title: "ร่างสรุปจำหน่าย", text: "ช่วยจัดโครงสร้างข้อมูลเป็นร่าง discharge summary เพื่อให้อ่านและตรวจทานได้เป็นส่วน ๆ" },
-  { icon: "⌕", title: "ทบทวน diagnosis", text: "แสดงข้อเสนอ diagnosis และรหัส ICD ที่สัมพันธ์กับข้อมูล เพื่อให้ผู้ใช้พิจารณา" },
-  { icon: "▤", title: "Coding และ AdjRW", text: "ช่วยชี้จุดสำหรับทบทวน coding พร้อมค่าประมาณประกอบการตรวจสอบ" },
-];
-const steps = [
-  { number: "01", title: "ใส่ข้อมูลต้นทาง", text: "เริ่มจาก Order Sheet และตรวจข้อมูลก่อนสร้างร่างสรุป" },
-  { number: "02", title: "ดูร่างที่จัดเป็นหมวด", text: "ไล่อ่านการวินิจฉัย การรักษา ผลการรักษา และแผนติดตาม" },
-  { number: "03", title: "ตรวจทานก่อนนำไปใช้", text: "แก้ไขให้ตรงกับบันทึกและบริบทของเคสทุกครั้ง" },
-];
+
+function DocumentIcon() {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><path d="M6 2h9l5 5v15H4V4a2 2 0 0 1 2-2zM14 2v6h6M8 12h8M8 16h8" /></svg>;
+}
 
 export default function Home() {
   return (
-    <main className={`${prompt.className} min-h-screen overflow-hidden bg-[#041427] text-slate-100 motion-reduce:[&_*]:transition-none`}>
+    <main className={`${styles.root} ${prompt.className}`}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
         "@context": "https://schema.org", "@type": "SoftwareApplication", name: "DischargeX", url: "https://dischargex.net",
         applicationCategory: "HealthApplication", operatingSystem: "Web", description: "ผู้ช่วยสร้างร่างสรุปชาร์จให้ผู้ใช้ตรวจทาน",
       }) }} />
 
-      <section className="relative isolate overflow-hidden border-b border-white/10 bg-[radial-gradient(ellipse_at_50%_0%,_rgba(8,145,178,.23),_transparent_48%),linear-gradient(180deg,#0a1728_0%,#07111f_75%,#091a28_100%)]">
-        <div aria-hidden="true" className="pointer-events-none absolute -right-40 top-20 h-96 w-96 rounded-full bg-cyan-400/[.08] blur-3xl" />
-        <div className="relative mx-auto max-w-7xl px-5 pb-14 pt-8 sm:px-8 sm:pb-20 sm:pt-10">
-          <div className="grid items-center gap-11 pt-14 lg:grid-cols-[.8fr_1.2fr] lg:gap-12 lg:pt-16">
-            <div className="relative z-10 text-center lg:text-left">
-              <p className="mx-auto inline-flex items-center gap-2 rounded-full border border-cyan-300/25 bg-cyan-300/[.07] px-4 py-2 text-xs font-medium tracking-wide text-cyan-100 sm:text-sm lg:mx-0">
-                <span aria-hidden="true" className="h-2 w-2 rounded-full bg-cyan-300 shadow-[0_0_12px_rgba(103,232,249,.8)]" />
-                ผู้ช่วยจัดร่างสรุปชาร์จและทบทวน coding สำหรับ IPD
-              </p>
-              <h1 className="mt-6 text-5xl font-bold leading-tight tracking-[-.045em] text-white sm:text-6xl lg:text-7xl">จัดร่างให้เป็นระบบ<br /><span className="bg-gradient-to-r from-cyan-200 via-cyan-300 to-sky-400 bg-clip-text text-transparent">ตรวจทานได้ชัดเจน</span></h1>
-              <p className="mx-auto mt-5 max-w-xl text-base leading-8 text-slate-300 sm:text-lg lg:mx-0">DischargeX ช่วยจัดร่าง discharge summary เสนอ diagnosis และจุดสำหรับทบทวน coding โดยผู้ใช้ตรวจสอบกับเวชระเบียนต้นทางก่อนนำไปใช้</p>
-              <div className="mt-7 flex flex-col justify-center gap-3 sm:flex-row lg:justify-start">
-                <Link href={demoHref} className={primaryCta}>ลองตัวอย่างทันที ไม่ต้องสมัคร <span aria-hidden="true" className="ml-2">→</span></Link>
-                <Link href="/pricing" className="inline-flex min-h-12 items-center justify-center rounded-xl border border-white/20 bg-white/[.04] px-6 py-3 font-medium text-slate-100 transition hover:border-cyan-200/50 hover:bg-white/[.08] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-cyan-300">ดูแพ็กเกจ</Link>
-              </div>
-              <div className="mt-8 flex flex-wrap justify-center gap-x-5 gap-y-2 text-xs text-slate-400 lg:justify-start sm:text-sm"><span>จัดร่างเป็นหมวดหมู่</span><span aria-hidden="true" className="text-cyan-300">·</span><span>มีจุดประกอบการตรวจทาน</span><span aria-hidden="true" className="text-cyan-300">·</span><span>เริ่มจากข้อมูลตัวอย่างได้</span></div>
-            </div>
+      <section className={`${styles.hero} ${styles.container}`} aria-labelledby="hero-title">
+        <div className={styles.heroCopy}>
+          <p className={styles.eyebrow}>AI สำหรับสรุปชาร์จ · ทบทวน ICD-10<br />และช่วยชี้จุดทบทวน Coding / AdjRW</p>
+          <h1 id="hero-title" className={styles.heroTitle}>สรุปชาร์จ<br />ให้เป็น<span className={styles.gradientText}>ระเบียบ</span></h1>
+          <p className={styles.heroSub}>เปลี่ยนข้อมูลการรักษาเป็นร่างสรุปจำหน่าย<br />ที่อ่านง่าย พร้อมช่วยตรวจทานรหัส ICD-10</p>
+          <div className={styles.heroActions}>
+            <Link href={demoHref} className={`${styles.button} ${styles.primary}`}>ลองด้วยข้อมูลตัวอย่าง <span aria-hidden="true" style={{ fontSize: 24, lineHeight: 1 }}>→</span></Link>
+            <Link href="#pricing" className={`${styles.button} ${styles.outline}`}>ดูแพ็กเกจ</Link>
+          </div>
+          <div className={styles.trustRow}>
+            <div className={styles.trustItem}><svg viewBox="0 0 24 24" fill="none" strokeWidth="2" aria-hidden="true"><path d="M12 2 20 5v6c0 5-3.5 8-8 11-4.5-3-8-6-8-11V5z" /></svg><div><strong>ใช้งานง่าย</strong><small>ออกแบบเพื่อเวชปฏิบัติ</small></div></div>
+            <div className={styles.trustItem}><svg viewBox="0 0 24 24" fill="none" strokeWidth="2" aria-hidden="true"><rect x="4" y="2" width="16" height="20" rx="2" /><path d="M8 8h8M8 12h8M8 16h5" /></svg><div><strong>เน้นความเป็นระเบียบ</strong><small>โครงสร้างชัดเจน อ่านง่าย</small></div></div>
+            <div className={styles.trustItem}><svg viewBox="0 0 24 24" fill="none" strokeWidth="2" aria-hidden="true"><rect x="5" y="10" width="14" height="12" rx="2" /><path d="M8 10V7a4 4 0 0 1 8 0v3M12 15v3" /></svg><div><strong>ใส่ใจข้อมูลระบุตัวตน</strong><small>ตรวจทานข้อมูลก่อนส่ง AI</small></div></div>
+          </div>
+        </div>
 
-            <div className="relative mx-auto w-full max-w-3xl lg:pl-2">
-              <div className="absolute -inset-5 rounded-[2rem] bg-cyan-400/[.16] blur-2xl" aria-hidden="true" />
-              <div className="relative overflow-hidden rounded-2xl border-2 border-cyan-300/60 bg-[#0b2544] p-2 shadow-2xl shadow-black/50 ring-4 ring-blue-500/10 sm:rounded-3xl sm:p-3">
-                <div className="flex h-8 items-center justify-between border-b border-white/10 px-2 sm:h-9"><div className="flex items-center gap-1.5" aria-hidden="true"><span className="h-2 w-2 rounded-full bg-rose-400/80"/><span className="h-2 w-2 rounded-full bg-amber-300/80"/><span className="h-2 w-2 rounded-full bg-emerald-300/80"/></div><span className="truncate rounded-md bg-slate-950/70 px-3 py-1 text-[10px] text-slate-400 sm:text-xs">DischargeX · วิดีโอแนะนำการใช้งาน</span><span className="w-10" aria-hidden="true" /></div>
-                <iframe className="mt-2 aspect-video w-full rounded-lg bg-black sm:rounded-xl" src="https://www.youtube-nocookie.com/embed/_mIpiKuYrV4" title="วิดีโอแนะนำวิธีเริ่มใช้ DischargeX" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerPolicy="strict-origin-when-cross-origin" allowFullScreen />
-                <div className="flex flex-wrap items-center justify-between gap-2 px-2 pt-3 text-xs sm:px-3 sm:text-sm"><span className="text-slate-400">ดูวิธีใช้งานก่อนเริ่มทดลอง</span><a href="https://youtu.be/_mIpiKuYrV4?si=6-msUGWTH_9h4lQV" target="_blank" rel="noreferrer" className="text-cyan-200 underline decoration-cyan-300/40 underline-offset-4 hover:text-white">เปิดวิดีโอใน YouTube ↗</a></div>
-              </div>
+        <div className={styles.preview} aria-label="วิดีโอแนะนำการใช้งาน DischargeX">
+          <div className={styles.glow} aria-hidden="true" />
+          <div className={styles.videoWindow}>
+            <div className={styles.windowTop}><span className={styles.traffic} aria-hidden="true"><i /><i /><i /></span><span>DischargeX · วิดีโอแนะนำการใช้งาน</span><span aria-hidden="true">VIDEO</span></div>
+            <div className={styles.videoFrame}>
+              <iframe src="https://www.youtube-nocookie.com/embed/_mIpiKuYrV4" title="วิดีโอแนะนำวิธีเริ่มใช้ DischargeX" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerPolicy="strict-origin-when-cross-origin" allowFullScreen />
             </div>
           </div>
+          <div className={styles.videoCaption}><span>ผลลัพธ์ต้องตรวจทานก่อนใช้</span><a href="https://youtu.be/_mIpiKuYrV4?si=6-msUGWTH_9h4lQV" target="_blank" rel="noreferrer">เปิดวิดีโอใน YouTube ↗</a></div>
         </div>
       </section>
 
-      <section id="features" className="mx-auto max-w-7xl scroll-mt-8 px-5 py-14 sm:px-8 sm:py-16" aria-labelledby="features-heading">
-        <div className="mx-auto max-w-2xl text-center"><p className="text-sm font-medium tracking-wide text-cyan-300">เครื่องมือช่วยจัดและทบทวน</p><h2 id="features-heading" className="mt-3 text-3xl font-semibold tracking-tight text-white sm:text-4xl">เห็นข้อมูลสำคัญในรูปแบบที่อ่านง่าย</h2><p className="mt-4 leading-relaxed text-slate-400">ใช้ข้อเสนอจากระบบเป็นจุดเริ่มต้น แล้วตรวจทานให้ตรงกับเอกสารและบริบทของผู้ป่วย</p></div>
-        <div className="mt-9 grid gap-4 md:grid-cols-3">{features.map((feature) => <article key={feature.title} className="rounded-2xl border border-white/10 bg-gradient-to-b from-white/[.055] to-white/[.02] p-6 shadow-lg shadow-black/10"><span aria-hidden="true" className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-cyan-200/15 bg-cyan-300/10 text-xl text-cyan-200">{feature.icon}</span><h3 className="mt-5 text-lg font-semibold text-white">{feature.title}</h3><p className="mt-2 text-sm leading-7 text-slate-400">{feature.text}</p></article>)}</div>
-        <div className="mt-5 grid gap-3 sm:grid-cols-2">{["ช่วยจัดโครงสร้างร่างสรุปชาร์จ", "แสดงข้อมูลสำคัญเพื่อให้ผู้ใช้พิจารณา", "เสนอ ICD เพื่อให้ตรวจทาน", "แสดงจุดประกอบการทบทวนก่อนนำไปใช้"].map((item) => <p key={item} className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[.025] px-4 py-3 text-sm text-slate-300"><span aria-hidden="true" className="text-cyan-300">✓</span>{item}</p>)}</div>
+      <section className={`${styles.features} ${styles.container}`} aria-label="ความสามารถหลัก">
+        <article className={styles.feature}><div className={styles.featureHeading}><span className={styles.featureIcon}><DocumentIcon /></span><div><h3>ช่วยร่าง Discharge Summary<br />อย่างเป็นระเบียบ</h3><p>จัดโครงสร้างอัตโนมัติ ครอบคลุม<br />ประเด็นสำคัญ อ่านง่าย</p></div></div><div className={styles.featureArt} aria-hidden="true">{[42,92,67,48,80,59].map((width) => <div key={width} className={styles.skeleton} style={{ width: `${width}%` }} />)}</div></article>
+        <article className={styles.feature}><div className={styles.featureHeading}><span className={styles.featureIcon}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M6 3v7a5 5 0 0 0 10 0V3M4 3h4M14 3h4M11 16v1a4 4 0 0 0 8 0v-2" /><circle cx="19" cy="13" r="2" /></svg></span><div><h3>ตรวจทานรหัส ICD-10</h3><p>เสนอ diagnosis และรหัส ICD-10<br />เพื่อให้ผู้ใช้ตรวจทาน</p></div></div><div className={`${styles.featureArt} ${styles.icdArt}`} aria-hidden="true">{[["J18.9", "Pneumonia, unspecified"], ["I10", "Essential hypertension"], ["E11.9", "Type 2 diabetes mellitus"]].map(([code, text]) => <div key={code} className={styles.icdRow}><span className={styles.icdBullet}>✓</span><span className={styles.icdCode}>{code}</span>{text}</div>)}</div></article>
+        <article className={styles.feature}><div className={styles.featureHeading}><span className={styles.featureIcon}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><rect x="8" y="7" width="12" height="14" rx="2" /><path d="M16 7V5a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h2" /></svg></span><div><h3>ทบทวน Coding และ AdjRW</h3><p>ช่วยชี้จุดที่อาจตกหล่น<br />และแสดงค่าประมาณ AdjRW</p></div></div><div className={`${styles.featureArt} ${styles.copyArt}`} aria-hidden="true">{[61,85,65].map((width) => <div key={width} className={styles.skeleton} style={{ width: `${width}%` }} />)}</div><div className={styles.floatingCopy} aria-hidden="true">▣ คัดลอก</div></article>
       </section>
 
-      <section id="how-it-works" className="mx-auto max-w-7xl scroll-mt-8 px-5 py-16 sm:px-8 lg:py-20" aria-labelledby="steps-heading"><div className="mx-auto max-w-2xl text-center"><p className="text-sm font-medium tracking-wide text-cyan-300">เริ่มจากเคสตัวอย่าง</p><h2 id="steps-heading" className="mt-3 text-3xl font-semibold tracking-tight text-white sm:text-4xl">เริ่มต้นได้ใน 3 ขั้นตอน</h2><p className="mt-4 leading-relaxed text-slate-400">ทดลองขั้นตอนและดูรูปแบบผลลัพธ์ก่อนสมัคร</p></div><div className="mt-10 grid gap-4 md:grid-cols-3">{steps.map((step) => <article key={step.number} className="rounded-2xl border border-white/10 bg-gradient-to-b from-white/[.055] to-white/[.02] p-6 shadow-lg shadow-black/10"><span className="text-sm font-semibold tracking-widest text-cyan-300">{step.number}</span><h3 className="mt-4 text-xl font-semibold text-white">{step.title}</h3><p className="mt-3 leading-relaxed text-slate-400">{step.text}</p></article>)}</div></section>
+      <section className={`${styles.benefits} ${styles.container}`} aria-label="ประโยชน์ของ DischargeX">
+        <p className={styles.overline}>ทำไมต้องใช้ DischargeX</p><h2 className={styles.sectionTitle}>ไม่ได้ช่วยแค่สรุปข้อความ <span className={styles.cyan}>แต่ช่วยให้ตรวจทานได้ครบขึ้น</span></h2>
+        <div className={styles.benefitGrid}>{["ช่วยลดเวลาจัดทำร่างสรุปชาร์จ", "ช่วยชี้ข้อมูลสำคัญที่อาจพิมพ์ผิดหรือตกหล่น", "เสนอ ICD ที่สอดคล้องกับข้อมูลเพื่อให้ทบทวน", "ชี้จุดที่ควรตรวจทานก่อนนำไปใช้งานจริง"].map((text) => <div key={text} className={styles.benefit}><span className={styles.benefitCheck}>✓</span><span>{text}</span></div>)}</div>
+        <p className={styles.benefitFootnote}>เป็นเครื่องมือช่วยทบทวน ไม่ใช่ระบบวินิจฉัยหรือรับรองการจัดกลุ่ม DRG อย่างเป็นทางการ</p>
+      </section>
 
-      <div className="border-y border-white/10 bg-gradient-to-r from-cyan-950/30 via-white/[.025] to-blue-950/30"><div className="mx-auto grid max-w-7xl gap-4 px-5 py-6 text-center sm:grid-cols-3 sm:px-8 sm:py-7"><p className="text-sm text-slate-300">เริ่มทดลองด้วยข้อมูลตัวอย่าง</p><p className="text-sm text-slate-300">ระบบช่วยจัดร่างและแสดงข้อเสนอ</p><p className="text-sm text-slate-300">ผู้ใช้ตรวจทานก่อนนำไปใช้</p></div></div>
+      <section id="how-it-works" className={`${styles.stepsSection} ${styles.container}`} aria-labelledby="steps-title">
+        <h2 id="steps-title" className={styles.sectionTitle}>ใช้งานง่ายใน <span className={styles.cyan}>3 ขั้นตอน</span></h2>
+        <div className={styles.steps}>
+          <div className={styles.step}><span className={styles.number}>1</span><span className={styles.stepIcon}><DocumentIcon /></span><div className={styles.stepText}><strong>วางข้อมูล</strong><small>คัดลอกข้อมูลการรักษา<br />หรือพิมพ์สรุปย่อ</small></div></div><span className={styles.stepArrow} aria-hidden="true" />
+          <div className={styles.step}><span className={styles.number}>2</span><span className={styles.stepIcon}><DocumentIcon /></span><div className={styles.stepText}><strong>ได้รับร่างสรุป</strong><small>ระบบจัดโครงสร้างเป็น<br />ร่าง Discharge Summary</small></div></div><span className={styles.stepArrow} aria-hidden="true" />
+          <div className={styles.step}><span className={styles.number}>3</span><span className={styles.stepIcon}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="m7 12 3 3 7-7" /></svg></span><div className={styles.stepText}><strong>ตรวจทานก่อนใช้</strong><small>ตรวจสอบเนื้อหาและรหัส ICD-10<br />ก่อนคัดลอกไปใช้งาน</small></div></div>
+        </div>
+      </section>
 
-      <LandingPricingPreview />
+      <section className={`${styles.stats} ${styles.container}`} aria-label="ภาพรวมการใช้งาน">
+        <div className={styles.stat}><svg viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true"><rect x="3" y="14" width="4" height="7" rx="1"/><rect x="10" y="9" width="4" height="12" rx="1"/><rect x="17" y="3" width="4" height="18" rx="1"/></svg><div><div className={styles.statLabel}>ผลการใช้งานจริง</div><div className={styles.statValue}>ภาพรวมการสร้างสรุป</div><div className={styles.statDetail}>แสดงจากข้อมูลฝั่งเซิร์ฟเวอร์เมื่อเชื่อมระบบจริง</div></div></div>
+        <div className={styles.stat}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 5v7l4 3"/></svg><div><div className={styles.statLabel}>ระยะเวลา Generate</div><div className={styles.statValue}>วัดจากงานที่สำเร็จ</div><div className={styles.statDetail}>ไม่นับงานล้มเหลวหรือการคำนวณซ้ำ</div></div></div>
+      </section>
 
-      <section className="mx-auto grid max-w-7xl gap-5 px-5 pb-14 sm:px-8 md:grid-cols-2 lg:pb-16"><article className="rounded-2xl border border-white/10 bg-slate-900/60 p-6 sm:p-8"><p className="text-sm font-medium text-cyan-300">ตรวจทานเป็นขั้นตอน</p><h2 className="mt-3 text-2xl font-semibold text-white">ร่างช่วยจัดข้อมูล<br/>ผู้ใช้เป็นคนยืนยัน</h2><p className="mt-4 leading-relaxed text-slate-300">ตรวจผลกับเวชระเบียนต้นทางและหลักเกณฑ์ของหน่วยงานก่อนนำไปใช้ทุกครั้ง</p><Link href="/learn" className="mt-6 inline-flex text-cyan-200 underline underline-offset-4">อ่านคู่มือการเริ่มต้น →</Link></article><article className="rounded-2xl border border-cyan-200/15 bg-gradient-to-br from-cyan-950/60 to-slate-900/80 p-6 sm:p-8"><p className="text-sm font-medium text-cyan-300">ทดลองก่อนเลือก</p><h2 className="mt-3 text-2xl font-semibold text-white">เริ่มจากข้อมูลตัวอย่าง</h2><p className="mt-4 leading-relaxed text-slate-300">ลองดูขั้นตอนโดยไม่ต้องสมัคร แล้วตรวจสอบรายละเอียดแพ็กเกจได้เมื่อพร้อม</p><Link href={demoHref} className="mt-6 inline-flex rounded-lg border border-cyan-200/30 px-4 py-2.5 text-cyan-100 hover:bg-cyan-100/10">ลองใช้งาน →</Link></article></section>
-
-      <section id="review-note" className="scroll-mt-8 border-t border-white/10 bg-[radial-gradient(ellipse_at_center,_rgba(8,145,178,.14),_transparent_65%)] px-5 py-16 text-center sm:px-8"><p className="text-sm font-medium text-cyan-300">แนวทางใช้งาน</p><h2 className="mx-auto mt-3 max-w-2xl text-3xl font-semibold tracking-tight text-white sm:text-4xl">ผลลัพธ์เป็นร่างสำหรับตรวจทาน</h2><p className="mx-auto mt-4 max-w-3xl leading-relaxed text-slate-300">ข้อเสนอ diagnosis, coding และค่าประมาณ AdjRW ไม่ใช่การวินิจฉัย การรับรอง DRG อย่างเป็นทางการ หรือการรับประกันผลเบิกจ่าย โปรดตรวจสอบความถูกต้องกับเวชระเบียนต้นทางและเกณฑ์ของหน่วยงานก่อนใช้งาน</p><p className="mx-auto mt-3 max-w-3xl text-sm leading-relaxed text-slate-400">ข้อมูลที่ส่งให้ AI อาจมีข้อมูลสุขภาพ โปรดตรวจและลดข้อมูลระบุตัวตนตามแนวทางของหน่วยงานก่อนส่ง ระบบไม่ได้รับรองการลบข้อมูลระบุตัวตนหรือการรับรอง PDPA</p><div className="mt-7 flex flex-wrap justify-center gap-3"><Link href="/signup" className={primaryCta}>สมัครทดลองฟรี</Link><Link href={demoHref} className="inline-flex min-h-12 items-center justify-center rounded-xl border border-white/20 px-6 py-3 font-medium text-slate-100 hover:bg-white/5">ลองข้อมูลตัวอย่าง</Link></div><p className="mt-4 text-sm text-slate-400">ทดลอง 14 วัน · รวม 5 เคส · สูงสุดวันละ 2 เคส</p></section>
-
+      <div className={styles.pricing}><LandingPricingPreview /></div>
+      <div id="review-note" className={`${styles.disclaimer} ${styles.container}`}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="20" height="20" aria-hidden="true"><circle cx="12" cy="12" r="10" /><path d="M12 11v6M12 7h.01" /></svg><span>ผลลัพธ์เป็นร่างสำหรับตรวจทานก่อนใช้งานจริง โปรดตรวจสอบความถูกต้องของเนื้อหาและรหัส ICD-10 ก่อนนำไปใช้ในเวชระเบียน</span></div>
     </main>
   );
 }
