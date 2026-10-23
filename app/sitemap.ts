@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { getKnowledgeSitemapUrls } from "@/lib/knowledge-seo";
 
 const SITE_URL = "https://dischargex.net";
 
@@ -15,6 +16,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${SITE_URL}/icd10-review`, lastModified: now, changeFrequency: "weekly", priority: 0.85 },
     { url: `${SITE_URL}/pricing`, lastModified: now, changeFrequency: "weekly", priority: 0.9 },
     { url: `${SITE_URL}/knowledge`, lastModified: now, changeFrequency: "weekly", priority: 0.8 },
+    ...getKnowledgeSitemapUrls(SITE_URL).map((url) => ({ url, lastModified: now, changeFrequency: "monthly" as const, priority: 0.65 })),
     { url: `${SITE_URL}/legal`, lastModified: now, changeFrequency: "monthly", priority: 0.5 },
     { url: `${SITE_URL}/privacy-policy`, lastModified: now, changeFrequency: "monthly", priority: 0.5 },
     { url: `${SITE_URL}/terms-of-service`, lastModified: now, changeFrequency: "monthly", priority: 0.5 },

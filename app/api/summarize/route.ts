@@ -56,6 +56,7 @@ import { callModelJSON, type SummaryModelCallOptions } from "@/lib/summary-model
 import { estimateActualApiCostThbByModel, isRevenue4xEligible, resolveApiCostModelAlias } from "@/lib/api-cost";
 import { getUsagePolicySnapshot, selectUsagePolicyLedgerRows, type UsagePolicyLedgerRow } from "@/lib/usage-policy";
 import { evaluateBoostGate, getBoostPassesRequired, projectBoostCaseCost } from "@/lib/boost-policy";
+import { claimFirstCaseAnalyticsToken } from "@/lib/first-case-analytics";
 
 export const runtime = "nodejs";
 
@@ -2158,6 +2159,7 @@ export async function POST(req: Request) {
     }
 
     let legacyTokenLedgerWritten = false;
+    let firstCaseCompletedEventToken: string | null = null;
     if (mode === "generate" && userId) {
       const baseToUse = useBoostForCase ? 0 : Math.min(baseRemaining, requiredCreditsForCase);
       const addonToUse = useBoostForCase ? requiredCreditsForCase : 0;
@@ -2204,6 +2206,10 @@ export async function POST(req: Request) {
             update: { count: { increment: 1 } },
           });
 
+          const priorGenerate = await tx.user.findUnique({
+            where: { id: userId },
+            select: { totalGenerations: true },
+          });
           if ((enforceCreditLimit || useBoostForCase) && addonToUse > 0) {
             const updatedCount = await tx.user.updateMany({
               where: { id: userId, extraCredits: { gte: addonToUse } },
@@ -2235,6 +2241,16 @@ export async function POST(req: Request) {
                   : "generate"
                 : "token_generate",
               ...(summarySnapshot ? { summarySnapshot } : {}),
+            },
+          });
+          firstCaseCompletedEventToken = await claimFirstCaseAnalyticsToken({
+            totalGenerationsBeforeCommit: priorGenerate?.totalGenerations ?? 0,
+            insertUniqueMarker: async (eventToken) => {
+              const marker = await tx.firstCaseAnalytics.createMany({
+                data: [{ userId, eventToken }],
+                skipDuplicates: true,
+              });
+              return marker.count === 1;
             },
           });
           },
@@ -2307,6 +2323,7 @@ export async function POST(req: Request) {
           privacy: { deidentifiedBeforeModel: safeImageInputs.length === 0, textRedactionApplied: true, imageRedactionConfirmed: safeImageInputs.length > 0 ? body.imagesRedactedConfirmed === true : null, imageContentVerified: false, anonymizationCertified: false },
           job_id: summaryJobId,
           generation_duration_ms: generationDurationMs,
+          ...(firstCaseCompletedEventToken ? { first_case_completed_event_token: firstCaseCompletedEventToken } : {}),
         },
         preprocess: preprocess.summary,
         engine: enginePayload,

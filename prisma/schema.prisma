@@ -65,6 +65,16 @@ model User {
   tokenUsageLedgers TokenUsageLedger[]
   notifications    Notification[]
   opdAssistLabLogs OpdAssistLabLog[]
+  firstCaseAnalytics FirstCaseAnalytics?
+}
+
+/// One-time conversion marker created in the same transaction as the first committed Generate.
+model FirstCaseAnalytics {
+  userId    String   @id
+  eventToken String  @unique @default(cuid())
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 /// บันทึกการใช้งาน OPD Assist Lab (admin ทดสอบ) — ใช้วิเคราะห์คุณภาพ/ข้อผิดพลาด ไม่ใช่ข้อมูลคนไข้เชิงลึก
