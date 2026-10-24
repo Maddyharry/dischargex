@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { signIn, useSession } from "next-auth/react";
 import { useEffect } from "react";
 import { normalizeReferralCode, PENDING_REFERRAL_CODE_KEY } from "@/lib/pending-referral";
+import { trackSafeAnalyticsEvent } from "@/lib/safe-analytics-client";
 
 function isValidEmail(value: string): boolean {
   const email = value.trim().toLowerCase();
@@ -73,6 +74,7 @@ export default function SignupPage() {
         setError(data.error || "สมัครไม่สำเร็จ");
         return;
       }
+      trackSafeAnalyticsEvent("sign_up");
       if (data.verifyUrl) {
         setVerifyUrl(data.verifyUrl);
         return;

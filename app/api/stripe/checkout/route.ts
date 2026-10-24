@@ -130,7 +130,7 @@ export async function POST(req: NextRequest) {
       ? await stripe.checkout.sessions.create({
           mode: "payment",
           customer: customerId,
-          success_url: `${appOrigin}/app/profile?stripe=success`,
+          success_url: `${appOrigin}/app/profile?stripe=success&session_id={CHECKOUT_SESSION_ID}`,
           cancel_url: `${appOrigin}/pricing?stripe=cancel`,
           line_items: [
             {
@@ -156,7 +156,7 @@ export async function POST(req: NextRequest) {
       : await stripe.checkout.sessions.create({
           mode: "subscription",
           customer: customerId,
-          success_url: `${appOrigin}/app/profile?stripe=success`,
+          success_url: `${appOrigin}/app/profile?stripe=success&session_id={CHECKOUT_SESSION_ID}`,
           cancel_url: `${appOrigin}/pricing?stripe=cancel`,
           line_items: [{ price: selectedPriceId, quantity: 1 }],
           metadata: {

@@ -22,6 +22,8 @@ import type { DiagnosisEngineItem, DischargeEnginePayload } from "@/lib/discharg
 import { createDxCoachData } from "@/lib/charge-mentor";
 import { getPlanDefinition, normalizePlanId } from "@/lib/billing-rules";
 import { getBoostPassesRequired } from "@/lib/boost-policy";
+import { trackSafeAnalyticsEvent } from "@/lib/safe-analytics-client";
+import { shouldTrackDemoCompleted, shouldTrackDemoStarted } from "@/lib/analytics-events";
 
 type Block = {
   key: string;
@@ -58,6 +60,7 @@ type ResultMeta = {
     estimatedCostThb: number;
   };
   privacy?: { deidentifiedBeforeModel?: boolean };
+  first_case_completed_event_token?: string;
 };
 
 type PreprocessSummary = {
@@ -533,7 +536,7 @@ function PageContent() {
     return () => window.clearTimeout(t);
   }, [tutorialPhase]);
 
-  function openMockOrderSheetPopup(opts?: { tutorialMode?: boolean }) {
+  function openMockOrderSheetPopup(opts?: { tutorialMode?: boolean }): boolean {
     const w = Math.min(1040, window.screen.availWidth - 40);
     const h = Math.min(740, window.screen.availHeight - 80);
     const left = Math.max(0, window.screenX + (window.outerWidth - w) / 2);
@@ -555,7 +558,7 @@ function PageContent() {
     );
     if (!win) {
       setMockPopupBlocked(true);
-      return;
+      return false;
     }
     mockOrderSheetPopupRef.current = win;
     setMockPopupBlocked(false);
@@ -564,15 +567,22 @@ function PageContent() {
     } catch {
       // ignore
     }
+    return true;
   }
 
   function handleTutorialIntroStart() {
     if (isMobileViewport) {
       setTutorialPhase("workspace_click");
+      if (shouldTrackDemoStarted({ guest: isGuestWorkspace, mobileFlow: true, popupOpened: false })) {
+        trackSafeAnalyticsEvent("demo_started");
+      }
       return;
     }
     setTutorialPhase("mock_window");
-    openMockOrderSheetPopup({ tutorialMode: true });
+    const popupOpened = openMockOrderSheetPopup({ tutorialMode: true });
+    if (shouldTrackDemoStarted({ guest: isGuestWorkspace, mobileFlow: false, popupOpened })) {
+      trackSafeAnalyticsEvent("demo_started");
+    }
   }
 
   function handleTutorialIntroSkip() {
@@ -1147,6 +1157,9 @@ function PageContent() {
         setDiagnosisItems(buildDiagnosisItemsFromBlocks(nextBlocks));
         setLastRunStrategy(summaryStrategy);
         setTutorialPhase("finished_modal");
+        if (shouldTrackDemoCompleted({ guest: isGuestWorkspace, mockResultReady: Boolean(parsed.result.blocks.length) })) {
+          trackSafeAnalyticsEvent("demo_completed");
+        }
         return;
       }
 
@@ -1185,6 +1198,11 @@ function PageContent() {
 
       const parsed = await parseApiResponse(res);
       if (pendingGenerateRequestRef.current?.id === summaryJobId) pendingGenerateRequestRef.current = null;
+      if (parsed.result.meta.first_case_completed_event_token) {
+        trackSafeAnalyticsEvent("first_case_completed", {
+          event_id: parsed.result.meta.first_case_completed_event_token,
+        });
+      }
       const nextBlocks = normalizeBlocks(parsed.result.blocks);
 
       setBlocks(nextBlocks);

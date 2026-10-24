@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { BillingManageButton } from "@/app/components/BillingManageButton";
 import BoostPurchaseButton from "@/app/components/BoostPurchaseButton";
+import { trackSafeAnalyticsEvent } from "@/lib/safe-analytics-client";
 
 const PLAN_SELECT_OPTIONS = {
   monthly: [
@@ -242,6 +243,13 @@ function PricingPageContent() {
       if (!res.ok || !data.ok || !data.checkoutUrl) {
         throw new Error(data.error || "เริ่มชำระเงินด้วยบัตรไม่สำเร็จ");
       }
+      trackSafeAnalyticsEvent("begin_checkout", selectedPlanRequested as
+        | "basic_monthly"
+        | "basic_yearly"
+        | "standard_monthly"
+        | "standard_yearly"
+        | "pro_monthly"
+        | "pro_yearly");
       window.location.href = data.checkoutUrl;
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : "เริ่มชำระเงินด้วยบัตรไม่สำเร็จ");

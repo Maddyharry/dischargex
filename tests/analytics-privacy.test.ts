@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   isSensitiveAnalyticsPath,
+  isPublicAnalyticsPageViewPath,
   sanitizeAnalyticsLocation,
   sanitizeAnalyticsPath,
 } from "@/app/components/GoogleTag";
@@ -42,5 +43,17 @@ describe("analytics route privacy helpers", () => {
         "https://dischargex.example/?campaign=secret#fragment"
       )
     ).toBe("https://dischargex.example/pricing");
+  });
+
+  it("provides only sanitized GA page context and denies public page views on sensitive routes", () => {
+    const pathname = sanitizeAnalyticsPath("/pricing?email=patient@example.test#case");
+    expect({
+      page_location: sanitizeAnalyticsLocation(pathname, "https://dischargex.example/?token=secret"),
+      page_referrer: "",
+    }).toEqual({ page_location: "https://dischargex.example/pricing", page_referrer: "" });
+    expect(isSensitiveAnalyticsPath("/app/profile?session_id=cs_live_secret")).toBe(true);
+    expect(isPublicAnalyticsPageViewPath("/pricing?email=private#checkout")).toBe(true);
+    expect(isPublicAnalyticsPageViewPath("/knowledge/public-topic")).toBe(false);
+    expect(isPublicAnalyticsPageViewPath("/app/profile")).toBe(false);
   });
 });

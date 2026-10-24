@@ -2,7 +2,8 @@
 
 import Script from "next/script";
 import { usePathname } from "next/navigation";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { ANALYTICS_CONSENT_STORAGE_KEY, parseAnalyticsConsent } from "@/lib/analytics-consent";
 
 declare global {
   interface Window {
@@ -15,22 +16,12 @@ const GA_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID?.trim() || "";
 const ADS_ID = process.env.NEXT_PUBLIC_GOOGLE_ADS_ID?.trim() || "";
 const TAG_ID = GA_ID || ADS_ID;
 const SENSITIVE_ROUTE_PREFIXES = [
-  "/app",
-  "/admin",
-  "/chat",
-  "/login",
-  "/auth",
-  "/register",
-  "/signup",
-  "/forgot-password",
-  "/reset-password",
-  "/api",
-  "/summary-charge",
-  "/icd10-review",
-  "/automator",
-  "/knowledge",
-  "/guidelines",
+  "/app", "/admin", "/chat", "/login", "/auth", "/register", "/signup", "/forgot-password",
+  "/reset-password", "/api", "/summary-charge", "/icd10-review", "/automator", "/knowledge", "/guidelines",
 ];
+const PUBLIC_PAGE_VIEW_PATHS = new Set([
+  "/", "/about", "/pricing", "/downloads", "/learn", "/legal", "/privacy-policy", "/terms-of-service",
+]);
 
 export function sanitizeAnalyticsPath(pathname: string): string {
   const path = pathname.split(/[?#]/, 1)[0] || "/";
@@ -47,6 +38,11 @@ export function isSensitiveAnalyticsPath(pathname: string): boolean {
   return SENSITIVE_ROUTE_PREFIXES.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
 }
 
+export function isPublicAnalyticsPageViewPath(pathname: string): boolean {
+  const path = sanitizeAnalyticsPath(pathname);
+  return PUBLIC_PAGE_VIEW_PATHS.has(path);
+}
+
 const DENIED_CONSENT = {
   analytics_storage: "denied",
   ad_storage: "denied",
@@ -54,67 +50,98 @@ const DENIED_CONSENT = {
   ad_personalization: "denied",
 };
 
-const MARKETING_CONSENT = {
-  analytics_storage: "granted",
-  ad_storage: "granted",
-  ad_user_data: "granted",
-  ad_personalization: "granted",
-};
+function googleConsent(analytics: boolean, marketing: boolean) {
+  return {
+    analytics_storage: analytics ? "granted" : "denied",
+    ad_storage: marketing ? "granted" : "denied",
+    ad_user_data: marketing ? "granted" : "denied",
+    ad_personalization: marketing ? "granted" : "denied",
+  };
+}
+
+function readStoredConsent() {
+  try {
+    return parseAnalyticsConsent(JSON.parse(window.localStorage.getItem(ANALYTICS_CONSENT_STORAGE_KEY) || "null"));
+  } catch {
+    return null;
+  }
+}
 
 export function GoogleTag() {
   const pathname = usePathname() || "/";
-  const lastPageViewRef = useRef("");
-
-  const handleRouteAnalytics = useCallback(() => {
-    if (typeof window === "undefined" || typeof window.gtag !== "function") return;
-    const currentPath = pathname;
-    if (isSensitiveAnalyticsPath(currentPath)) {
-      lastPageViewRef.current = "";
-      if (GA_ID) (window as unknown as Record<string, unknown>)[`ga-disable-${GA_ID}`] = true;
-      window.gtag("consent", "update", DENIED_CONSENT);
-      return;
-    }
-
-    if (GA_ID) (window as unknown as Record<string, unknown>)[`ga-disable-${GA_ID}`] = false;
-    window.gtag("consent", "update", MARKETING_CONSENT);
-    if (!TAG_ID || lastPageViewRef.current === currentPath) return;
-    lastPageViewRef.current = currentPath;
-    const pageLocation = sanitizeAnalyticsLocation(currentPath, window.location.origin);
-    window.gtag("set", { page_location: pageLocation, page_referrer: "" });
-    window.gtag("event", "page_view", {
-      page_path: sanitizeAnalyticsPath(currentPath),
-      page_location: pageLocation,
-      page_referrer: "",
-      send_to: GA_ID || ADS_ID,
-    });
-  }, [pathname]);
+  const [consent, setConsent] = useState<ReturnType<typeof readStoredConsent>>(null);
 
   useEffect(() => {
-    handleRouteAnalytics();
-  }, [handleRouteAnalytics, pathname]);
+    const update = () => setConsent(readStoredConsent());
+    update();
+    window.addEventListener("dx:analytics-consent-changed", update);
+    window.addEventListener("storage", update);
+    return () => {
+      window.removeEventListener("dx:analytics-consent-changed", update);
+      window.removeEventListener("storage", update);
+    };
+  }, []);
 
-  if (!TAG_ID || isSensitiveAnalyticsPath(pathname)) return null;
+  const applyConsent = useCallback(() => {
+    if (typeof window === "undefined" || typeof window.gtag !== "function") return;
+    const privateRoute = isSensitiveAnalyticsPath(pathname);
+    const granted = !privateRoute && consent;
+    window.gtag("consent", "update", granted ? googleConsent(granted.analytics, granted.marketing) : DENIED_CONSENT);
+    if (privateRoute) {
+      if (GA_ID) (window as unknown as Record<string, unknown>)[`ga-disable-${GA_ID}`] = true;
+      return;
+    }
+    if (GA_ID && consent?.analytics) {
+      (window as unknown as Record<string, unknown>)[`ga-disable-${GA_ID}`] = false;
+      window.gtag("config", GA_ID, {
+        send_page_view: false,
+        allow_google_signals: false,
+        allow_ad_personalization_signals: false,
+        page_location: sanitizeAnalyticsLocation(pathname, window.location.origin),
+        page_referrer: "",
+      });
+    }
+    if (ADS_ID && consent?.marketing) {
+      window.gtag("config", ADS_ID, {
+        send_page_view: false,
+        allow_google_signals: false,
+        allow_ad_personalization_signals: false,
+        page_location: sanitizeAnalyticsLocation(pathname, window.location.origin),
+        page_referrer: "",
+      });
+    }
+  }, [consent, pathname]);
+
+  useEffect(() => {
+    applyConsent();
+  }, [applyConsent]);
+
+  const publicRoute = !isSensitiveAnalyticsPath(pathname);
+  const shouldLoad = publicRoute && !!TAG_ID && !!consent && ((!!GA_ID && consent.analytics) || (!!ADS_ID && consent.marketing));
+  if (!shouldLoad) return null;
 
   return (
     <>
-      <Script src={`https://www.googletagmanager.com/gtag/js?id=${TAG_ID}`} strategy="afterInteractive" />
       <Script
         id="google-tag-init"
         strategy="afterInteractive"
         dangerouslySetInnerHTML={{
           __html: `
             window.dataLayer = window.dataLayer || [];
-            function gtag(){dataLayer.push(arguments);}
-            window.gtag = gtag;
-            gtag('consent', 'default', ${JSON.stringify(DENIED_CONSENT)});
-            gtag('js', new Date());
-            ${GA_ID ? `gtag('config', '${GA_ID}', { send_page_view: false });` : ""}
-            ${ADS_ID ? `gtag('config', '${ADS_ID}', { send_page_view: false });` : ""}
+            window.gtag = window.gtag || function(){window.dataLayer.push(arguments);};
+            window.gtag('consent', 'default', ${JSON.stringify(DENIED_CONSENT)});
+            window.gtag('js', new Date());
           `,
         }}
-        onReady={handleRouteAnalytics}
+      />
+      <Script
+        src={`https://www.googletagmanager.com/gtag/js?id=${TAG_ID}`}
+        strategy="afterInteractive"
+        onReady={() => {
+          applyConsent();
+          window.dispatchEvent(new Event("dx:google-tag-ready"));
+        }}
       />
     </>
   );
 }
-
