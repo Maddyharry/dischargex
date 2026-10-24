@@ -16,6 +16,19 @@ import { claimFirstCaseAnalyticsToken } from "@/lib/first-case-analytics";
 import { getDedupedWebAnalyticsRecordId } from "@/lib/analytics-server";
 import { buildSafeGoogleEventParameters, clearPendingSafeAnalyticsEvents, flushPendingSafeAnalyticsEvents, trackSafeAnalyticsEvent } from "@/lib/safe-analytics-client";
 
+function createStorageStub(values: Map<string, string>): Storage {
+  return {
+    get length() {
+      return values.size;
+    },
+    clear: () => values.clear(),
+    getItem: (key: string) => values.get(key) ?? null,
+    key: (index: number) => Array.from(values.keys())[index] ?? null,
+    removeItem: (key: string) => { values.delete(key); },
+    setItem: (key: string, value: string) => { values.set(key, value); },
+  };
+}
+
 describe("analytics consent persistence", () => {
   it("stores independent optional purposes and rejects malformed values", () => {
     const saved = JSON.parse(serializeAnalyticsConsent({ analytics: true, marketing: false }, new Date("2026-10-22T00:00:00.000Z")));
@@ -203,11 +216,7 @@ describe("analytics dispatch resilience", () => {
   it("keeps the pricing event key stable for tag retries in one session and changes it in a new session", () => {
     const localValues = new Map<string, string>([[ANALYTICS_CONSENT_STORAGE_KEY, acceptedConsent]]);
     const firstSession = new Map<string, string>();
-    const storage = (values: Map<string, string>) => ({
-      getItem: (key: string) => values.get(key) ?? null,
-      setItem: (key: string, value: string) => values.set(key, value),
-      removeItem: (key: string) => values.delete(key),
-    });
+    const storage = createStorageStub;
     const localStorage = storage(localValues);
     const pendingKeys = () => JSON.parse(localValues.get("dx_safe_analytics_pending_v1") || "[]").map((entry: { key: string }) => entry.key);
     vi.stubGlobal("window", {
@@ -224,7 +233,10 @@ describe("analytics dispatch resilience", () => {
     expect(firstKey).toMatch(/^pricing_viewed:[a-f0-9]{32}$/);
 
     localStorage.removeItem("dx_safe_analytics_pending_v1");
-    (window as Window & { sessionStorage: Storage }).sessionStorage = storage(new Map());
+    Object.defineProperty(window, "sessionStorage", {
+      configurable: true,
+      value: storage(new Map<string, string>()),
+    });
     expect(trackSafeAnalyticsEvent("pricing_viewed")).toBe(false);
     const secondKey = pendingKeys()[0];
     expect(secondKey).toMatch(/^pricing_viewed:[a-f0-9]{32}$/);
