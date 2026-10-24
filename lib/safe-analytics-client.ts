@@ -45,6 +45,9 @@ function eventKey(payload: SafeAnalyticsPayload): string {
   const metadata = payload.metadata;
   if (metadata && "transaction_id" in metadata) return `${payload.event}:${metadata.transaction_id}`;
   if (metadata && "event_id" in metadata) return `${payload.event}:${metadata.event_id}`;
+  // Pricing is once per session in its caller. Keep retries deduplicated while
+  // its first dispatch is waiting for the Google tag to load.
+  if (payload.event === "pricing_viewed") return "pricing_viewed:0000000000000000";
   return `${payload.event}:${makeOpaqueEventId()}`;
 }
 
@@ -68,8 +71,10 @@ function readEntries(key: string): string[] {
 
 function hasBeenSent(key: string): boolean { return readEntries(SENT_KEY).includes(key); }
 function markSent(key: string) {
-  const entries = readEntries(SENT_KEY);
-  if (!entries.includes(key)) window.localStorage.setItem(SENT_KEY, JSON.stringify([...entries, key].slice(-200)));
+  try {
+    const entries = readEntries(SENT_KEY);
+    if (!entries.includes(key)) window.localStorage.setItem(SENT_KEY, JSON.stringify([...entries, key].slice(-200)));
+  } catch { /* Storage is optional; never interrupt an application flow. */ }
 }
 
 function readPending(): PendingEvent[] {
@@ -114,8 +119,10 @@ export function clearPendingSafeAnalyticsEvents(): boolean {
 }
 
 function queueForPublicRoute(entry: PendingEvent) {
-  const current: unknown = readPending();
-  window.localStorage.setItem(PENDING_KEY, JSON.stringify(appendPendingSafeAnalyticsEvent(current, entry)));
+  try {
+    const current: unknown = readPending();
+    window.localStorage.setItem(PENDING_KEY, JSON.stringify(appendPendingSafeAnalyticsEvent(current, entry)));
+  } catch { /* Queue persistence is best effort. */ }
 }
 
 function sendInternal(payload: SafeAnalyticsPayload) {
@@ -184,8 +191,13 @@ export function trackSafeAnalyticsEvent(
 
   if (isSensitiveAnalyticsPath(window.location.pathname)) {
     queueForPublicRoute({ key, payload });
+    return true;
   } else {
-    sendGoogle(payload, key);
+    if (typeof window.gtag !== "function") {
+      queueForPublicRoute({ key, payload });
+      return false;
+    }
+    if (!sendGoogle(payload, key)) return false;
   }
   return true;
 }

@@ -9,7 +9,7 @@ import {
 } from "@/lib/analytics-events";
 import { claimFirstCaseAnalyticsToken } from "@/lib/first-case-analytics";
 import { getDedupedWebAnalyticsRecordId } from "@/lib/analytics-server";
-import { buildSafeGoogleEventParameters, clearPendingSafeAnalyticsEvents } from "@/lib/safe-analytics-client";
+import { buildSafeGoogleEventParameters, clearPendingSafeAnalyticsEvents, flushPendingSafeAnalyticsEvents, trackSafeAnalyticsEvent } from "@/lib/safe-analytics-client";
 
 describe("analytics consent persistence", () => {
   it("stores independent optional purposes and rejects malformed values", () => {
@@ -158,6 +158,62 @@ describe("consent revocation queue clearing", () => {
     expect(clearPendingSafeAnalyticsEvents()).toBe(true);
     expect(values.has("dx_safe_analytics_pending_v1")).toBe(false);
     expect(values.get("dx_safe_analytics_sent_v1")).toBe(JSON.stringify(["purchase:cs_live_1234567890abcdef"]));
+    vi.unstubAllGlobals();
+  });
+});
+
+describe("analytics dispatch resilience", () => {
+  const acceptedConsent = JSON.stringify({ analytics: true, marketing: false, savedAt: "2026-10-22T00:00:00.000Z" });
+
+  it("queues a public once-only event until gtag is ready, then flushes and marks it sent", () => {
+    const values = new Map<string, string>([[ANALYTICS_CONSENT_STORAGE_KEY, acceptedConsent]]);
+    const calls: unknown[][] = [];
+    const storage = {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => values.set(key, value),
+      removeItem: (key: string) => values.delete(key),
+    };
+    vi.stubGlobal("window", {
+      localStorage: storage,
+      sessionStorage: storage,
+      location: { pathname: "/pricing", origin: "https://dischargex.example" },
+    });
+    vi.stubGlobal("navigator", { sendBeacon: vi.fn(() => true) });
+
+    expect(trackSafeAnalyticsEvent("pricing_viewed")).toBe(false);
+    expect(JSON.parse(values.get("dx_safe_analytics_pending_v1") || "[]")).toHaveLength(1);
+    expect(values.has("dx_safe_analytics_sent_v1")).toBe(false);
+
+    (window as Window).gtag = (...args: unknown[]) => { calls.push(args); };
+    flushPendingSafeAnalyticsEvents();
+    expect(calls).toHaveLength(1);
+    expect(calls[0][1]).toBe("pricing_viewed");
+    expect(JSON.parse(values.get("dx_safe_analytics_sent_v1") || "[]")).toEqual(["pricing_viewed:0000000000000000"]);
+    expect(JSON.parse(values.get("dx_safe_analytics_pending_v1") || "[]")).toEqual([]);
+    vi.unstubAllGlobals();
+  });
+
+  it("contains localStorage write and remove exceptions without throwing", () => {
+    const storage = {
+      getItem: (key: string) => key === ANALYTICS_CONSENT_STORAGE_KEY ? acceptedConsent : null,
+      setItem: () => { throw new Error("storage unavailable"); },
+      removeItem: () => { throw new Error("storage unavailable"); },
+    };
+    vi.stubGlobal("window", {
+      localStorage: storage,
+      sessionStorage: storage,
+      location: { pathname: "/pricing", origin: "https://dischargex.example" },
+    });
+    vi.stubGlobal("navigator", { sendBeacon: vi.fn(() => true) });
+
+    expect(() => trackSafeAnalyticsEvent("pricing_viewed")).not.toThrow();
+    expect(trackSafeAnalyticsEvent("pricing_viewed")).toBe(false);
+    expect(clearPendingSafeAnalyticsEvents()).toBe(false);
+
+    const calls: unknown[][] = [];
+    (window as Window).gtag = (...args: unknown[]) => { calls.push(args); };
+    expect(() => trackSafeAnalyticsEvent("pricing_viewed")).not.toThrow();
+    expect(calls).toHaveLength(1);
     vi.unstubAllGlobals();
   });
 });
