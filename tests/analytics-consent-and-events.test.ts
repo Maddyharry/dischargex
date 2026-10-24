@@ -1,4 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
+const TEST_GA_ID = vi.hoisted(() => {
+  const id = "G-TESTDISCHARGEX";
+  process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID = id;
+  return id;
+});
 import { ANALYTICS_CONSENT_STORAGE_KEY, parseAnalyticsConsent, persistAnalyticsConsent, serializeAnalyticsConsent } from "@/lib/analytics-consent";
 import {
   appendPendingSafeAnalyticsEvent,
@@ -108,7 +113,7 @@ describe("Google event privacy parameters", () => {
     { event: "demo_started", metadata: { event_id: "1234567890abcdef1234567890abcdef" } },
   ] as const)("overrides page context for $event", (payload) => {
     const result = buildSafeGoogleEventParameters(payload, `${payload.event}:opaque-key`, "/pricing?email=a@example.test#case", "https://dischargex.example/?token=secret");
-    expect(result.send_to).toBe(process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID?.trim() || "");
+    expect(result.send_to).toBe(TEST_GA_ID);
     expect(result.page_location).toBe("https://dischargex.example/pricing");
     expect(result.page_referrer).toBe("");
     expect(JSON.stringify(result)).not.toMatch(/example\.test|token=secret|#case/);
@@ -123,7 +128,7 @@ describe("Google event privacy parameters", () => {
       transaction_id: "cs_live_1234567890abcdef",
       value: 1090,
       currency: "THB",
-      send_to: process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID?.trim() || "",
+      send_to: TEST_GA_ID,
       items: [{ item_id: "dischargex_purchase", item_name: "DischargeX purchase", price: 1090, quantity: 1 }],
       page_location: "https://dischargex.example/app/profile",
       page_referrer: "",
@@ -188,8 +193,42 @@ describe("analytics dispatch resilience", () => {
     flushPendingSafeAnalyticsEvents();
     expect(calls).toHaveLength(1);
     expect(calls[0][1]).toBe("pricing_viewed");
-    expect(JSON.parse(values.get("dx_safe_analytics_sent_v1") || "[]")).toEqual(["pricing_viewed:0000000000000000"]);
+    const sentKeys = JSON.parse(values.get("dx_safe_analytics_sent_v1") || "[]");
+    expect(sentKeys).toHaveLength(1);
+    expect(sentKeys[0]).toMatch(/^pricing_viewed:[a-f0-9]{32}$/);
     expect(JSON.parse(values.get("dx_safe_analytics_pending_v1") || "[]")).toEqual([]);
+    vi.unstubAllGlobals();
+  });
+
+  it("keeps the pricing event key stable for tag retries in one session and changes it in a new session", () => {
+    const localValues = new Map<string, string>([[ANALYTICS_CONSENT_STORAGE_KEY, acceptedConsent]]);
+    const firstSession = new Map<string, string>();
+    const storage = (values: Map<string, string>) => ({
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => values.set(key, value),
+      removeItem: (key: string) => values.delete(key),
+    });
+    const localStorage = storage(localValues);
+    const pendingKeys = () => JSON.parse(localValues.get("dx_safe_analytics_pending_v1") || "[]").map((entry: { key: string }) => entry.key);
+    vi.stubGlobal("window", {
+      localStorage,
+      sessionStorage: storage(firstSession),
+      location: { pathname: "/pricing", origin: "https://dischargex.example" },
+    });
+    vi.stubGlobal("navigator", { sendBeacon: vi.fn(() => true) });
+
+    expect(trackSafeAnalyticsEvent("pricing_viewed")).toBe(false);
+    const firstKey = pendingKeys()[0];
+    expect(trackSafeAnalyticsEvent("pricing_viewed")).toBe(true);
+    expect(pendingKeys()).toEqual([firstKey]);
+    expect(firstKey).toMatch(/^pricing_viewed:[a-f0-9]{32}$/);
+
+    localStorage.removeItem("dx_safe_analytics_pending_v1");
+    (window as Window & { sessionStorage: Storage }).sessionStorage = storage(new Map());
+    expect(trackSafeAnalyticsEvent("pricing_viewed")).toBe(false);
+    const secondKey = pendingKeys()[0];
+    expect(secondKey).toMatch(/^pricing_viewed:[a-f0-9]{32}$/);
+    expect(secondKey).not.toBe(firstKey);
     vi.unstubAllGlobals();
   });
 

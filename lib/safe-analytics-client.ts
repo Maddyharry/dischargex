@@ -18,6 +18,8 @@ const ADS_BEGIN_CHECKOUT_LABEL = process.env.NEXT_PUBLIC_GOOGLE_ADS_BEGIN_CHECKO
 const ADS_PURCHASE_LABEL = process.env.NEXT_PUBLIC_GOOGLE_ADS_PURCHASE_LABEL?.trim() || "";
 const PENDING_KEY = "dx_safe_analytics_pending_v1";
 const SENT_KEY = "dx_safe_analytics_sent_v1";
+const PRICING_SESSION_ID_KEY = "dx_analytics_pricing_session_id_v1";
+let fallbackPricingSessionId: string | undefined;
 
 declare global {
   interface Window {
@@ -45,9 +47,20 @@ function eventKey(payload: SafeAnalyticsPayload): string {
   const metadata = payload.metadata;
   if (metadata && "transaction_id" in metadata) return `${payload.event}:${metadata.transaction_id}`;
   if (metadata && "event_id" in metadata) return `${payload.event}:${metadata.event_id}`;
-  // Pricing is once per session in its caller. Keep retries deduplicated while
-  // its first dispatch is waiting for the Google tag to load.
-  if (payload.event === "pricing_viewed") return "pricing_viewed:0000000000000000";
+  // Keep retries stable within this browser session while allowing a later
+  // session to record its own pricing view. Storage is best effort.
+  if (payload.event === "pricing_viewed") {
+    try {
+      const existing = window.sessionStorage.getItem(PRICING_SESSION_ID_KEY);
+      if (existing) return `pricing_viewed:${existing}`;
+      const created = makeOpaqueEventId();
+      window.sessionStorage.setItem(PRICING_SESSION_ID_KEY, created);
+      return `pricing_viewed:${created}`;
+    } catch {
+      fallbackPricingSessionId ??= makeOpaqueEventId();
+      return `pricing_viewed:${fallbackPricingSessionId}`;
+    }
+  }
   return `${payload.event}:${makeOpaqueEventId()}`;
 }
 
