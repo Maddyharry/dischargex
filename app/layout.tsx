@@ -7,10 +7,12 @@ import { FeedbackWidget } from "./components/FeedbackWidget";
 import { LayoutFooter } from "./components/LayoutFooter";
 import { WebAnalyticsTracker } from "./components/WebAnalyticsTracker";
 import { GoogleTag } from "./components/GoogleTag";
+import { AnalyticsConsentBanner } from "./components/AnalyticsConsentBanner";
 import { PrivacyCacheReset } from "./components/PrivacyCacheReset";
 import { ReferralClaimOnLogin } from "./components/ReferralClaimOnLogin";
 
 export const metadata: Metadata = {
+  referrer: "no-referrer",
   metadataBase: new URL("https://dischargex.net"),
   manifest: "/manifest.json",
   title: {
@@ -74,6 +76,7 @@ export default function RootLayout({
             <ReferralClaimOnLogin />
             <WebAnalyticsTracker />
             <GoogleTag />
+            <AnalyticsConsentBanner />
             <Header />
             {children}
             <LayoutFooter />

@@ -6,6 +6,8 @@ import { useSession } from "next-auth/react";
 import UsagePolicyCard from "@/app/components/UsagePolicyCard";
 import { THAI_PROVINCES, validateBirthDateBE, validateThaiPhone } from "@/lib/thai-input";
 import { LAST_REVIEWED_DATE, REFERENCE_SET_NAME } from "@/lib/reference-info";
+import { trackSafeAnalyticsEvent } from "@/lib/safe-analytics-client";
+import { captureAndRemoveStripeSessionId } from "@/lib/stripe-purchase-verification";
 
 type UserInfo = {
   id: string;
@@ -199,6 +201,53 @@ export default function ProfilePage() {
     setStripeSuccess(params.get("stripe") === "success");
     setPortalReturned(params.get("billing") === "portal");
   }, []);
+
+  useEffect(() => {
+    if (sessionStatus !== "authenticated" || typeof window === "undefined") return;
+    const sessionId = captureAndRemoveStripeSessionId({
+      search: window.location.search,
+      pathname: window.location.pathname,
+      hash: window.location.hash,
+      replaceState: (url) => window.history.replaceState(window.history.state, "", url),
+    });
+    if (!sessionId) return;
+    let stopped = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let attempts = 0;
+    const verify = async () => {
+      attempts += 1;
+      try {
+        const response = await fetch("/api/stripe/checkout/verify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sessionId }),
+          cache: "no-store",
+        });
+        const data = await response.json().catch(() => ({})) as {
+          ok?: boolean;
+          pending?: boolean;
+          purchase?: { transaction_id?: string; value?: number; currency?: string };
+        };
+        if (stopped) return;
+        if (data.ok && data.purchase?.transaction_id && typeof data.purchase.value === "number" && data.purchase.currency === "THB") {
+          trackSafeAnalyticsEvent("purchase", {
+            transaction_id: data.purchase.transaction_id,
+            value: data.purchase.value,
+            currency: "THB",
+          });
+          return;
+        }
+        if (data.pending && attempts < 8) timer = setTimeout(() => void verify(), 2500);
+      } catch {
+        if (!stopped && attempts < 8) timer = setTimeout(() => void verify(), 2500);
+      }
+    };
+    void verify();
+    return () => {
+      stopped = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, [sessionStatus]);
 
   useEffect(() => {
     if (sessionStatus !== "authenticated") return;
