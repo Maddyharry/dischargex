@@ -15,7 +15,7 @@ import {
 import { claimFirstCaseAnalyticsToken } from "@/lib/first-case-analytics";
 import { getDedupedWebAnalyticsRecordId } from "@/lib/analytics-server";
 import { buildSafeGoogleEventParameters, clearPendingSafeAnalyticsEvents, flushPendingSafeAnalyticsEvents, trackSafeAnalyticsEvent } from "@/lib/safe-analytics-client";
-import { isGoogleTagConsentReady, markGoogleTagConsentReady } from "@/app/components/GoogleTag";
+import { getPageViewDedupeDecision, isGoogleTagConsentReady, markGoogleTagConsentReady } from "@/app/components/GoogleTag";
 
 function createStorageStub(values: Map<string, string>): Storage {
   return {
@@ -147,6 +147,38 @@ describe("Google event privacy parameters", () => {
       page_location: "https://dischargex.example/app/profile",
       page_referrer: "",
     });
+  });
+});
+
+describe("public page-view navigation deduplication", () => {
+  it("tracks a return to a public route after leaving it, while deduping readiness repeats per visit", () => {
+    let lastPageViewKey = "";
+    const tracked: string[] = [];
+    const visit = (pathname: string) => {
+      const decision = getPageViewDedupeDecision(pathname, "consent-v1", lastPageViewKey);
+      if (!decision.key) {
+        lastPageViewKey = "";
+        return;
+      }
+      if (decision.shouldTrack) {
+        tracked.push(decision.key);
+        lastPageViewKey = decision.key;
+      }
+    };
+
+    visit("/pricing");
+    visit("/pricing"); // repeated tag/consent readiness during the same visit
+    visit("/app/profile?hn=private#details"); // sensitive route clears the previous public visit
+    visit("/pricing");
+    visit("/pricing"); // repeated readiness after returning still dedupes
+
+    expect(tracked).toEqual(["/pricing:consent-v1", "/pricing:consent-v1"]);
+  });
+
+  it("never returns a trackable page-view key for sensitive routes", () => {
+    for (const pathname of ["/app/profile", "/admin", "/login", "/api/private?email=private@example.test"]) {
+      expect(getPageViewDedupeDecision(pathname, "consent-v1", "")).toEqual({ key: "", shouldTrack: false });
+    }
   });
 });
 

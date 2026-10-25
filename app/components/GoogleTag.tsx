@@ -50,6 +50,15 @@ export function isPublicAnalyticsPageViewPath(pathname: string): boolean {
   return PUBLIC_PAGE_VIEW_PATHS.has(path);
 }
 
+export function getPageViewDedupeDecision(pathname: string, savedAt: string, lastPageViewKey: string) {
+  const path = sanitizeAnalyticsPath(pathname);
+  if (isSensitiveAnalyticsPath(path) || !isPublicAnalyticsPageViewPath(path)) {
+    return { key: "", shouldTrack: false };
+  }
+  const key = `${path}:${savedAt}`;
+  return { key, shouldTrack: key !== lastPageViewKey };
+}
+
 const DENIED_CONSENT = {
   analytics_storage: "denied",
   ad_storage: "denied",
