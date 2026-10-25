@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef } from "react";
 import { ANALYTICS_CONSENT_STORAGE_KEY, parseAnalyticsConsent } from "@/lib/analytics-consent";
 import { flushPendingSafeAnalyticsEvents, trackSafeAnalyticsEvent } from "@/lib/safe-analytics-client";
-import { isPublicAnalyticsPageViewPath, isSensitiveAnalyticsPath, sanitizeAnalyticsLocation } from "./GoogleTag";
+import { GOOGLE_TAG_CONSENT_READY_EVENT, isGoogleTagConsentReady, isPublicAnalyticsPageViewPath, isSensitiveAnalyticsPath, sanitizeAnalyticsLocation } from "./GoogleTag";
 
 const PRICING_VISIT_KEY = "dx_pricing_viewed_v1";
 const GA_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID?.trim() || "";
@@ -15,7 +15,7 @@ export function WebAnalyticsTracker() {
   const lastPageViewRef = useRef("");
 
   const trackPublicPageView = useCallback(() => {
-    if (!GA_ID || !isPublicAnalyticsPageViewPath(pathname) || typeof window.gtag !== "function") return;
+    if (!GA_ID || !isPublicAnalyticsPageViewPath(pathname) || !isGoogleTagConsentReady(pathname) || typeof window.gtag !== "function") return;
     try {
       const consent = parseAnalyticsConsent(JSON.parse(window.localStorage.getItem(ANALYTICS_CONSENT_STORAGE_KEY) || "null"));
       if (!consent?.analytics) return;
@@ -56,6 +56,9 @@ export function WebAnalyticsTracker() {
     window.addEventListener("dx:analytics-consent-changed", flush);
     window.addEventListener("dx:google-tag-ready", pageView);
     window.addEventListener("dx:google-tag-ready", flush);
+    window.addEventListener(GOOGLE_TAG_CONSENT_READY_EVENT, trackPricingVisit);
+    window.addEventListener(GOOGLE_TAG_CONSENT_READY_EVENT, pageView);
+    window.addEventListener(GOOGLE_TAG_CONSENT_READY_EVENT, flush);
     flush();
     return () => {
       window.removeEventListener("dx:analytics-consent-changed", trackPricingVisit);
@@ -63,6 +66,9 @@ export function WebAnalyticsTracker() {
       window.removeEventListener("dx:analytics-consent-changed", flush);
       window.removeEventListener("dx:google-tag-ready", pageView);
       window.removeEventListener("dx:google-tag-ready", flush);
+      window.removeEventListener(GOOGLE_TAG_CONSENT_READY_EVENT, trackPricingVisit);
+      window.removeEventListener(GOOGLE_TAG_CONSENT_READY_EVENT, pageView);
+      window.removeEventListener(GOOGLE_TAG_CONSENT_READY_EVENT, flush);
     };
   }, [trackPricingVisit, trackPublicPageView]);
 

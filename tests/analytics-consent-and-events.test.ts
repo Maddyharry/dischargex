@@ -15,6 +15,7 @@ import {
 import { claimFirstCaseAnalyticsToken } from "@/lib/first-case-analytics";
 import { getDedupedWebAnalyticsRecordId } from "@/lib/analytics-server";
 import { buildSafeGoogleEventParameters, clearPendingSafeAnalyticsEvents, flushPendingSafeAnalyticsEvents, trackSafeAnalyticsEvent } from "@/lib/safe-analytics-client";
+import { isGoogleTagConsentReady, markGoogleTagConsentReady } from "@/app/components/GoogleTag";
 
 function createStorageStub(values: Map<string, string>): Storage {
   return {
@@ -183,7 +184,7 @@ describe("consent revocation queue clearing", () => {
 describe("analytics dispatch resilience", () => {
   const acceptedConsent = JSON.stringify({ analytics: true, marketing: false, savedAt: "2026-10-22T00:00:00.000Z" });
 
-  it("queues a public once-only event until gtag is ready, then flushes and marks it sent", () => {
+  it("keeps queued events until GoogleTag applies consent for the public route", () => {
     const values = new Map<string, string>([[ANALYTICS_CONSENT_STORAGE_KEY, acceptedConsent]]);
     const calls: unknown[][] = [];
     const storage = {
@@ -191,18 +192,34 @@ describe("analytics dispatch resilience", () => {
       setItem: (key: string, value: string) => values.set(key, value),
       removeItem: (key: string) => values.delete(key),
     };
+    vi.stubGlobal("navigator", { sendBeacon: vi.fn(() => true) });
+
     vi.stubGlobal("window", {
       localStorage: storage,
       sessionStorage: storage,
-      location: { pathname: "/pricing", origin: "https://dischargex.example" },
+      location: { pathname: "/app/profile", origin: "https://dischargex.example" },
+      dispatchEvent: vi.fn(),
     });
-    vi.stubGlobal("navigator", { sendBeacon: vi.fn(() => true) });
-
-    expect(trackSafeAnalyticsEvent("pricing_viewed")).toBe(false);
+    expect(trackSafeAnalyticsEvent("pricing_viewed")).toBe(true);
     expect(JSON.parse(values.get("dx_safe_analytics_pending_v1") || "[]")).toHaveLength(1);
     expect(values.has("dx_safe_analytics_sent_v1")).toBe(false);
 
     (window as Window).gtag = (...args: unknown[]) => { calls.push(args); };
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: { pathname: "/pricing", origin: "https://dischargex.example" },
+    });
+    flushPendingSafeAnalyticsEvents();
+    expect(calls).toHaveLength(0);
+    expect(JSON.parse(values.get("dx_safe_analytics_pending_v1") || "[]")).toHaveLength(1);
+    expect(isGoogleTagConsentReady("/pricing")).toBe(false);
+
+    markGoogleTagConsentReady("/pricing", {
+      analytics: true,
+      marketing: false,
+      savedAt: "2026-10-22T00:00:00.000Z",
+    });
+    expect(isGoogleTagConsentReady("/pricing")).toBe(true);
     flushPendingSafeAnalyticsEvents();
     expect(calls).toHaveLength(1);
     expect(calls[0][1]).toBe("pricing_viewed");
@@ -254,6 +271,7 @@ describe("analytics dispatch resilience", () => {
       localStorage: storage,
       sessionStorage: storage,
       location: { pathname: "/pricing", origin: "https://dischargex.example" },
+      dispatchEvent: vi.fn(),
     });
     vi.stubGlobal("navigator", { sendBeacon: vi.fn(() => true) });
 
@@ -263,6 +281,11 @@ describe("analytics dispatch resilience", () => {
 
     const calls: unknown[][] = [];
     (window as Window).gtag = (...args: unknown[]) => { calls.push(args); };
+    markGoogleTagConsentReady("/pricing", {
+      analytics: true,
+      marketing: false,
+      savedAt: "2026-10-22T00:00:00.000Z",
+    });
     expect(() => trackSafeAnalyticsEvent("pricing_viewed")).not.toThrow();
     expect(calls).toHaveLength(1);
     vi.unstubAllGlobals();

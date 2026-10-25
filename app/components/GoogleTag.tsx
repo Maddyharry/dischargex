@@ -9,6 +9,12 @@ declare global {
   interface Window {
     dataLayer?: unknown[];
     gtag?: (...args: unknown[]) => void;
+    __dxGoogleTagConsentReady?: {
+      pathname: string;
+      savedAt: string | null;
+      analytics: boolean;
+      marketing: boolean;
+    };
   }
 }
 
@@ -22,6 +28,7 @@ const SENSITIVE_ROUTE_PREFIXES = [
 const PUBLIC_PAGE_VIEW_PATHS = new Set([
   "/", "/about", "/pricing", "/downloads", "/learn", "/legal", "/privacy-policy", "/terms-of-service",
 ]);
+export const GOOGLE_TAG_CONSENT_READY_EVENT = "dx:google-tag-consent-ready";
 
 export function sanitizeAnalyticsPath(pathname: string): string {
   const path = pathname.split(/[?#]/, 1)[0] || "/";
@@ -67,6 +74,31 @@ function readStoredConsent() {
   }
 }
 
+function clearGoogleTagConsentReadiness() {
+  if (typeof window !== "undefined") delete window.__dxGoogleTagConsentReady;
+}
+
+export function markGoogleTagConsentReady(pathname: string, consent: ReturnType<typeof readStoredConsent>) {
+  if (typeof window === "undefined" || isSensitiveAnalyticsPath(pathname)) return;
+  window.__dxGoogleTagConsentReady = {
+    pathname: sanitizeAnalyticsPath(pathname),
+    savedAt: consent?.savedAt ?? null,
+    analytics: consent?.analytics ?? false,
+    marketing: consent?.marketing ?? false,
+  };
+  window.dispatchEvent(new Event(GOOGLE_TAG_CONSENT_READY_EVENT));
+}
+
+export function isGoogleTagConsentReady(pathname: string): boolean {
+  if (typeof window === "undefined" || isSensitiveAnalyticsPath(pathname)) return false;
+  const ready = window.__dxGoogleTagConsentReady;
+  if (!ready || ready.pathname !== sanitizeAnalyticsPath(pathname)) return false;
+  const consent = readStoredConsent();
+  return ready.savedAt === (consent?.savedAt ?? null)
+    && ready.analytics === (consent?.analytics ?? false)
+    && ready.marketing === (consent?.marketing ?? false);
+}
+
 export function GoogleTag() {
   const pathname = usePathname() || "/";
   const [consent, setConsent] = useState<ReturnType<typeof readStoredConsent>>(null);
@@ -83,6 +115,7 @@ export function GoogleTag() {
   }, []);
 
   const applyConsent = useCallback(() => {
+    clearGoogleTagConsentReadiness();
     if (typeof window === "undefined" || typeof window.gtag !== "function") return;
     const privateRoute = isSensitiveAnalyticsPath(pathname);
     const granted = !privateRoute && consent;
@@ -110,6 +143,7 @@ export function GoogleTag() {
         page_referrer: "",
       });
     }
+    markGoogleTagConsentReady(pathname, consent);
   }, [consent, pathname]);
 
   useEffect(() => {

@@ -10,7 +10,7 @@ import {
   type SafeAnalyticsMetadata,
   type SafeAnalyticsPayload,
 } from "./analytics-events";
-import { isSensitiveAnalyticsPath, sanitizeAnalyticsLocation } from "@/app/components/GoogleTag";
+import { isGoogleTagConsentReady, isSensitiveAnalyticsPath, sanitizeAnalyticsLocation } from "@/app/components/GoogleTag";
 
 const GA_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID?.trim() || "";
 const ADS_ID = process.env.NEXT_PUBLIC_GOOGLE_ADS_ID?.trim() || "";
@@ -206,6 +206,10 @@ export function trackSafeAnalyticsEvent(
     queueForPublicRoute({ key, payload });
     return true;
   } else {
+    if (!isGoogleTagConsentReady(window.location.pathname)) {
+      queueForPublicRoute({ key, payload });
+      return false;
+    }
     if (typeof window.gtag !== "function") {
       queueForPublicRoute({ key, payload });
       return false;
@@ -217,6 +221,7 @@ export function trackSafeAnalyticsEvent(
 
 export function flushPendingSafeAnalyticsEvents(): void {
   if (typeof window === "undefined" || isSensitiveAnalyticsPath(window.location.pathname)) return;
+  if (!isGoogleTagConsentReady(window.location.pathname)) return;
   const consent = readConsent();
   if (!consent || (!consent.analytics && !consent.marketing) || typeof window.gtag !== "function") return;
   const remaining: PendingEvent[] = [];
