@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import withPWAInit from "next-pwa";
+import { buildContentSecurityPolicy } from "./lib/content-security-policy";
 
 const isDev = process.env.NODE_ENV !== "production";
 const withPWA = withPWAInit({
@@ -62,22 +63,7 @@ const securityHeaders = [
   },
   {
     key: "Content-Security-Policy",
-    value: [
-      "default-src 'self'",
-      "base-uri 'self'",
-      "frame-ancestors 'none'",
-      "object-src 'none'",
-      "img-src 'self' data: blob: https:",
-      "font-src 'self' data:",
-      "style-src 'self' 'unsafe-inline'",
-      isDev
-        ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
-        : "script-src 'self' 'unsafe-inline'",
-      "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com",
-      "connect-src 'self' https:",
-      "form-action 'self'",
-      "upgrade-insecure-requests",
-    ].join("; "),
+    value: buildContentSecurityPolicy(isDev),
   },
 ];
 
