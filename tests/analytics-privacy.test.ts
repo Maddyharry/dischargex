@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   isSensitiveAnalyticsPath,
   isPublicAnalyticsPageViewPath,
+  isPublicKnowledgeDetailPath,
+  shouldLoadGoogleTag,
   sanitizeAnalyticsLocation,
   sanitizeAnalyticsPath,
 } from "@/app/components/GoogleTag";
@@ -53,7 +55,50 @@ describe("analytics route privacy helpers", () => {
     }).toEqual({ page_location: "https://dischargex.example/pricing", page_referrer: "" });
     expect(isSensitiveAnalyticsPath("/app/profile?session_id=cs_live_secret")).toBe(true);
     expect(isPublicAnalyticsPageViewPath("/pricing?email=private#checkout")).toBe(true);
-    expect(isPublicAnalyticsPageViewPath("/knowledge/public-topic")).toBe(false);
+    expect(isPublicAnalyticsPageViewPath("/knowledge/pneumonia")).toBe(true);
     expect(isPublicAnalyticsPageViewPath("/app/profile")).toBe(false);
+  });
+
+  it("allows only a single lowercase ASCII knowledge-detail slug and excludes query or hash variants", () => {
+    expect(isPublicKnowledgeDetailPath("/knowledge/acute-heart-failure")).toBe(true);
+    expect(isPublicAnalyticsPageViewPath("/knowledge/acute-heart-failure")).toBe(true);
+    expect(isPublicAnalyticsPageViewPath("/knowledge/acute-heart-failure", "?hn=private", "")).toBe(false);
+    expect(isPublicAnalyticsPageViewPath("/knowledge/acute-heart-failure", "", "#case-id")).toBe(false);
+
+    for (const path of [
+      "/knowledge",
+      "/knowledge/admin",
+      "/knowledge/admin-users",
+      "/knowledge/Heart-Failure",
+      "/knowledge/heart_failure",
+      "/knowledge/not-a-static-topic",
+      "/knowledge/heart-failure/extra",
+    ]) {
+      expect(isPublicKnowledgeDetailPath(path), path).toBe(false);
+      expect(isSensitiveAnalyticsPath(path), path).toBe(true);
+      expect(isPublicAnalyticsPageViewPath(path), path).toBe(false);
+    }
+  });
+
+  it("keeps the Google tag unloaded without a consent choice or after rejection", () => {
+    expect(shouldLoadGoogleTag("/knowledge/acute-heart-failure", null, true, false)).toBe(false);
+    expect(shouldLoadGoogleTag("/knowledge/acute-heart-failure", {
+      analytics: false,
+      marketing: false,
+      savedAt: "2026-10-27T00:00:00.000Z",
+    }, true, false)).toBe(false);
+    expect(shouldLoadGoogleTag("/knowledge/acute-heart-failure", {
+      analytics: true,
+      marketing: false,
+      savedAt: "2026-10-27T00:00:00.000Z",
+    }, true, false)).toBe(true);
+
+    for (const path of ["/knowledge", "/guidelines", "/app", "/admin/users", "/auth/callback"]) {
+      expect(shouldLoadGoogleTag(path, {
+        analytics: true,
+        marketing: true,
+        savedAt: "2026-10-27T00:00:00.000Z",
+      }, true, true), path).toBe(false);
+    }
   });
 });

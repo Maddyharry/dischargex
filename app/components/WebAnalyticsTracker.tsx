@@ -15,7 +15,7 @@ export function WebAnalyticsTracker() {
   const lastPageViewRef = useRef("");
 
   const trackPublicPageView = useCallback(() => {
-    if (!isPublicAnalyticsPageViewPath(pathname)) {
+    if (!isPublicAnalyticsPageViewPath(pathname, window.location.search, window.location.hash)) {
       lastPageViewRef.current = "";
       return;
     }
@@ -23,7 +23,13 @@ export function WebAnalyticsTracker() {
     try {
       const consent = parseAnalyticsConsent(JSON.parse(window.localStorage.getItem(ANALYTICS_CONSENT_STORAGE_KEY) || "null"));
       if (!consent?.analytics) return;
-      const dedupe = getPageViewDedupeDecision(pathname, consent.savedAt, lastPageViewRef.current);
+      const dedupe = getPageViewDedupeDecision(
+        pathname,
+        consent.savedAt,
+        lastPageViewRef.current,
+        window.location.search,
+        window.location.hash,
+      );
       if (!dedupe.shouldTrack) return;
       window.gtag("event", "page_view", {
         send_to: GA_ID,

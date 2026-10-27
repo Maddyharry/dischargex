@@ -180,6 +180,28 @@ describe("public page-view navigation deduplication", () => {
       expect(getPageViewDedupeDecision(pathname, "consent-v1", "")).toEqual({ key: "", shouldTrack: false });
     }
   });
+
+  it("dedupes public knowledge detail views and blocks query or hash variants", () => {
+    const first = getPageViewDedupeDecision("/knowledge/acute-heart-failure", "consent-v1", "");
+    expect(first).toEqual({ key: "/knowledge/acute-heart-failure:consent-v1", shouldTrack: true });
+    expect(getPageViewDedupeDecision("/knowledge/acute-heart-failure", "consent-v1", first.key).shouldTrack).toBe(false);
+    expect(getPageViewDedupeDecision("/knowledge/acute-heart-failure", "consent-v1", "", "?hn=private", "")).toEqual({ key: "", shouldTrack: false });
+    expect(getPageViewDedupeDecision("/knowledge/acute-heart-failure", "consent-v1", "", "", "#case-id")).toEqual({ key: "", shouldTrack: false });
+  });
+
+  it("sends only a sanitized location for a knowledge page view", () => {
+    const payload = normalizeSafeAnalyticsPayload({ event: "demo_started" })!;
+    const params = buildSafeGoogleEventParameters(
+      payload,
+      "demo_started:opaque-event-id",
+      "/knowledge/acute-heart-failure?hn=private#case-id",
+      "https://dischargex.example/?email=private@example.test",
+    );
+    expect(params.page_location).toBe("https://dischargex.example/knowledge/acute-heart-failure");
+    expect(params.page_referrer).toBe("");
+    expect(params).not.toHaveProperty("slug");
+    expect(JSON.stringify(params)).not.toMatch(/private|case-id|email|hn=/i);
+  });
 });
 
 describe("consent revocation queue clearing", () => {
