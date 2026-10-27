@@ -9,6 +9,7 @@ import {
   getPublicKnowledgeTopic,
   getPublicKnowledgeTopics,
 } from "@/lib/knowledge-seo";
+import { PUBLIC_KNOWLEDGE_ANALYTICS_SLUGS } from "@/lib/knowledge-public-slugs";
 
 describe("static knowledge SEO route data", () => {
   it("includes only canonical slugs with verified catalog reference links", () => {
@@ -20,6 +21,10 @@ describe("static knowledge SEO route data", () => {
       expect(getPublicKnowledgeTopic(topic.slug)?.slug).toBe(topic.slug);
     }
     expect(getPublicKnowledgeTopic("not-a-catalog-topic")).toBeNull();
+  });
+
+  it("keeps the client-safe analytics allowlist synchronized with public static details", () => {
+    expect([...PUBLIC_KNOWLEDGE_ANALYTICS_SLUGS].sort()).toEqual(getPublicKnowledgeSlugs().sort());
   });
 
   it("adds only static knowledge detail URLs to the detail sitemap helper", () => {

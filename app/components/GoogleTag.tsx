@@ -4,6 +4,7 @@ import Script from "next/script";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { ANALYTICS_CONSENT_STORAGE_KEY, parseAnalyticsConsent } from "@/lib/analytics-consent";
+import { PUBLIC_KNOWLEDGE_ANALYTICS_SLUGS } from "@/lib/knowledge-public-slugs";
 
 declare global {
   interface Window {
@@ -23,7 +24,7 @@ const ADS_ID = process.env.NEXT_PUBLIC_GOOGLE_ADS_ID?.trim() || "";
 const TAG_ID = GA_ID || ADS_ID;
 const SENSITIVE_ROUTE_PREFIXES = [
   "/app", "/admin", "/chat", "/login", "/auth", "/register", "/signup", "/forgot-password",
-  "/reset-password", "/api", "/summary-charge", "/icd10-review", "/automator", "/knowledge", "/guidelines",
+  "/reset-password", "/api", "/summary-charge", "/icd10-review", "/automator", "/guidelines",
 ];
 const PUBLIC_PAGE_VIEW_PATHS = new Set([
   "/", "/about", "/pricing", "/downloads", "/learn", "/legal", "/privacy-policy", "/terms-of-service",
@@ -40,19 +41,58 @@ export function sanitizeAnalyticsLocation(pathname: string, origin: string): str
   return `${safeOrigin}${sanitizeAnalyticsPath(pathname)}`;
 }
 
+export function isPublicKnowledgeDetailPath(pathname: string): boolean {
+  const path = sanitizeAnalyticsPath(pathname);
+  const match = path.match(/^\/knowledge\/([a-z0-9]+(?:-[a-z0-9]+)*)$/);
+  if (!match) return false;
+  return PUBLIC_KNOWLEDGE_ANALYTICS_SLUGS.has(match[1]);
+}
+
 export function isSensitiveAnalyticsPath(pathname: string): boolean {
   const path = sanitizeAnalyticsPath(pathname);
+  if (path === "/knowledge" || path.startsWith("/knowledge/")) {
+    return !isPublicKnowledgeDetailPath(pathname);
+  }
   return SENSITIVE_ROUTE_PREFIXES.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
 }
 
-export function isPublicAnalyticsPageViewPath(pathname: string): boolean {
+export function isPublicAnalyticsPageViewPath(pathname: string, search = "", hash = ""): boolean {
   const path = sanitizeAnalyticsPath(pathname);
-  return PUBLIC_PAGE_VIEW_PATHS.has(path);
+  // Query and fragment are deliberately ignored for allowlisted detail paths;
+  // callers must build Google parameters from pathname only.
+  void search;
+  void hash;
+  return PUBLIC_PAGE_VIEW_PATHS.has(path) || isPublicKnowledgeDetailPath(pathname);
 }
 
-export function getPageViewDedupeDecision(pathname: string, savedAt: string, lastPageViewKey: string) {
+export function buildSafePublicPageViewParameters(pathname: string, origin: string, measurementId: string) {
+  if (!isPublicAnalyticsPageViewPath(pathname)) return null;
+  return {
+    send_to: measurementId,
+    page_location: sanitizeAnalyticsLocation(pathname, origin),
+    page_referrer: "",
+  };
+}
+
+export function shouldLoadGoogleTag(
+  pathname: string,
+  consent: ReturnType<typeof readStoredConsent>,
+  hasGaId: boolean,
+  hasAdsId: boolean,
+): boolean {
+  const publicRoute = !isSensitiveAnalyticsPath(pathname);
+  return publicRoute && !!consent && ((hasGaId && consent.analytics) || (hasAdsId && consent.marketing));
+}
+
+export function getPageViewDedupeDecision(
+  pathname: string,
+  savedAt: string,
+  lastPageViewKey: string,
+  search = "",
+  hash = "",
+) {
   const path = sanitizeAnalyticsPath(pathname);
-  if (isSensitiveAnalyticsPath(path) || !isPublicAnalyticsPageViewPath(path)) {
+  if (isSensitiveAnalyticsPath(path) || !isPublicAnalyticsPageViewPath(path, search, hash)) {
     return { key: "", shouldTrack: false };
   }
   const key = `${path}:${savedAt}`;
@@ -160,7 +200,7 @@ export function GoogleTag() {
   }, [applyConsent]);
 
   const publicRoute = !isSensitiveAnalyticsPath(pathname);
-  const shouldLoad = publicRoute && !!TAG_ID && !!consent && ((!!GA_ID && consent.analytics) || (!!ADS_ID && consent.marketing));
+  const shouldLoad = publicRoute && !!TAG_ID && shouldLoadGoogleTag(pathname, consent, !!GA_ID, !!ADS_ID);
   if (!shouldLoad) return null;
 
   return (
