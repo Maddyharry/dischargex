@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef } from "react";
 import { ANALYTICS_CONSENT_STORAGE_KEY, parseAnalyticsConsent } from "@/lib/analytics-consent";
 import { flushPendingSafeAnalyticsEvents, trackSafeAnalyticsEvent } from "@/lib/safe-analytics-client";
-import { GOOGLE_TAG_CONSENT_READY_EVENT, getPageViewDedupeDecision, isGoogleTagConsentReady, isPublicAnalyticsPageViewPath, isSensitiveAnalyticsPath, sanitizeAnalyticsLocation } from "./GoogleTag";
+import { GOOGLE_TAG_CONSENT_READY_EVENT, buildSafePublicPageViewParameters, getPageViewDedupeDecision, isGoogleTagConsentReady, isPublicAnalyticsPageViewPath, isSensitiveAnalyticsPath } from "./GoogleTag";
 
 const PRICING_VISIT_KEY = "dx_pricing_viewed_v1";
 const GA_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID?.trim() || "";
@@ -31,11 +31,9 @@ export function WebAnalyticsTracker() {
         window.location.hash,
       );
       if (!dedupe.shouldTrack) return;
-      window.gtag("event", "page_view", {
-        send_to: GA_ID,
-        page_location: sanitizeAnalyticsLocation(pathname, window.location.origin),
-        page_referrer: "",
-      });
+      const parameters = buildSafePublicPageViewParameters(pathname, window.location.origin, GA_ID);
+      if (!parameters) return;
+      window.gtag("event", "page_view", parameters);
       lastPageViewRef.current = dedupe.key;
     } catch {
       // Storage may be disabled; never interrupt page usage.

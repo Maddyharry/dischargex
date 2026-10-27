@@ -15,7 +15,7 @@ import {
 import { claimFirstCaseAnalyticsToken } from "@/lib/first-case-analytics";
 import { getDedupedWebAnalyticsRecordId } from "@/lib/analytics-server";
 import { buildSafeGoogleEventParameters, clearPendingSafeAnalyticsEvents, flushPendingSafeAnalyticsEvents, trackSafeAnalyticsEvent } from "@/lib/safe-analytics-client";
-import { getPageViewDedupeDecision, isGoogleTagConsentReady, markGoogleTagConsentReady } from "@/app/components/GoogleTag";
+import { buildSafePublicPageViewParameters, getPageViewDedupeDecision, isGoogleTagConsentReady, markGoogleTagConsentReady } from "@/app/components/GoogleTag";
 
 function createStorageStub(values: Map<string, string>): Storage {
   return {
@@ -181,12 +181,20 @@ describe("public page-view navigation deduplication", () => {
     }
   });
 
-  it("dedupes public knowledge detail views and blocks query or hash variants", () => {
+  it("dedupes public knowledge detail views with query and hash while using the clean path", () => {
     const first = getPageViewDedupeDecision("/knowledge/acute-heart-failure", "consent-v1", "");
     expect(first).toEqual({ key: "/knowledge/acute-heart-failure:consent-v1", shouldTrack: true });
     expect(getPageViewDedupeDecision("/knowledge/acute-heart-failure", "consent-v1", first.key).shouldTrack).toBe(false);
-    expect(getPageViewDedupeDecision("/knowledge/acute-heart-failure", "consent-v1", "", "?hn=private", "")).toEqual({ key: "", shouldTrack: false });
-    expect(getPageViewDedupeDecision("/knowledge/acute-heart-failure", "consent-v1", "", "", "#case-id")).toEqual({ key: "", shouldTrack: false });
+    const withSecrets = getPageViewDedupeDecision("/knowledge/acute-heart-failure", "consent-v1", "", "?utm_source=secret&email=private@example.test&hn=123&an=456&diagnosis=private", "#free-text-secret");
+    expect(withSecrets).toEqual({ key: "/knowledge/acute-heart-failure:consent-v1", shouldTrack: true });
+    const parameters = buildSafePublicPageViewParameters("/knowledge/acute-heart-failure", "https://dischargex.example", TEST_GA_ID);
+    expect(parameters).toEqual({
+      send_to: TEST_GA_ID,
+      page_location: "https://dischargex.example/knowledge/acute-heart-failure",
+      page_referrer: "",
+    });
+    expect(JSON.stringify(parameters)).not.toMatch(/utm_source|email|private|hn=|an=|diagnosis|free-text-secret/i);
+    expect(getPageViewDedupeDecision("/knowledge/not-a-static-topic", "consent-v1", "", "?hn=private", "#secret")).toEqual({ key: "", shouldTrack: false });
   });
 
   it("sends only a sanitized location for a knowledge page view", () => {
@@ -194,7 +202,7 @@ describe("public page-view navigation deduplication", () => {
     const params = buildSafeGoogleEventParameters(
       payload,
       "demo_started:opaque-event-id",
-      "/knowledge/acute-heart-failure?hn=private#case-id",
+      "/knowledge/acute-heart-failure",
       "https://dischargex.example/?email=private@example.test",
     );
     expect(params.page_location).toBe("https://dischargex.example/knowledge/acute-heart-failure");

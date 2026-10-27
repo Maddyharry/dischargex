@@ -7,7 +7,7 @@
 - **GA4 production page view: PASS แบบมีขอบเขต** — เคยตรวจ consent accept แล้วพบ `page_view` เข้า GA4 Realtime/DebugView บนหน้า public; การปฏิเสธ consent ไม่ส่ง Google request. หลักฐานเดิมยืนยันหน้า public ที่ทดสอบ ไม่ได้ยืนยันทุก URL
 - **Google Ads: ยังปิดอยู่** — ไม่พบ Production environment variable สำหรับ Ads ID หรือ conversion labels. ไม่มีการสร้างแคมเปญหรือใช้งบ
 - **Conversion funnel: PARTIAL** — มี implementation และ server-side validation หลายขั้น แต่ยังขาดหลักฐาน production ที่ยืนยัน conversion จริงสำหรับ signup, first case, checkout และ purchase
-- **Knowledge detail page view: code fix added, not deployed** — เฉพาะ static public detail slug จะเข้า GA4 หลัง analytics consent; index, admin-like/invalid slugs และ detail URL ที่มี query/hash ถูกกันออกจาก page view
+- **Knowledge detail page view: code fix added, not deployed** — เฉพาะ static public detail slug จะเข้า GA4 หลัง analytics consent; index และ admin-like/invalid slugs ถูกกันออกจาก page view. Query string และ fragment ไม่ขวาง page view แต่ถูกตัดออกจาก Google parameters
 
 ## Funnel และหลักฐาน
 
@@ -31,7 +31,7 @@
 - Consent ทุกประเภทเริ่มต้นเป็น denied; GA4 ต้องมี analytics consent ก่อนโหลด tag หรือส่ง event
 - Reject/no consent ไม่ควรมี Google request. เมื่อยอมรับ analytics จึงโหลด GA4; marketing consent แยกจาก analytics และ Ads IDs/labels ยังไม่ได้ตั้งค่า
 - GA `page_location` ใช้ origin กับ pathname ที่ sanitize แล้ว; `page_referrer` ว่าง; event ไม่ใส่ slug ความรู้เป็น custom parameter
-- Public knowledge detail ใช้ client-safe allowlist ของ 45 slug และทดสอบให้ตรงกับ static SEO slug list. `/knowledge`, admin-like/unknown slug, path รูปแบบผิด และ query/hash บน knowledge detail ไม่ได้ page view
+- Public knowledge detail ใช้ client-safe allowlist ของ 45 slug และทดสอบให้ตรงกับ static SEO slug list. `/knowledge`, admin-like/unknown slug และ path รูปแบบผิดไม่ส่ง page view. Query string และ fragment บน slug ที่อนุญาตไม่ขวาง page view แต่ `page_location` มีเฉพาะ origin + allowlisted pathname และ `page_referrer` ว่าง
 - Sensitive routes เช่น account, admin, chat, auth และ workflow สรุปชาร์จไม่ส่ง Google event
 - Event schema เป็น allowlist และปฏิเสธ field เพิ่มเติม; payload ไม่รับ email, free text, clinical note, HN/AN หรือข้อมูลผู้ป่วย
 - Signup event ส่งหลังสมัครสำเร็จ ไม่ส่งจากการกดปุ่มหรือการเปิดหน้า
@@ -96,7 +96,7 @@
 |---|---|---|
 | สรุปชาร์จ / ทดลองผลิตภัณฑ์ | `/` | อธิบายประโยชน์และพาไป demo/signup |
 | เลือกซื้อแพ็กเกจ | `/pricing` | แสดงราคาและเงื่อนไขก่อนเริ่ม checkout |
-| ค้นหาความรู้เฉพาะโรคหรือ coding | `/knowledge/<public-slug>` หลัง deploy analytics fix | ให้เนื้อหาสาธารณะตรงคำค้น; ห้ามส่ง query/hash ไป GA |
+| ค้นหาความรู้เฉพาะโรคหรือ coding | `/knowledge/<public-slug>` หลัง deploy analytics fix | ให้เนื้อหาสาธารณะตรงคำค้น; อนุญาตเฉพาะ slug ใน allowlist และตัด query/hash ออกจาก GA parameters |
 | ข้อมูลวิธีใช้ | `/learn` | ใช้เป็น landing เฉพาะเมื่อข้อความตรงกับ intent |
 
 อย่าใช้หน้า account, auth, chat, หรือ workflow patient-facing ภายในระบบเป็น landing page สำหรับ Ads
@@ -105,7 +105,7 @@
 
 รูปแบบ: `utm_source=google&utm_medium=cpc&utm_campaign=th_search_{theme}_{yyyymm}&utm_content={variant}`
 
-UTM ใช้รหัสแคมเปญ/โฆษณาทั่วไปเท่านั้น ห้ามใส่ชื่อ, email, HN/AN, diagnosis รายบุคคล, free text หรือ URL ที่มีข้อมูลผู้ป่วย. Query string ไม่ถูกส่งเป็น GA page location; ให้ยืนยัน attribution ใน preview ก่อนเปิดแคมเปญ
+UTM ใช้รหัสแคมเปญ/โฆษณาทั่วไปเท่านั้น ห้ามใส่ชื่อ, email, HN/AN, diagnosis รายบุคคล, free text หรือ URL ที่มีข้อมูลผู้ป่วย. Query string และ fragment ไม่ถูกส่งเป็น GA page location; สำหรับ knowledge detail ใช้เฉพาะ origin + allowlisted pathname และ page_referrer ว่าง. ให้ยืนยัน attribution ใน preview ก่อนเปิดแคมเปญ
 
 ### แผนทดลองและกติกาหยุด/ขยาย
 

@@ -6,6 +6,7 @@ import {
   shouldLoadGoogleTag,
   sanitizeAnalyticsLocation,
   sanitizeAnalyticsPath,
+  buildSafePublicPageViewParameters,
 } from "@/app/components/GoogleTag";
 
 describe("analytics route privacy helpers", () => {
@@ -59,11 +60,19 @@ describe("analytics route privacy helpers", () => {
     expect(isPublicAnalyticsPageViewPath("/app/profile")).toBe(false);
   });
 
-  it("allows only a single lowercase ASCII knowledge-detail slug and excludes query or hash variants", () => {
+  it("allows only a single lowercase ASCII knowledge-detail slug and ignores query or hash variants", () => {
     expect(isPublicKnowledgeDetailPath("/knowledge/acute-heart-failure")).toBe(true);
     expect(isPublicAnalyticsPageViewPath("/knowledge/acute-heart-failure")).toBe(true);
-    expect(isPublicAnalyticsPageViewPath("/knowledge/acute-heart-failure", "?hn=private", "")).toBe(false);
-    expect(isPublicAnalyticsPageViewPath("/knowledge/acute-heart-failure", "", "#case-id")).toBe(false);
+    expect(isPublicAnalyticsPageViewPath("/knowledge/acute-heart-failure", "?hn=private", "#case-id")).toBe(true);
+    expect(buildSafePublicPageViewParameters(
+      "/knowledge/acute-heart-failure",
+      "https://dischargex.example",
+      "G-TEST",
+    )).toEqual({
+      send_to: "G-TEST",
+      page_location: "https://dischargex.example/knowledge/acute-heart-failure",
+      page_referrer: "",
+    });
 
     for (const path of [
       "/knowledge",

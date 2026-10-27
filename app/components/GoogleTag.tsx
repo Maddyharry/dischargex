@@ -58,8 +58,20 @@ export function isSensitiveAnalyticsPath(pathname: string): boolean {
 
 export function isPublicAnalyticsPageViewPath(pathname: string, search = "", hash = ""): boolean {
   const path = sanitizeAnalyticsPath(pathname);
-  if (path.startsWith("/knowledge/") && (search.length > 0 || hash.length > 0)) return false;
+  // Query and fragment are deliberately ignored for allowlisted detail paths;
+  // callers must build Google parameters from pathname only.
+  void search;
+  void hash;
   return PUBLIC_PAGE_VIEW_PATHS.has(path) || isPublicKnowledgeDetailPath(pathname);
+}
+
+export function buildSafePublicPageViewParameters(pathname: string, origin: string, measurementId: string) {
+  if (!isPublicAnalyticsPageViewPath(pathname)) return null;
+  return {
+    send_to: measurementId,
+    page_location: sanitizeAnalyticsLocation(pathname, origin),
+    page_referrer: "",
+  };
 }
 
 export function shouldLoadGoogleTag(
