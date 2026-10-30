@@ -48,11 +48,11 @@ import {
 import { extractSummaryDates, summaryLosDays } from "@/lib/summary-dates";
 import { deidentify } from "@/lib/deidentify";
 import { createDeidentifiedSummarySnapshot } from "@/lib/summary-snapshot";
-import { commitSummaryUsageOnce, runBestEffortSideEffect } from "@/lib/summary-idempotency";
+import { commitSummaryUsageOnce, runBestEffortSideEffect, upsertSummaryJobCompleted } from "@/lib/summary-idempotency";
 import { getMergedKnowledge, queuePendingKnowledgeEntry } from "@/lib/knowledge-store";
 import { retrieveExternalEvidence } from "@/lib/reference-retriever";
 import { getTrialExpiredPolicy } from "@/lib/trial-expired-policy";
-import { callModelJSON, type SummaryModelCallOptions } from "@/lib/summary-model";
+import { callModelJSON, SummaryModelError, type SummaryModelCallOptions } from "@/lib/summary-model";
 import { estimateActualApiCostThbByModel, isRevenue4xEligible, resolveApiCostModelAlias } from "@/lib/api-cost";
 import { getUsagePolicySnapshot, selectUsagePolicyLedgerRows, type UsagePolicyLedgerRow } from "@/lib/usage-policy";
 import { evaluateBoostGate, getBoostPassesRequired, projectBoostCaseCost } from "@/lib/boost-policy";
@@ -116,6 +116,9 @@ const BASIC_PLAN_LOCKED_KEYS = new Set([
 ]);
 
 const DEVICE_SESSION_TTL_MS = 24 * 60 * 60 * 1000;
+// Keep the request bounded by the provider context window without silently
+// dropping chart lines. The UI receives an actionable long-case response.
+const MAX_SUMMARY_CLINICAL_CHARS = 80_000;
 
 type Block = {
   key: string;
@@ -1576,6 +1579,15 @@ export async function POST(req: Request) {
 
     const preprocess = preprocessClinicalText(mergedRaw);
     const clinical = deidentify(preprocess.cleaned);
+    if (clinical.length > MAX_SUMMARY_CLINICAL_CHARS) {
+      return json({
+        error: "เคสนี้มีข้อมูลยาวเกินขอบเขตการประมวลผล กรุณาแบ่งข้อความเป็นช่วงสำคัญแล้วส่งใหม่ ระบบไม่ได้ตัดข้อมูลออกให้อัตโนมัติ",
+        errorCode: "SUMMARY_INPUT_TOO_LONG",
+        inputChars: clinical.length,
+        maxInputChars: MAX_SUMMARY_CLINICAL_CHARS,
+        requiresShorterInput: true,
+      }, 413);
+    }
     const dateEvidence = extractSummaryDates(preprocess.cleaned);
     const admit = dateEvidence.admit.value;
     const discharge = dateEvidence.discharge.value;
@@ -2296,8 +2308,7 @@ export async function POST(req: Request) {
 
     const generationDurationMs = Math.round(performance.now() - requestStarted);
     if (summaryJobId && userId && mode === "generate") {
-      await runBestEffortSideEffect(() => prisma.feedback.create({ data: { id: `summary_${summaryJobId}`, userId, type: "summary_job", message: "Summary generated", status: "completed",
-          payload: JSON.stringify({
+      const completedPayload = JSON.stringify({
             durationMs: generationDurationMs,
             production: process.env.VERCEL_ENV === "production",
             mode,
@@ -2306,7 +2317,14 @@ export async function POST(req: Request) {
             diagnosisConfidence: diagnosis_confidence,
             diagnosisConfidenceSource: "heuristic_not_clinical_source",
             privacy: { deidentifiedBeforeModel: safeImageInputs.length === 0, textRedactionApplied: true, imageRedactionConfirmed: safeImageInputs.length > 0 ? body.imagesRedactedConfirmed === true : null, imageContentVerified: false },
-          }) } }));
+          });
+      await runBestEffortSideEffect(() => upsertSummaryJobCompleted({
+        updateIncomplete: async () => (await prisma.feedback.updateMany({
+          where: { id: `summary_${summaryJobId}`, userId, status: { not: "completed" } },
+          data: { message: "Summary generated", status: "completed", payload: completedPayload },
+        })).count,
+        create: async () => { await prisma.feedback.create({ data: { id: `summary_${summaryJobId}`, userId, type: "summary_job", message: "Summary generated", status: "completed", payload: completedPayload } }); },
+      }));
     }
     return json({
       result: {
@@ -2333,27 +2351,35 @@ export async function POST(req: Request) {
     const policyErrorCode = err instanceof Error && (["API_COST_TARGET_REACHED", "USAGE_POLICY_LIMIT_REACHED", "USAGE_POLICY_UNAVAILABLE", "SUBSCRIPTION_NOT_ACTIVE", "BOOST_USAGE_UNAVAILABLE", "BOOST_CASE_COST_LIMIT"].includes(err.message)) ? err.message : null;
     const policyBlocked = policyErrorCode !== null;
     const quotaBudgetReached = policyErrorCode === "API_COST_TARGET_REACHED" || policyErrorCode === "USAGE_POLICY_LIMIT_REACHED";
-    const errorCode = policyErrorCode || "SUMMARY_GENERATION_FAILED";
+    const modelErrorCode = err instanceof SummaryModelError ? err.code : null;
+    const errorCode = policyErrorCode || modelErrorCode || "SUMMARY_GENERATION_FAILED";
     console.error("summarize_route_failed", errorCode);
     if (summaryJobId && summaryJobUserId) {
       try {
-        await prisma.feedback.create({
-          data: {
-            id: `summary_${summaryJobId}`,
-            userId: summaryJobUserId,
-            type: "summary_job",
-            message: "Summary generation failed",
-            status: "failed",
-            payload: JSON.stringify({ errorCode, privacy: { textRedactionApplied: true, imageContentVerified: false } }),
-          },
+        const failurePayload = JSON.stringify({ errorCode, privacy: { textRedactionApplied: true, imageContentVerified: false } });
+        const updated = await prisma.feedback.updateMany({
+          where: { id: `summary_${summaryJobId}`, userId: summaryJobUserId, status: { not: "completed" } },
+          data: { message: "Summary generation failed", status: "failed", payload: failurePayload },
         });
+        if (updated.count === 0) {
+          await prisma.feedback.create({
+            data: {
+              id: `summary_${summaryJobId}`,
+              userId: summaryJobUserId,
+              type: "summary_job",
+              message: "Summary generation failed",
+              status: "failed",
+              payload: failurePayload,
+            },
+          });
+        }
       } catch {
         // Failure metadata is supplementary and deliberately excludes raw errors.
       }
     }
     return json(
       {
-        error: policyErrorCode === "USAGE_POLICY_UNAVAILABLE" || policyErrorCode === "BOOST_USAGE_UNAVAILABLE" ? "ไม่สามารถตรวจสอบการใช้งานได้อย่างปลอดภัย กรุณาลองใหม่ภายหลัง" : policyErrorCode === "BOOST_CASE_COST_LIMIT" ? "เคสนี้เกินขอบเขตการใช้งาน Boost กรุณาใช้ข้อมูลสั้นลงหรือสิทธิ์เพิ่ม" : quotaBudgetReached ? "วงเงิน AI รอบนี้ครบแล้ว กรุณารอตามวันรีเซ็ตรอบแพ็กเกจ หรือซื้อ Boost เพื่อทำเคสต่อ" : policyBlocked ? "โควตาหรือวงเงินสำหรับคำขอนี้ไม่เพียงพอ กรุณาลองใหม่ในรอบถัดไป" : "ขออภัย ระบบสรุปชาร์จขัดข้องชั่วคราว กรุณาลองใหม่ภายหลัง",
+        error: modelErrorCode === "MODEL_EMPTY_OUTPUT" ? "โมเดลไม่ส่งผลลัพธ์กลับมา กรุณาลองใหม่อีกครั้ง" : modelErrorCode === "MODEL_INVALID_JSON" ? "โมเดลส่งผลลัพธ์ไม่อยู่ในรูปแบบที่ปลอดภัย กรุณาลองใหม่อีกครั้ง" : modelErrorCode === "MODEL_REPAIR_INVALID_JSON" ? "ระบบตรวจสอบผลลัพธ์จากโมเดลไม่ผ่าน กรุณาลองใหม่อีกครั้ง" : modelErrorCode === "PROVIDER_TIMEOUT" ? "ผู้ให้บริการ AI ใช้เวลานานเกินกำหนด กรุณาลองใหม่อีกครั้ง" : policyErrorCode === "USAGE_POLICY_UNAVAILABLE" || policyErrorCode === "BOOST_USAGE_UNAVAILABLE" ? "ไม่สามารถตรวจสอบการใช้งานได้อย่างปลอดภัย กรุณาลองใหม่ภายหลัง" : policyErrorCode === "BOOST_CASE_COST_LIMIT" ? "เคสนี้เกินขอบเขตการใช้งาน Boost กรุณาใช้ข้อมูลสั้นลงหรือสิทธิ์เพิ่ม" : quotaBudgetReached ? "วงเงิน AI รอบนี้ครบแล้ว กรุณารอตามวันรีเซ็ตรอบแพ็กเกจ หรือซื้อ Boost เพื่อทำเคสต่อ" : policyBlocked ? "โควตาหรือวงเงินสำหรับคำขอนี้ไม่เพียงพอ กรุณาลองใหม่ในรอบถัดไป" : "ขออภัย ระบบสรุปชาร์จขัดข้องชั่วคราว กรุณาลองใหม่ภายหลัง",
         errorCode,
         ...(policyErrorCode !== "SUBSCRIPTION_NOT_ACTIVE" && policyResetAt ? { resetAt: policyResetAt } : {}),
         ...(quotaBudgetReached && boostOfferUsable && requiredBoostPassesForCase > 0 ? {

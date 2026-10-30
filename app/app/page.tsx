@@ -127,6 +127,7 @@ class ApiResponseError extends Error {
     this.name = "ApiResponseError";
   }
 }
+type SummaryProgress = "preparing" | "processing" | "validating" | "applying_results";
 type UploadedImageInput = {
   id: string;
   name: string;
@@ -272,6 +273,7 @@ function PageContent() {
 
   const [diagnosisItems, setDiagnosisItems] = useState<DiagnosisItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [summaryProgress, setSummaryProgress] = useState<SummaryProgress>("preparing");
   const [recalcLoading, setRecalcLoading] = useState(false);
   const [copiedKey, setCopiedKey] = useState("");
   const [error, setError] = useState("");
@@ -1139,6 +1141,7 @@ function PageContent() {
       return;
     }
     setLoading(true);
+    setSummaryProgress("preparing");
     setError("");
     setRecalcCompare(null);
     setUndoAlternativeSnapshot(null);
@@ -1170,6 +1173,9 @@ function PageContent() {
       const pendingRequest = pendingGenerateRequestRef.current;
       const summaryJobId = pendingRequest?.fingerprint === requestFingerprint ? pendingRequest.id : crypto.randomUUID();
       pendingGenerateRequestRef.current = { fingerprint: requestFingerprint, id: summaryJobId };
+      // The fetch includes network wait and provider processing; we cannot
+      // truthfully split those phases without server progress events.
+      setSummaryProgress("processing");
       const res = await fetch("/api/summarize", {
         method: "POST",
         headers: {
@@ -1197,6 +1203,7 @@ function PageContent() {
       });
 
       const parsed = await parseApiResponse(res);
+      setSummaryProgress("validating");
       if (pendingGenerateRequestRef.current?.id === summaryJobId) pendingGenerateRequestRef.current = null;
       if (parsed.result.meta.first_case_completed_event_token) {
         trackSafeAnalyticsEvent("first_case_completed", {
@@ -1205,6 +1212,7 @@ function PageContent() {
       }
       const nextBlocks = normalizeBlocks(parsed.result.blocks);
 
+      setSummaryProgress("applying_results");
       setBlocks(nextBlocks);
       setWarnings(parsed.result.warnings || []);
       setMeta(parsed.result.meta);
@@ -1228,6 +1236,7 @@ function PageContent() {
       }
     } finally {
       setLoading(false);
+      setSummaryProgress("preparing");
       window.dispatchEvent(new Event("usage-updated"));
     }
   }
@@ -1641,9 +1650,9 @@ function PageContent() {
               <div className="h-2 w-2 animate-pulse rounded-full bg-cyan-300 shadow-[0_0_12px_rgba(34,211,238,0.8)]" />
             </div>
             <div>
-              <p className="text-base font-semibold text-white">กำลังสร้างสรุปและจัดโครง coding…</p>
+              <p className="text-base font-semibold text-white">{summaryProgress === "preparing" ? "กำลังเตรียมข้อมูล…" : summaryProgress === "processing" ? "กำลังส่งข้อมูลและรอ AI ประมวลผล…" : summaryProgress === "validating" ? "กำลังตรวจสอบผลลัพธ์…" : "กำลังนำผลลัพธ์ไปแสดง…"}</p>
               <p className="mt-2 text-sm leading-relaxed text-slate-400">
-                ระบบกำลังอ่านข้อความทางคลินิก — โดยปกติใช้เวลาประมาณ 1 นาที
+                ระบบแสดงสถานะตามขั้นตอนจริง โดยไม่แสดงเปอร์เซ็นต์สมมติ
               </p>
               <p className="mt-1 text-xs text-slate-500">โปรดอย่าปิดหรือรีเฟรชหน้าจนกว่าจะเสร็จ</p>
             </div>
